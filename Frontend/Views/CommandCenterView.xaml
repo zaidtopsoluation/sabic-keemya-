@@ -1,0 +1,635 @@
+<UserControl x:Class="Keemya.Frontend.Views.CommandCenterView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
+             xmlns:views="clr-namespace:Keemya.Frontend.Views"
+             mc:Ignorable="d" d:DesignHeight="768" d:DesignWidth="1366">
+
+    <UserControl.Resources>
+        <!-- Log Color Converter -->
+        <views:LogColorConverter x:Key="LogColorConverter"/>
+
+        <!-- Converter for bool → Visibility -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <!-- Custom Row Button Template to avoid default WPF styling/squashing -->
+        <Style x:Key="ClickableRowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Broadcast row highlight -->
+        <Style x:Key="BroadcastRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.IsBroadcastSelected,
+                    RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF"/>
+                    <Setter Property="BorderBrush" Value="#6366F1"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Zone row highlight -->
+        <Style x:Key="ZoneRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF"/>
+                    <Setter Property="BorderBrush" Value="#6366F1"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Siren row highlight -->
+        <Style x:Key="SirenRow" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF"/>
+                    <Setter Property="BorderBrush" Value="#6366F1"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>        <!-- Back -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <Button Command="{Binding BackCommand}" HorizontalAlignment="Left"
+                    Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1"
+                    Foreground="{StaticResource TextPrimary}" Padding="15,8"
+                    Style="{StaticResource MaterialDesignFlatButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16"
+                                            Foreground="{StaticResource TextSecondary}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Back to Modules" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Title -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <TextBlock Text="Command Center" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+            <TextBlock Text="Execute zone commands, control sirens, and manage device operations"
+                       FontSize="13" Foreground="{StaticResource TextSecondary}"/>
+        </StackPanel>
+
+        <!-- ── Two-column main layout ─────────────────────────────────── -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="285"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ═══════════════════════════
+                 LEFT — Siren Selection
+                 ═══════════════════════════ -->
+            <Border Grid.Column="0" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}"
+                    BorderThickness="1" CornerRadius="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Panel header -->
+                    <Grid Grid.Row="0" Margin="14,12,14,8">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="VolumeHigh" Width="18" Height="18"
+                                                     Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Siren Selection" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimary}" FontSize="14" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" Command="{Binding ClearSelectionCommand}"
+                                Background="Transparent" BorderThickness="0" Foreground="{StaticResource AccentBlue}"
+                                FontSize="12" Padding="4,2"
+                                Style="{StaticResource MaterialDesignFlatButton}">
+                            <TextBlock Text="Clear"/>
+                        </Button>
+                    </Grid>
+
+                    <!-- Selection tree -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="6,0,6,6">
+
+                            <!-- ── Broadcast ── -->
+                            <Button Command="{Binding SelectBroadcastCommand}"
+                                    Style="{StaticResource ClickableRowButtonStyle}">
+                                <Border Margin="2" CornerRadius="8" Padding="12,10"
+                                        Style="{StaticResource BroadcastRow}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <materialDesign:PackIcon Grid.Column="0" Kind="VolumeHigh" Width="18" Height="18"
+                                                                 Foreground="{StaticResource AccentBlue}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                                            <TextBlock Text="Broadcast to All Sirens"
+                                                       Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="13"/>
+                                            <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                                       Text="{Binding AvailableSirensCount,
+                                                               StringFormat='{}{0} available sirens'}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <!-- ── Zones ── -->
+                            <ItemsControl ItemsSource="{Binding ZoneItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <!-- Zone row -->
+                                            <Button Command="{Binding DataContext.SelectZoneCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource ClickableRowButtonStyle}">
+                                                <Border Margin="2,2,2,0" CornerRadius="8" Padding="8,10"
+                                                        Style="{StaticResource ZoneRow}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="24"/>
+                                                            <ColumnDefinition Width="18"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Chevron (clicks/toggles expansion) -->
+                                                        <Button Grid.Column="0" Padding="0" Width="20" Height="20"
+                                                                Command="{Binding DataContext.ToggleZoneExpandCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource ClickableRowButtonStyle}">
+                                                            <materialDesign:PackIcon Width="14" Height="14" Foreground="{StaticResource TextSecondary}"
+                                                                                     Kind="{Binding ChevronKind}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                        </Button>
+
+                                                        <!-- Online dot -->
+                                                        <Border Grid.Column="1" Width="10" Height="10" CornerRadius="5"
+                                                                Background="{Binding OnlineDot}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+
+                                                        <!-- Zone name & subtext -->
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="13"/>
+                                                            <TextBlock Text="{Binding Subtitle}"
+                                                                       Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
+
+                                            <!-- Siren children (shown when zone expanded) -->
+                                            <ItemsControl ItemsSource="{Binding Sirens}"
+                                                          Visibility="{Binding IsExpanded,
+                                                              Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Command="{Binding DataContext.SelectSirenCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource ClickableRowButtonStyle}">
+                                                            <Border CornerRadius="6" Padding="10,8" Margin="28,2,4,2"
+                                                                    Style="{StaticResource SirenRow}">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="18"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="24"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    
+                                                                    <!-- Status color dot -->
+                                                                    <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4"
+                                                                            Background="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                                                    
+                                                                    <!-- Siren Name & Address -->
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
+                                                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                                        <TextBlock Text="{Binding AddressDisplay}"
+                                                                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                                                    </StackPanel>
+                                                                    
+                                                                    <!-- Signal Wifi Icon (green if online, else gray) -->
+                                                                    <materialDesign:PackIcon Grid.Column="2" Kind="Wifi" Width="14" Height="14"
+                                                                                             Foreground="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                                                </Grid>
+                                                            </Border>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Button Command="{Binding ToggleUngroupedCommand}"
+                                    Style="{StaticResource ClickableRowButtonStyle}"
+                                    Visibility="{Binding HasUngroupedSirens,
+                                        Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Border Margin="2,4,2,0" CornerRadius="8" Padding="8,10"
+                                        Style="{StaticResource ZoneRow}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24"/>
+                                            <ColumnDefinition Width="18"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <!-- Chevron -->
+                                        <materialDesign:PackIcon Grid.Column="0" Width="14" Height="14" Foreground="{StaticResource TextSecondary}"
+                                                                 Kind="{Binding UngroupedChevronKind}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        
+                                        <!-- Online Dot -->
+                                        <Border Grid.Column="1" Width="10" Height="10" CornerRadius="5"
+                                                Background="{Binding UngroupedOnlineColor}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                        
+                                        <!-- Text info -->
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0,0,0">
+                                            <TextBlock Text="Ungrouped Sirens" Foreground="{StaticResource TextPrimary}"
+                                                       FontWeight="SemiBold" FontSize="13"/>
+                                            <TextBlock Text="{Binding UngroupedSubtitle}"
+                                                       Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <!-- Ungrouped children -->
+                            <ItemsControl ItemsSource="{Binding UngroupedSirens}"
+                                          Visibility="{Binding IsUngroupedExpanded,
+                                              Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.SelectSirenCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource ClickableRowButtonStyle}">
+                                            <Border CornerRadius="6" Padding="10,8" Margin="28,2,4,2"
+                                                    Style="{StaticResource SirenRow}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="18"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="24"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <!-- Dot -->
+                                                    <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4"
+                                                            Background="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                                    
+                                                    <!-- Text -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
+                                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding AddressDisplay}"
+                                                                   Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                                    </StackPanel>
+                                                    
+                                                    <!-- Wifi -->
+                                                    <materialDesign:PackIcon Grid.Column="2" Kind="Wifi" Width="14" Height="14"
+                                                                             Foreground="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Stats bar -->
+                    <Border Grid.Row="2" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0" Padding="14,12">
+                        <UniformGrid Columns="3">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding TotalSirensCount}" FontSize="20"
+                                           FontWeight="Bold" Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Total Sirens" FontSize="10"
+                                           Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding AvailableSirensCount}" FontSize="20"
+                                           FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Available" FontSize="10"
+                                           Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding GroupsCount}" FontSize="20"
+                                           FontWeight="Bold" Foreground="#3B82F6" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Groups" FontSize="10"
+                                           Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </UniformGrid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════════════════════
+                 RIGHT — Siren Activation
+                 ═══════════════════════════ -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="180"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header + Clear All -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="Siren Activation" FontSize="18" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimary}" Margin="0,0,0,12"/>
+                    <Button Command="{Binding ClearAllCommand}"
+                            Background="#FEE2E2" BorderBrush="#FCA5A5" BorderThickness="1"
+                            Foreground="#DC2626" FontSize="15" FontWeight="Bold"
+                            materialDesign:ButtonAssist.CornerRadius="5"
+                            Height="52" HorizontalContentAlignment="Center"
+                            Style="{StaticResource MaterialDesignFlatButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AlertOutline" Width="20" Height="20"
+                                                     VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Clear All" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Command cards -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding CommandCards}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="270" Margin="0,0,14,14" CornerRadius="10"
+                                        Background="{Binding ColorLightBg}" BorderBrush="{Binding ColorHex}"
+                                        BorderThickness="1" Padding="20">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="12" ShadowDepth="4"
+                                                          Opacity="0.2" Color="Black"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <!-- Name -->
+                                        <TextBlock Text="{Binding Name}" FontSize="17"
+                                                   FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,14"/>
+
+                                        <!-- Target -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                            <materialDesign:PackIcon Kind="BroadcastOff" Width="13" Height="13"
+                                                                     Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                                                     Margin="0,0,5,0"/>
+                                            <TextBlock Text="Default Target:" Foreground="{StaticResource TextSecondary}" FontSize="11"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding TargetLabel}" Foreground="{StaticResource TextPrimary}"
+                                                   FontSize="13" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding AvailableText}"
+                                                   Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,0,0,10"/>
+
+                                        <!-- Duration -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                                            <materialDesign:PackIcon Kind="TimerOutline" Width="13" Height="13"
+                                                                     Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                                                     Margin="0,0,5,0"/>
+                                            <TextBlock Text="Duration:  " Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                            <TextBlock Text="{Binding DurationDisplay}" Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                        </StackPanel>
+
+                                        <!-- Activate -->
+                                        <Button Background="White"
+                                                BorderBrush="{Binding ColorForeground}" BorderThickness="1"
+                                                Foreground="{Binding ColorForeground}"
+                                                materialDesign:ButtonAssist.CornerRadius="5"
+                                                FontWeight="Bold" FontSize="14" Height="42"
+                                                Command="{Binding DataContext.ConfirmActivateCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="VolumeHigh" Width="16" Height="16"
+                                                                         VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                         Foreground="{Binding ColorForeground}"/>
+                                                <TextBlock Text="Activate" VerticalAlignment="Center"
+                                                           Foreground="{Binding ColorForeground}"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Live Communication Logs Terminal -->
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="{StaticResource CardBorder}" 
+                        BorderThickness="1" CornerRadius="8" Margin="0,10,0,0" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Terminal Header -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Console" Width="14" Height="14" 
+                                                         Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Live Communication Terminal Logs" Foreground="#10B981" 
+                                           FontWeight="Bold" FontSize="11" VerticalAlignment="Center" FontFamily="Consolas"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock Text="COM7 @ 1200 bps | TCP Server :5555" Foreground="{StaticResource TextSecondary}" 
+                                           FontSize="11" VerticalAlignment="Center" FontFamily="Consolas" Margin="0,0,10,0"/>
+                                <Button x:Name="CopyLogsButton"
+                                        Command="{Binding CopyLogsCommand}"
+                                        ToolTip="Copy all logs to clipboard"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Padding="6,2" Height="24"
+                                        Foreground="#10B981" BorderBrush="#10B981" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ContentCopy" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Copy" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Logs list -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding CommLogs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Foreground="{Binding Converter={StaticResource LogColorConverter}}" FontSize="11.5" 
+                                                   FontFamily="Consolas" TextWrapping="Wrap" Margin="0,2"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ── CONFIRMATION MODAL OVERLAY ────────────────────────────────────── -->
+        <Grid Visibility="{Binding IsConfirmingCommand, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Background="#99000000" Grid.RowSpan="3" Panel.ZIndex="9999">
+            <Border Background="{StaticResource CardBackground}" CornerRadius="12" Padding="30"
+                    Width="320" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    BorderBrush="{StaticResource CardBorder}" BorderThickness="1">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="50" ShadowDepth="10" Opacity="0.5"/>
+                </Border.Effect>
+                
+                <StackPanel>
+                    <!-- Icon -->
+                    <Border Width="64" Height="64" CornerRadius="32" Background="#1A6366F1"
+                            HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <materialDesign:PackIcon Kind="MicrophoneOutline" Width="32" Height="32"
+                                                 Foreground="#6366F1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    
+                    <!-- Title -->
+                    <TextBlock Text="Activate command?" Foreground="{StaticResource TextPrimary}"
+                               FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Margin="0,0,0,12"/>
+                    
+                    <!-- Subtitle -->
+                    <TextBlock Foreground="{StaticResource TextSecondary}" FontSize="13" TextWrapping="Wrap"
+                               TextAlignment="Center" Margin="0,0,0,24" LineHeight="20">
+                        <Run Text="Do you want to activate &quot;"/>
+                        <Run Text="{Binding CommandToConfirmName}"/>
+                        <Run Text="&quot;? This will immediately trigger the siren."/>
+                    </TextBlock>
+                    
+                    <!-- Buttons -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Cancel -->
+                        <Button Grid.Column="0" Command="{Binding CancelActivateCommand}"
+                                Background="Transparent" Foreground="{StaticResource TextPrimary}" BorderBrush="#CBD5E1"
+                                BorderThickness="1" Height="40" materialDesign:ButtonAssist.CornerRadius="5"
+                                Content="Cancel" FontWeight="SemiBold" FontSize="14" />
+                        
+                        <!-- Confirm -->
+                        <Button Grid.Column="2" Command="{Binding ExecuteActivateCommand}"
+                                Background="#6366F1" Foreground="White" BorderThickness="0"
+                                Height="40" materialDesign:ButtonAssist.CornerRadius="5"
+                                Content="Yes, activate" FontWeight="SemiBold" FontSize="14" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ACTIVE RUNNING COMMAND MODAL OVERLAY -->
+        <Grid Visibility="{Binding IsCommandRunning, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Background="#99000000" Grid.RowSpan="3" Panel.ZIndex="9999">
+            <Border Background="{StaticResource CardBackground}" CornerRadius="12" Padding="30"
+                    Width="340" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    BorderBrush="#10B981" BorderThickness="2">
+                <Border.Effect>
+                    <DropShadowEffect Color="#10B981" BlurRadius="40" ShadowDepth="0" Opacity="0.4"/>
+                </Border.Effect>
+                
+                <StackPanel>
+                    <!-- Active Icon -->
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,16" Width="100" Height="100">
+                        
+                        <!-- Glowing PA background mapped to volume -->
+                        <Ellipse Fill="#3B82F6" Opacity="{Binding MicrophoneVolume}" 
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Width="100" Height="100"
+                                 Visibility="{Binding IsPublicAddressActive, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        
+                        <!-- PA Microphone Icon -->
+                        <Border Width="72" Height="72" CornerRadius="36" Background="#1A3B82F6"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding IsPublicAddressActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <materialDesign:PackIcon Kind="Microphone" Width="36" Height="36"
+                                                     Foreground="#3B82F6" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+ 
+                        <!-- Standard Radio Tower Icon -->
+                        <Border Width="72" Height="72" CornerRadius="36" Background="#1A10B981"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPublicAddressActive}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <materialDesign:PackIcon Kind="RadioTower" Width="36" Height="36"
+                                                     Foreground="#10B981" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- Title -->
+                    <TextBlock Foreground="{StaticResource TextPrimary}" FontSize="18" FontWeight="SemiBold" 
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,12">
+                        <Run Text="Command '"/>
+                        <Run Text="{Binding CommandToConfirmName}"/>
+                        <Run Text="' is ACTIVE!"/>
+                    </TextBlock>
+                    
+                    <!-- Subtitle / Countdown -->
+                    <TextBlock Text="{Binding ActiveDurationDisplay}" Foreground="#10B981" 
+                               FontSize="14" FontWeight="Bold" TextAlignment="Center" 
+                               Margin="0,0,0,24" />
+                    
+                    <!-- Stop Button -->
+                    <Button Command="{Binding StopRunningCommandCommand}"
+                            Background="#EF4444" Foreground="White" BorderThickness="0"
+                            Height="40" materialDesign:ButtonAssist.CornerRadius="5">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <materialDesign:PackIcon Kind="StopCircleOutline" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Stop Command (Cancel)" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

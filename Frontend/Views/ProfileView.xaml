@@ -1,0 +1,183 @@
+<UserControl x:Class="Keemya.Frontend.Views.ProfileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Keemya.Frontend.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="768" d:DesignWidth="1366">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Back button -->
+            <RowDefinition Height="Auto" /> <!-- Header info & actions -->
+            <RowDefinition Height="*" />    <!-- Content Card -->
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Back Button -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <Button Command="{Binding BackCommand}" HorizontalAlignment="Left" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="15,8" Style="{StaticResource MaterialDesignFlatButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource BackToModules}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Row 1: Title and Actions -->
+        <Grid Grid.Row="1" Margin="0,0,0,25">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Title & Subtitle -->
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="{DynamicResource ProfileTitle}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,5" />
+                <TextBlock Text="{DynamicResource ProfileDesc}" FontSize="14" Foreground="{StaticResource TextSecondary}" />
+            </StackPanel>
+
+            <!-- Action Buttons on the Right -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Change Password Button -->
+                <Button Command="{Binding OpenChangePasswordPopupCommand}" 
+                materialDesign:ButtonAssist.CornerRadius="5"
+                Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Margin="0,0,15,0" Padding="15,10" Height="Auto">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="KeyOutline" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource ChangePassword}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Logout Button -->
+                <Button Command="{Binding LogoutCommand}" 
+                materialDesign:ButtonAssist.CornerRadius="5"
+                CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}" Background="#991B1B" BorderBrush="Transparent" Foreground="White" Padding="15,10" Height="Auto">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Logout" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Logout}" VerticalAlignment="Center" FontWeight="Bold" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Row 2: Personal Information Card -->
+        <Border Grid.Row="2" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Padding="25" VerticalAlignment="Top">
+            <StackPanel>
+                <!-- Card Header -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,25">
+                    <materialDesign:PackIcon Kind="AccountOutline" Width="20" Height="20" Foreground="{StaticResource AccentBlue}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Text="{DynamicResource PersonalInfo}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Card Content -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /> <!-- Avatar -->
+                        <ColumnDefinition Width="250" />  <!-- Username Info -->
+                        <ColumnDefinition Width="*" />    <!-- Status Info -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Avatar Rounded Frame -->
+                    <Border Grid.Column="0" CornerRadius="12" Width="80" Height="80" Margin="0,0,25,0">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#4F46E5" Offset="0" />
+                                <GradientStop Color="#06B6D4" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <materialDesign:PackIcon Kind="Account" Width="40" Height="40" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Username Column -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Username}" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding Username}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+                    </StackPanel>
+
+                    <!-- Status Column -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource ColStatus}" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,6" />
+                        <!-- Active Pill -->
+                        <Border Background="#D1FAE5" CornerRadius="10" Padding="12,4" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding Status}" Foreground="#065F46" FontSize="12" FontWeight="SemiBold" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Change Password Dialog Modal Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100"
+              Visibility="{Binding IsChangePasswordPopupOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            
+            <!-- Backdrop -->
+            <Border Background="#80000000" Cursor="Arrow">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding CloseChangePasswordPopupCommand}"/>
+                </Border.InputBindings>
+            </Border>
+
+            <!-- Centered Modal Card -->
+            <Border Width="450" Height="420" CornerRadius="12" Background="{StaticResource CardBackground}" 
+                    BorderBrush="{StaticResource CardBorder}" BorderThickness="1" Padding="25"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="10" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+                
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="{DynamicResource ChangePassword}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4" />
+                        <TextBlock Text="{DynamicResource ChangePasswordPopupDesc}" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                    </StackPanel>
+
+                    <Button Grid.Row="0" Command="{Binding CloseChangePasswordPopupCommand}" Background="Transparent" BorderBrush="Transparent" Padding="0" Width="30" Height="30" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource MaterialDesignIconButton}" Panel.ZIndex="10">
+                        <materialDesign:PackIcon Kind="Close" Foreground="{StaticResource TextSecondary}" Width="20" Height="20" />
+                    </Button>
+
+                    <!-- Content Fields -->
+                    <StackPanel Grid.Row="1">
+                        <TextBlock Text="{Binding PopupErrorMessage}" Foreground="#EF4444" FontSize="12" Margin="0,0,0,10" 
+                                   Visibility="{Binding HasPopupError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                        <!-- Current Password -->
+                        <TextBlock Text="{DynamicResource CurrentPassword}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5" Margin="0,0,0,15">
+                            <PasswordBox x:Name="txtCurrentPassword" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" materialDesign:HintAssist.Hint="••••••••" materialDesign:HintAssist.Foreground="{StaticResource TextSecondary}" CaretBrush="{StaticResource TextPrimary}" PasswordChanged="txtCurrentPassword_PasswordChanged"/>
+                        </Border>
+ 
+                        <!-- New Password -->
+                        <TextBlock Text="{DynamicResource NewPassword}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5" Margin="0,0,0,15">
+                            <PasswordBox x:Name="txtNewPassword" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" materialDesign:HintAssist.Hint="••••••••" materialDesign:HintAssist.Foreground="{StaticResource TextSecondary}" CaretBrush="{StaticResource TextPrimary}" PasswordChanged="txtNewPassword_PasswordChanged"/>
+                        </Border>
+ 
+                        <!-- Confirm New Password -->
+                        <TextBlock Text="{DynamicResource ConfirmNewPassword}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                            <PasswordBox x:Name="txtConfirmPassword" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" materialDesign:HintAssist.Hint="••••••••" materialDesign:HintAssist.Foreground="{StaticResource TextSecondary}" CaretBrush="{StaticResource TextPrimary}" PasswordChanged="txtConfirmPassword_PasswordChanged"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Footer buttons -->
+                    <Grid Grid.Row="2" Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="{DynamicResource Save}" Command="{Binding SavePasswordCommand}" Background="#6366F1" BorderBrush="Transparent" Foreground="White" FontWeight="Bold" Margin="0,0,10,0" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                        <Button Grid.Column="1" Content="{DynamicResource Cancel}" Command="{Binding CloseChangePasswordPopupCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

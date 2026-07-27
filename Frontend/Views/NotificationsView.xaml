@@ -1,0 +1,227 @@
+<UserControl x:Class="Keemya.Frontend.Views.NotificationsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:local="clr-namespace:Keemya.Frontend.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="750" d:DesignWidth="1200">
+
+    <UserControl.Resources>
+        <!-- Thin ScrollBar Style -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid x:Name="Bg" SnapsToDevicePixels="true" Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsEnabled}">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Focusable="false" Opacity="0"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Focusable="false" Opacity="0"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Focusable="false">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="{x:Type Thumb}">
+                                                <Border CornerRadius="3" Background="#475569" x:Name="thumbBorder"/>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="true">
+                                                        <Setter TargetName="thumbBorder" Property="Background" Value="#64748B"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="6"/>
+                    <Setter Property="Height" Value="Auto"/>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Height" Value="6"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Custom Card Style -->
+        <Style x:Key="NotificationCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBackground}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <!-- Converters -->
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+        <local:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource AppBackground}">
+        <Grid Margin="30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Top Navigation -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                <Button Command="{Binding BackCommand}" HorizontalAlignment="Left" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="15,8" Style="{StaticResource MaterialDesignFlatButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource BackToModules}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- Page Header with Actions -->
+            <Grid Grid.Row="1" Margin="0,0,0,25">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource NotificationsTitle}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,15,0" />
+                        <!-- Unread Count Badge -->
+                        <Border Background="{StaticResource AccentBlue}" CornerRadius="10" Padding="10,2" VerticalAlignment="Center" Visibility="{Binding UnreadCount, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding UnreadCount, StringFormat='{}{0} New'}" Foreground="White" FontSize="11" FontWeight="Bold" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource NotificationsDesc}" FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0" />
+                </StackPanel>
+
+                <!-- Top Action Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <!-- Mark All As Read -->
+                    <Button Command="{Binding MarkAllAsReadCommand}" Background="Transparent" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1" Foreground="{StaticResource AccentBlue}" Padding="15,8" Margin="0,0,10,0" Style="{StaticResource MaterialDesignFlatButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CheckAll" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource MarkAllAsRead}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Clear All -->
+                    <Button Command="{Binding ClearAllCommand}" Background="Transparent" BorderBrush="#EF4444" BorderThickness="1" Foreground="#EF4444" Padding="15,8" Style="{StaticResource MaterialDesignFlatButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource ClearAll}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Notifications List Area -->
+            <Grid Grid.Row="2">
+                <!-- Empty State View -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,50,0,50"
+                            Visibility="{Binding Notifications.Count, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                    <materialDesign:PackIcon Kind="BellOffOutline" Width="60" Height="60" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,15" />
+                    <TextBlock Text="{DynamicResource NoNotifications}" FontSize="16" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Scrollable List of Notifications -->
+                <ListBox ItemsSource="{Binding Notifications}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling"
+                         ScrollViewer.CanContentScroll="True">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource NotificationCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <!-- Color stripe -->
+                                        <ColumnDefinition Width="6" />
+                                        <!-- Icon -->
+                                        <ColumnDefinition Width="60" />
+                                        <!-- Text Content -->
+                                        <ColumnDefinition Width="*" />
+                                        <!-- Action/Time -->
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Left Color Stripe indicating severity -->
+                                    <Border Grid.Column="0" Background="{Binding TypeColor, Converter={StaticResource ColorToBrushConverter}}" CornerRadius="8,0,0,8" />
+
+                                    <!-- Notification Icon -->
+                                    <Border Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Grid>
+                                            <!-- Background Circle -->
+                                            <Ellipse Width="36" Height="36" Fill="{Binding TypeColor}" Opacity="0.1" />
+                                            <!-- Foreground Icon -->
+                                            <materialDesign:PackIcon Kind="{Binding IconKind}" Foreground="{Binding TypeColor}" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Text Content Area -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,15,10,15">
+                                        <StackPanel Orientation="Horizontal">
+                                            <!-- Title -->
+                                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+                                            <!-- Unread Dot Indicator -->
+                                            <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBlue}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                     Visibility="{Binding IsRead, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                        </StackPanel>
+                                        <!-- Message -->
+                                        <TextBlock Text="{Binding Message}" FontSize="13" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    </StackPanel>
+
+                                    <!-- Actions / Metadata -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+                                        <!-- Timestamp -->
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,20,0" />
+                                        
+                                        <!-- Individual Delete Button -->
+                                        <Button Command="{Binding DataContext.DeleteNotificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderBrush="Transparent" Padding="5" Height="Auto" Width="Auto" Style="{StaticResource MaterialDesignFlatButton}">
+                                            <materialDesign:PackIcon Kind="TrashCanOutline" Width="18" Height="18" Foreground="{StaticResource TextSecondary}" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Backend/">
+    <Project Path="Backend/Keemya.Backend.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="Frontend/Keemya.Frontend.csproj" />
+  </Folder>
+</Solution>

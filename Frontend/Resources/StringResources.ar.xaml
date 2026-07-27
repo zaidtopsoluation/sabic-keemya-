@@ -1,0 +1,153 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Global App Resources -->
+    <sys:String x:Key="AppTitle">نظام كيمياء</sys:String>
+    <sys:String x:Key="AppSubtitle">توب سوليوشنز</sys:String>
+    <sys:String x:Key="BackToModules">العودة إلى اللوحات</sys:String>
+    <sys:String x:Key="Logout">تسجيل الخروج</sys:String>
+    <sys:String x:Key="Save">حفظ</sys:String>
+    <sys:String x:Key="Cancel">إلغاء</sys:String>
+
+    <!-- Login Window -->
+    <sys:String x:Key="LoginTitle">كيمياء</sys:String>
+    <sys:String x:Key="LoginSubtitle">سجل الدخول للوصول إلى نظام كيمياء</sys:String>
+    <sys:String x:Key="Username">اسم المستخدم</sys:String>
+    <sys:String x:Key="Password">كلمة المرور</sys:String>
+    <sys:String x:Key="SignIn">تسجيل الدخول</sys:String>
+    <sys:String x:Key="ChangePassword">تغيير كلمة المرور</sys:String>
+    <sys:String x:Key="FirstTimeLoginPrompt">يرجى تعيين كلمة مرور جديدة آمنة لحسابك لإكمال التفعيل.</sys:String>
+    <sys:String x:Key="NewPassword">كلمة المرور الجديدة</sys:String>
+    <sys:String x:Key="ConfirmNewPassword">تأكيد كلمة المرور الجديدة</sys:String>
+    <sys:String x:Key="UpdateAndLogin">تحديث وتسجيل الدخول</sys:String>
+
+    <!-- Dashboard View -->
+    <sys:String x:Key="TotalZones">إجمالي المناطق</sys:String>
+    <sys:String x:Key="ActiveAlarms">الإنذارات النشطة</sys:String>
+    <sys:String x:Key="OnlineDevices">الأجهزة المتصلة</sys:String>
+    <sys:String x:Key="SystemUptime">وقت تشغيل النظام</sys:String>
+    <sys:String x:Key="AllClear">الوضع آمن</sys:String>
+    <sys:String x:Key="Excellent">ممتاز</sys:String>
+    <sys:String x:Key="SystemModules">لوحات النظام</sys:String>
+    <sys:String x:Key="SystemModulesDesc">اختر لوحة للوصول إلى الميزات وعناصر التحكم الخاصة بها</sys:String>
+
+    <!-- Modules Names & Descriptions -->
+    <sys:String x:Key="ModMap">الخريطة</sys:String>
+    <sys:String x:Key="ModMapDesc">عرض مرئي لجميع صفارات الإنذار مع مؤشرات الحالة في الوقت الفعلي</sys:String>
+    <sys:String x:Key="ModCommandCenter">مركز التحكم</sys:String>
+    <sys:String x:Key="ModCommandCenterDesc">تنفيذ أوامر المناطق، والتحكم في صفارات الإنذار، وإدارة الأجهزة</sys:String>
+    <sys:String x:Key="ModCommandsConfig">إعدادات الأوامر</sys:String>
+    <sys:String x:Key="ModCommandsConfigDesc">إدارة وتخصيص الأوامر المتاحة في النظام</sys:String>
+    <sys:String x:Key="ModSirenMgmt">إدارة صفارات الإنذار</sys:String>
+    <sys:String x:Key="ModSirenMgmtDesc">مراقبة وتهيئة أنظمة التنبيه وإشارات الطوارئ الخاصة بك</sys:String>
+    <sys:String x:Key="ModZoneMgmt">إدارة المناطق</sys:String>
+    <sys:String x:Key="ModZoneMgmtDesc">إدارة ومراقبة جميع مناطق المنشآت، تفعيل/تعطيل المناطق، وإجراء اختبارات الإنذار</sys:String>
+    <sys:String x:Key="ModUserMgmt">إدارة المستخدمين</sys:String>
+    <sys:String x:Key="ModUserMgmtDesc">إدارة حسابات المستخدمين، الأدوار، الصلاحيات، والتحكم في الوصول</sys:String>
+    <sys:String x:Key="ModNotifications">الإشعارات</sys:String>
+    <sys:String x:Key="ModNotificationsDesc">تهيئة تفضيلات الإشعارات، أوقات الهدوء، وتوجيه جهات الاتصال</sys:String>
+    <sys:String x:Key="ModAuditLogs">سجلات التدقيق</sys:String>
+    <sys:String x:Key="ModAuditLogsDesc">مراجعة سجلات التدقيق للنظام مع ميزات التصفية والبحث والتصدير</sys:String>
+    <sys:String x:Key="ModProfile">الملف الشخصي</sys:String>
+    <sys:String x:Key="ModProfileDesc">عرض إعدادات حسابك، وتفاصيل حالتك، وتحديث كلمة مرور الأمان الخاصة بك</sys:String>
+    <sys:String x:Key="ModServiceMgmt">إدارة الصيانة</sys:String>
+    <sys:String x:Key="ModServiceMgmtDesc">التشخيصات التشغيلية، دورات الصيانة، وعناصر تحكم الخدمة للنظام</sys:String>
+
+    <!-- User Management View -->
+    <sys:String x:Key="UserMgmtTitle">إدارة المستخدمين</sys:String>
+    <sys:String x:Key="UserMgmtDesc">إدارة حسابات المستخدمين، الأدوار، الصلاحيات والأمان</sys:String>
+    <sys:String x:Key="AddUser">إضافة مستخدم</sys:String>
+    <sys:String x:Key="SearchUsersPlaceholder">البحث عن مستخدمين بالاسم أو الدور أو الحالة...</sys:String>
+    <sys:String x:Key="ColUsername">اسم المستخدم</sys:String>
+    <sys:String x:Key="ColRole">الدور</sys:String>
+    <sys:String x:Key="ColStatus">الحالة</sys:String>
+    <sys:String x:Key="ColTempPassword">كلمة المرور المؤقتة</sys:String>
+    <sys:String x:Key="ColActions">الإجراءات</sys:String>
+
+    <!-- Add User Popup -->
+    <sys:String x:Key="AddUserPopupTitle">إضافة مستخدم جديد</sys:String>
+    <sys:String x:Key="AddUserPopupDesc">إنشاء حساب مستخدم جديد بدور افتراضي وحالة نشطة</sys:String>
+
+    <!-- Profile View -->
+    <sys:String x:Key="ProfileTitle">ملفك الشخصي</sys:String>
+    <sys:String x:Key="ProfileDesc">إدارة إعدادات حسابك وتفضيلاتك الشخصية</sys:String>
+    <sys:String x:Key="PersonalInfo">المعلومات الشخصية</sys:String>
+    <sys:String x:Key="CurrentPassword">كلمة المرور الحالية</sys:String>
+    <sys:String x:Key="ChangePasswordPopupDesc">أدخل كلمة المرور الحالية وكلمة المرور الجديدة الآمنة</sys:String>
+    <sys:String x:Key="SaveChanges">حفظ التغييرات</sys:String>
+
+    <!-- Zone Management View -->
+    <sys:String x:Key="AddZone">+ إضافة منطقة</sys:String>
+    <sys:String x:Key="SearchZonesPlaceholder">البحث عن مناطق...</sys:String>
+    <sys:String x:Key="DevicesOnline">متصل</sys:String>
+    <sys:String x:Key="DevicesLabel">الأجهزة:</sys:String>
+    <sys:String x:Key="Edit">تعديل</sys:String>
+    <sys:String x:Key="Delete">حذف</sys:String>
+    <sys:String x:Key="AddGroup">إضافة مجموعة</sys:String>
+    <sys:String x:Key="EditGroup">تعديل المجموعة</sys:String>
+    <sys:String x:Key="AddGroupPopupDesc">إنشاء مجموعة جديدة من خلال تقديم المعلومات اللازمة.</sys:String>
+    <sys:String x:Key="EditGroupPopupDesc">تحديث هذه المجموعة من خلال تقديم المعلومات اللازمة.</sys:String>
+    <sys:String x:Key="GroupName">اسم المجموعة</sys:String>
+    <sys:String x:Key="Color">اللون</sys:String>
+    <sys:String x:Key="Shape">الشكل</sys:String>
+    <sys:String x:Key="Rectangle">مستطيل</sys:String>
+    <sys:String x:Key="Circle">دائرة</sys:String>
+    <sys:String x:Key="Triangle">مثلث</sys:String>
+    <sys:String x:Key="CustomColor">لون مخصص</sys:String>
+
+    <!-- Siren Management View -->
+    <sys:String x:Key="AddSiren">+ إضافة صفارة إنذار</sys:String>
+    <sys:String x:Key="SearchSirensPlaceholder">البحث عن صفارات الإنذار...</sys:String>
+    <sys:String x:Key="SirenNameRequired">اسم صفارة الإنذار مطلوب</sys:String>
+    <sys:String x:Key="AreaCode">رمز المنطقة</sys:String>
+    <sys:String x:Key="AddressCode">رمز العنوان</sys:String>
+    <sys:String x:Key="Location">الموقع</sys:String>
+    <sys:String x:Key="PickOnMap">اختر على الخريطة</sys:String>
+    <sys:String x:Key="Latitude">خط العرض *</sys:String>
+    <sys:String x:Key="Longitude">خط الطول *</sys:String>
+    <sys:String x:Key="EnableRedundancy">تمكين التكرار</sys:String>
+    <sys:String x:Key="IP">IP</sys:String>
+    <sys:String x:Key="SelectLocation">تحديد الموقع</sys:String>
+    <sys:String x:Key="ClickMapDesc">انقر في أي مكان على الخريطة لاختيار موقع.</sys:String>
+    <sys:String x:Key="Confirm">تأكيد</sys:String>
+    <sys:String x:Key="AddressAlreadyInUse">عنوان صفارة الإنذار هذا مستخدم بالفعل.</sys:String>
+    <sys:String x:Key="SirenAddPopupTitle">إضافة صفارة إنذار</sys:String>
+    <sys:String x:Key="SirenEditPopupTitle">تعديل صفارة إنذار</sys:String>
+    <sys:String x:Key="SirenAddPopupDesc">أنشئ صفارة إنذار جديدة من خلال تقديم التفاصيل اللازمة أدناه.</sys:String>
+    <sys:String x:Key="SirenEditPopupDesc">قم بتحديث صفارة الإنذار هذه من خلال تقديم التفاصيل اللازمة أدناه.</sys:String>
+    <sys:String x:Key="NoGroup">بدون مجموعة</sys:String>
+
+    <!-- Notifications Settings View -->
+    <sys:String x:Key="NotificationsTitle">مركز الإشعارات</sys:String>
+    <sys:String x:Key="NotificationsDesc">مراجعة وإدارة جميع تنبيهات النظام والأحداث الهامة الأخيرة</sys:String>
+    <sys:String x:Key="ClearAll">مسح الكل</sys:String>
+    <sys:String x:Key="MarkAllAsRead">تحديد الكل كمقروء</sys:String>
+    <sys:String x:Key="NoNotifications">لم يتم العثور على إشعارات. النظام يعمل بسلاسة.</sys:String>
+    <sys:String x:Key="ChannelsPreferences">القنوات والتفضيلات</sys:String>
+    <sys:String x:Key="EmailNotifications">إشعارات البريد الإلكتروني</sys:String>
+    <sys:String x:Key="SmsNotifications">إشعارات الرسائل القصيرة (SMS)</sys:String>
+    <sys:String x:Key="SystemNotifications">إشعارات النظام</sys:String>
+    <sys:String x:Key="QuietHoursConfig">إعدادات أوقات الهدوء</sys:String>
+    <sys:String x:Key="EnableQuietHours">تفعيل أوقات الهدوء</sys:String>
+    <sys:String x:Key="StartTime">وقت البدء</sys:String>
+    <sys:String x:Key="EndTime">وقت الانتهاء</sys:String>
+    <sys:String x:Key="ContactRoutingInfo">معلومات الاتصال والتوجيه</sys:String>
+    <sys:String x:Key="PrimaryEmail">البريد الإلكتروني الأساسي</sys:String>
+    <sys:String x:Key="SecondaryEmail">البريد الإلكتروني الثانوي</sys:String>
+    <sys:String x:Key="PrimaryPhone">الهاتف الأساسي (SMS)</sys:String>
+    <sys:String x:Key="RoutingMode">وضع التوجيه</sys:String>
+    <sys:String x:Key="SendTestNotification">إرسال إشعار تجريبي</sys:String>
+    <sys:String x:Key="NotificationSettingsSaved">تم حفظ إعدادات الإشعارات بنجاح!</sys:String>
+    <sys:String x:Key="TestNotificationSent">تم إرسال الإشعار التجريبي بنجاح!</sys:String>
+    
+    <!-- Notification Triggers -->
+    <sys:String x:Key="AlertTriggersEvents">أحداث ومحفزات التنبيه</sys:String>
+    <sys:String x:Key="NotifyIntrusion">اقتحام الخزانة (تلاعب بالباب)</sys:String>
+    <sys:String x:Key="NotifyAcLoss">انقطاع طاقة التيار المتردد (إيقاف AC)</sys:String>
+    <sys:String x:Key="NotifyLowBattery">تنبيه انخفاض البطارية</sys:String>
+    <sys:String x:Key="NotifyOffline">صفارة الإنذار غير متصلة</sys:String>
+    <sys:String x:Key="NotifyEmergencyCmd">تم إرسال إنذار طوارئ</sys:String>
+    <sys:String x:Key="NotifyUserLogin">حدث تسجيل دخول المستخدم</sys:String>
+</ResourceDictionary>
+

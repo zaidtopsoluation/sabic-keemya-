@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>EMS GIS Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body, #map-container {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #0b1120;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Custom scrollbar styling for a premium dark look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+            border: 1px solid #334155;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* ── FLOATING OVERLAYS ───────────────────────────────────────────── */
+        
+        /* Floating Back to Modules Button (Top Left) */
+        .overlay-back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background-color: #111827;
+            color: #f3f4f6;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+        .overlay-back-btn:hover {
+            background-color: #1f2937;
+            border-color: #3b82f6;
+        }
+        .overlay-back-btn svg {
+            margin-right: 8px;
+        }
+
+        /* Command Center / Dashboard Grid Button (Top Left below Back) */
+        .overlay-dashboard-btn {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            z-index: 1000;
+            background-color: #111827;
+            color: #f3f4f6;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+        .overlay-dashboard-btn:hover {
+            background-color: #1f2937;
+            border-color: #3b82f6;
+        }
+
+        /* Zones Card Overlay (Bottom Left) */
+        .overlay-zones-card {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            z-index: 1000;
+            width: 220px;
+            background-color: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+        }
+        .overlay-zones-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+        }
+        .zone-item {
+            display: flex;
+            align-items: center;
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+            padding: 6px 0;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .zone-item:hover {
+            opacity: 0.8;
+        }
+        .zone-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .zone-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        /* Zoom Badge (Bottom Center) */
+        .overlay-zoom-badge {
+            position: absolute;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 6px 14px;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+        .overlay-zoom-badge span {
+            color: #f3f4f6;
+        }
+
+        /* ── WIDESCREEN SIDE-BY-SIDE PARALLEL DRAWER ────────────────────── */
+        .overlay-sidebar-drawer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 740px; /* Widescreen layout to show diagnostics and activations side-by-side */
+            height: 100%;
+            z-index: 1002;
+            background-color: #0f172a;
+            border-left: 1.5px solid #1e293b;
+            box-shadow: -15px 0 35px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(740px);
+            transition: transform 0.3s ease, width 0.3s ease;
+            box-sizing: border-box;
+        }
+        .overlay-sidebar-drawer.active {
+            transform: translateX(0);
+        }
+        .overlay-sidebar-drawer.single-column-mode {
+            width: 380px;
+            transform: translateX(380px);
+        }
+        .overlay-sidebar-drawer.single-column-mode.active {
+            transform: translateX(0);
+        }
+        .overlay-sidebar-drawer.single-column-mode .sidebar-content {
+            grid-template-columns: 1fr;
+        }
+        .overlay-sidebar-drawer.single-column-mode .drawer-column:nth-child(2) {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1.5px solid #1e293b;
+            position: relative;
+        }
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+        }
+        .sidebar-subtitle {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 3px 0 0 0;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+        .close-btn:hover {
+            color: #ffffff;
+        }
+
+        /* Parallel Columns Content Container */
+        .sidebar-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Parallel split layout */
+            gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .drawer-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .drawer-column.scrollable {
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        /* ── SECTION TITLE ──────────────────────────────────────────────── */
+        .sidebar-section-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 15px 0;
+            border-bottom: 1.5px dashed #1e293b;
+            padding-bottom: 6px;
+        }
+
+        /* ── DIAGNOSTICS COLUMN ─────────────────────────────────────────── */
+        .unified-diagnostics-card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            color: #ffffff;
+            box-sizing: border-box;
+            height: 100%; /* Take full height of column */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .diag-title-section {
+            margin-bottom: 12px;
+        }
+        .diag-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+        }
+        .diag-subtitle {
+            font-size: 11px;
+            color: #9ca3af;
+            margin: 2px 0 0 0;
+        }
+
+        /* Switches Grid - No scroll bars, auto-fitting */
+        .diag-switches-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 10px;
+            margin-bottom: 15px;
+        }
+
+        .switch-row {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Solid Color Status Circular Dots as requested */
+        .status-pill-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%; /* Perfect circular dot shape! */
+            background-color: #0f172a;
+            border: 1.5px solid #334155;
+            margin-right: 12px;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+        .status-pill-indicator.dot-ok {
+            background-color: #10b981;
+            border-color: #10b981;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+        }
+        .status-pill-indicator.dot-warning {
+            background-color: #f59e0b;
+            border-color: #f59e0b;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+        }
+        .status-pill-indicator.dot-danger {
+            background-color: #ef4444;
+            border-color: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+        }
+        .status-pill-indicator.dot-off {
+            background-color: #1e293b;
+            border-color: #334155;
+        }
+
+        .switch-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        /* Voltages telemeters inside sidebar card */
+        .diag-sensors-section {
+            border-top: 1px solid #334155;
+            padding-top: 12px;
+            margin-bottom: 8px;
+        }
+        .sensor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .sensor-label {
+            display: flex;
+            align-items: center;
+            color: #94a3b8;
+        }
+        .sensor-icon {
+            margin-right: 6px;
+            font-weight: bold;
+        }
+        .sensor-value {
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        /* Metadata details inside sidebar card */
+        .diag-meta-section {
+            border-top: 1px solid #334155;
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+        }
+        .meta-col {
+            display: flex;
+            flex-direction: column;
+        }
+        .meta-label {
+            color: #64748b;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+        .meta-value {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .meta-status-pill {
+            background-color: #0f172a;
+            color: #10b981;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* ── DYNAMIC ACTIVATIONS COLUMN ─────────────────────────────────── */
+        
+        /* Command Card Design matching screenshot */
+        .command-card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        .command-card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 10px;
+            text-transform: lowercase; /* Matches wail / attack in image */
+        }
+        
+        .command-details {
+            margin-bottom: 15px;
+        }
+        .command-detail-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .command-detail-row svg {
+            margin-right: 8px;
+            color: #64748b;
+        }
+        .command-detail-value {
+            color: #ffffff;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .activate-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            height: 36px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .activate-btn:hover {
+            background-color: #1d4ed8;
+        }
+        .activate-btn svg {
+            margin-right: 6px;
+        }
+
+        /* Leaflet DivIcon Pin Styling */
+        .leaflet-siren-pin {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: visible !important;
+        }
+        .pin-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transform: translateY(-50%);
+        }
+        .pulse-ring {
+            position: absolute;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: 3px solid var(--status-color, #10B981);
+            opacity: 0.2;
+            top: -9px;
+            left: -9px;
+            box-sizing: border-box;
+            display: none;
+            animation: pulse-animation 1.5s infinite ease-in-out alternate;
+        }
+        .selected .pulse-ring {
+            display: block;
+        }
+        @keyframes pulse-animation {
+            0% { transform: scale(0.9); opacity: 0.2; }
+            100% { transform: scale(1.1); opacity: 0.8; }
+        }
+        .pin-marker {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: 3px solid var(--status-color, #10B981);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            z-index: 2;
+        }
+        .pin-inner-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: var(--status-color, #10B981);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pin-label {
+            margin-top: 5px;
+            background-color: var(--status-color, #10B981);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            z-index: 1;
+        }
+
+        /* Attribution control styling override */
+        .leaflet-control-attribution {
+            background: rgba(17, 24, 39, 0.8) !important;
+            color: #9ca3af !important;
+        }
+        .leaflet-control-attribution a {
+            color: #3b82f6 !important;
+        }
+        /* Toast Notification Styling */
+        #toast-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 250px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-success { background-color: #10b981; } /* Green */
+        .toast-error { background-color: #ef4444; }   /* Red */
+
+        /* ── CONFIRMATION MODAL ────────────────────────────────────────────── */
+        #command-confirm-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #command-confirm-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-card {
+            background-color: #1E293B;
+            border-radius: 12px;
+            padding: 30px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 1px solid #334155;
+        }
+        #command-confirm-overlay.active .modal-card {
+            transform: scale(1);
+        }
+        .modal-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background-color: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+            margin-bottom: 16px;
+        }
+        .modal-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .modal-subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 10px 0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        .modal-btn-cancel {
+            background-color: transparent;
+            color: white;
+            border: 1px solid #475569;
+        }
+        .modal-btn-cancel:hover {
+            background-color: #334155;
+        }
+        .modal-btn-confirm {
+            background-color: #6366f1;
+            color: white;
+        }
+        .modal-btn-confirm:hover {
+            background-color: #4f46e5;
+        }
+
+        /* Active command overlay */
+        #active-command-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #active-command-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .active-card-border {
+            border: 2px solid #10b981 !important;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.4) !important;
+        }
+        .running-icon-bg {
+            background-color: rgba(16, 185, 129, 0.1) !important;
+            color: #10b981 !important;
+        }
+        .modal-btn-stop {
+            background-color: #ef4444;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        .modal-btn-stop:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    
+    <!-- ── CONFIRMATION MODAL OVERLAY ────────────────────────────────────── -->
+    <div id="command-confirm-overlay">
+        <div class="modal-card">
+            <div class="modal-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                    <line x1="8" y1="22" x2="16" y2="22"></line>
+                </svg>
+            </div>
+            <div class="modal-title">Activate command?</div>
+            <div id="modal-confirm-text" class="modal-subtitle">Do you want to activate this command? This will immediately trigger the siren.</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" onclick="cancelCommandActivation()">Cancel</button>
+                <button class="modal-btn modal-btn-confirm" onclick="confirmCommandActivation()">Yes, activate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ACTIVE RUNNING COMMAND OVERLAY ─────────────────────────────────── -->
+    <div id="active-command-overlay">
+        <div class="modal-card active-card-border">
+            <div class="modal-icon running-icon-bg">
+                <svg id="running-icon-tower" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 22V10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12"></path>
+                    <path d="M12 2v6"></path>
+                    <path d="M8 6h8"></path>
+                </svg>
+                <svg id="running-icon-mic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                    <line x1="8" y1="22" x2="16" y2="22"></line>
+                </svg>
+            </div>
+            <div class="modal-title" id="running-command-title">Command is ACTIVE!</div>
+            <div class="modal-subtitle" id="running-countdown-text" style="color: #34d399; font-weight: bold;">Auto-canceling in 15 seconds...</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-stop" onclick="stopRunningCommand()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                    Stop Command (Cancel)
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="map-container">
+        <div id="map"></div>
+
+        <!-- ── HTML OVERLAYS ───────────────────────────────────────────────── -->
+        
+        <!-- Back to Modules Button Overlay -->
+        <button class="overlay-back-btn" onclick="sendWpfMessage({type: 'back'})">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Modules
+        </button>
+
+        <!-- Command Center / Dashboard Grid Button Overlay -->
+        <button class="overlay-dashboard-btn" onclick="sendWpfMessage({type: 'back'})" title="Command Center">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
+                <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
+            </svg>
+        </button>
+
+        <!-- Zones List Overlay -->
+        <div class="overlay-zones-card">
+            <div class="overlay-zones-title">Zones</div>
+            <div id="zones-list">
+                <!-- Dynamically loaded -->
+            </div>
+        </div>
+
+        <!-- Zoom level overlay -->
+        <div class="overlay-zoom-badge">Zoom: <span id="zoom-value">6</span></div>
+
+        <!-- Sliding Right Widescreen Side-by-Side Unified Drawer Panel -->
+        <div id="sidebar-drawer" class="overlay-sidebar-drawer">
+            <div class="sidebar-header">
+                <button class="close-btn" onclick="clearSirenSelection()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="sidebar-title">Siren Control Center</div>
+                <div id="sidebar-subtitle" class="sidebar-subtitle">Selected: -</div>
+            </div>
+
+            <!-- Side-by-Side Columns Content Area -->
+            <div class="sidebar-content">
+                
+                <!-- COLUMN 1 (LEFT PARALLEL): Diagnostics & Telemetry -->
+                <div class="drawer-column" id="diagnostics-column">
+                    <div class="sidebar-section-title">Diagnostics & Telemetry</div>
+                    
+                    <div id="diagnostics-card" class="unified-diagnostics-card">
+                        <div class="diag-title-section">
+                            <div id="diag-name" class="diag-title">-</div>
+                            <div id="diag-subtext" class="diag-subtitle">-</div>
+                        </div>
+
+                        <!-- Double-column status dots (Green=dot-ok, Yellow=dot-warning, Red=dot-danger, Gray=dot-off) -->
+                        <div class="diag-switches-grid">
+                            <div class="switch-row">
+                                <div id="sw-siren-on" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Siren On</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-rotor-active" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Rotor Active</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-ac-on" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">AC On</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-stored-ac" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Stored AC</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-dynamic-ac" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Dynamic AC</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-full-alert" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Full Alert</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-partial-alert" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Partial Alert</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-intrusion" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Intrusion</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-strobe-active" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Strobe Active</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-bias-detected" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Bias Detected</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-system-armed" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">System Armed</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-system-powerup" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">System Power Up</span>
+                            </div>
+                            <div class="switch-row">
+                                <div id="sw-supervisor-mode" class="status-pill-indicator dot-off"></div>
+                                <span class="switch-label">Supervisor Mode</span>
+                            </div>
+                        </div>
+
+                        <!-- Voltages Section -->
+                        <div class="diag-sensors-section">
+                            <div class="sensor-row">
+                                <div class="sensor-label"><span class="sensor-icon" style="color: #f59e0b">⚡</span> DC</div>
+                                <div id="sensor-dc" class="sensor-value">0 V</div>
+                            </div>
+                            <div class="sensor-row">
+                                <div class="sensor-label"><span class="sensor-icon" style="color: #3b82f6">⚡</span> AC</div>
+                                <div id="sensor-ac" class="sensor-value">0 V</div>
+                            </div>
+                            <div class="sensor-row">
+                                <div class="sensor-label"><span class="sensor-icon" style="color: #ef4444">🌡️</span> Temperature</div>
+                                <div id="sensor-temp" class="sensor-value">0°C</div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Info -->
+                        <div class="diag-meta-section">
+                            <div class="meta-col">
+                                <span class="meta-label">Group</span>
+                                <span id="meta-group" class="meta-value">-</span>
+                            </div>
+                            <div class="meta-col" style="align-items: center">
+                                <span class="meta-label">Location</span>
+                                <span id="meta-location" class="meta-value">(0.00, 0.00)</span>
+                            </div>
+                            <div class="meta-col" style="align-items: flex-end">
+                                <span id="meta-status" class="meta-status-pill">OFFLINE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- COLUMN 2 (RIGHT PARALLEL): Dynamic Emergency Activations -->
+                <div class="drawer-column scrollable">
+                    <div class="sidebar-section-title">Emergency Activations</div>
+                    <div id="commands-list">
+                        <!-- Loaded dynamically from C# backend -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: true
+        }).setView([26.0, 50.0], 10);
+
+        // Add standard zoom control at bottom-right
+        L.control.zoom({
+            position: 'bottomright'
+        }).addTo(map);
+
+        var lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        });
+
+        var darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors, © CARTO'
+        });
+
+        // Default to light tiles
+        lightTiles.addTo(map);
+
+        var markersGroup = L.layerGroup().addTo(map);
+        var zoneShapesGroup = L.layerGroup().addTo(map);
+        var sirenMarkers = {};
+        
+        var sirensData = [];
+        var zonesData = [];
+        var commandsData = [];
+        
+        var selectedSirenId = null;
+        var selectedZoneTargetNames = null;
+
+        // Monitor zoom changes
+        map.on('zoomend', function() {
+            document.getElementById('zoom-value').innerText = map.getZoom();
+        });
+
+        function resetZoom() {
+            map.setView([26.0, 50.0], 10);
+        }
+
+        // Custom theme setter
+        function setTheme(isDark) {
+            if (isDark) {
+                map.removeLayer(lightTiles);
+                darkTiles.addTo(map);
+            } else {
+                map.removeLayer(darkTiles);
+                lightTiles.addTo(map);
+            }
+        }
+
+        var currentUserRole = "Admin";
+        function setUserRole(role) {
+            currentUserRole = role;
+            applyRoleBasedPermissions();
+        }
+
+        function applyRoleBasedPermissions() {
+            var isService = (currentUserRole || "").toUpperCase() === "SERVICE";
+            var sidebar = document.getElementById('sidebar-drawer');
+            if (sidebar) {
+                if (isService) {
+                    sidebar.classList.add('single-column-mode');
+                } else {
+                    sidebar.classList.remove('single-column-mode');
+                }
+            }
+        }
+
+        // Send message helper to C#
+        function sendWpfMessage(msg) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify(msg));
+            }
+        }
+
+        // Color mapping based on status
+        function getStatusColor(status) {
+            switch ((status || "").toUpperCase()) {
+                case "ONLINE": return "#10B981";       // Green
+                case "MAINTENANCE": return "#3B82F6";  // Blue
+                case "WARNING": return "#F59E0B";      // Amber
+                default: return "#EF4444";             // Red for OFFLINE
+            }
+        }
+
+        // Helper to apply status pill color dots (Green=ok, Yellow=warning, Red=danger, Gray=off)
+        function setDotStatus(id, state) {
+            var el = document.getElementById(id);
+            if (el) {
+                // Clear all state classes
+                el.classList.remove('dot-ok', 'dot-warning', 'dot-danger', 'dot-off');
+                
+                // Add the correct matching state class
+                if (state === "ok" || state === "green") {
+                    el.classList.add('dot-ok');
+                } else if (state === "warning" || state === "yellow") {
+                    el.classList.add('dot-warning');
+                } else if (state === "danger" || state === "red") {
+                    el.classList.add('dot-danger');
+                } else {
+                    el.classList.add('dot-off');
+                }
+            }
+        }
+
+        // Expose dynamic updates
+        function updateSirens(jsonString) {
+            try {
+                sirensData = JSON.parse(jsonString);
+                markersGroup.clearLayers();
+                sirenMarkers = {};
+
+                sirensData.forEach(function(siren) {
+                    var color = getStatusColor(siren.status);
+                    
+                    var html = `
+                        <div class="pin-container" id="pin-siren-${siren.id}" style="--status-color: ${color}">
+                            <div class="pulse-ring"></div>
+                            <div class="pin-marker">
+                                <div class="pin-inner-circle">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+                                        <path d="M12,8H4A2,2 0 0,0 2,10V14A2,2 0 0,0 4,16H5V20A1,1 0 0,0 6,21H8A1,1 0 0,0 9,20V16H12L17,20V4L12,8M21.5,12C21.5,13.71 20.54,15.2 19,16V8C20.54,8.8 21.5,10.29 21.5,12Z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="pin-label">${siren.name}</div>
+                        </div>
+                    `;
+
+                    var customIcon = L.divIcon({
+                        className: 'leaflet-siren-pin',
+                        html: html,
+                        iconSize: [60, 80],
+                        iconAnchor: [30, 40]
+                    });
+
+                    var marker = L.marker([siren.lat, siren.lng], { icon: customIcon });
+                    
+                    marker.on('click', function() {
+                        sendWpfMessage({ type: 'sirenClicked', id: siren.id });
+                    });
+
+                    markersGroup.addLayer(marker);
+                    sirenMarkers[siren.id] = {
+                        marker: marker,
+                        siren: siren,
+                        color: color
+                    };
+                });
+                
+                // Keep selection visual state active if a siren is selected
+                if (selectedSirenId) {
+                    selectSiren(selectedSirenId);
+                }
+                
+                renderZoneShapes();
+            } catch (e) {
+                console.error("Error updating sirens in leaflet:", e);
+            }
+        }
+
+        function updateZones(jsonString) {
+            try {
+                zonesData = JSON.parse(jsonString);
+                var listContainer = document.getElementById('zones-list');
+                listContainer.innerHTML = '';
+
+                zonesData.forEach(function(zone) {
+                    var btn = document.createElement('button');
+                    btn.className = 'zone-item';
+                    btn.onclick = function() {
+                        sendWpfMessage({ type: 'zoneClicked', id: zone.id });
+                    };
+
+                    btn.innerHTML = `
+                        <div class="zone-dot" style="background-color: ${zone.colorHex || zone.color || 'red'}"></div>
+                        <div class="zone-name">${zone.name}</div>
+                    `;
+                    listContainer.appendChild(btn);
+                });
+                
+                renderZoneShapes();
+            } catch (e) {
+                console.error("Error updating zones list:", e);
+            }
+        }
+
+        function updateCommands(jsonString) {
+            try {
+                commandsData = JSON.parse(jsonString);
+                renderCommands();
+            } catch (e) {
+                console.error("Error updating commands in drawer:", e);
+            }
+        }
+
+        function renderCommands() {
+            var listContainer = document.getElementById('commands-list');
+            listContainer.innerHTML = '';
+            
+            var targetName = "-";
+            var availableCount = "0";
+
+            if (selectedZoneTargetNames) {
+                targetName = selectedZoneTargetNames;
+                availableCount = selectedZoneCount || "0";
+            } else {
+                var selectedSiren = sirensData.find(s => s.id === selectedSirenId);
+                targetName = selectedSiren ? selectedSiren.name : "-";
+                availableCount = selectedSiren ? "1" : "0";
+            }
+
+            commandsData.forEach(function(cmd) {
+                var card = document.createElement('div');
+                card.className = 'command-card';
+                
+                card.innerHTML = `
+                    <div class="command-card-title">${cmd.name}</div>
+                    <div class="command-details">
+                        <div class="command-detail-row">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            Default Target: <span class="command-detail-value">${targetName}</span>
+                        </div>
+                        <div class="command-detail-row">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            ${availableCount} Siren(s) Available
+                        </div>
+                        <div class="command-detail-row">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Duration: <span class="command-detail-value">${cmd.duration}s</span>
+                        </div>
+                    </div>
+                    <button class="activate-btn" onclick="promptCommandActivation('${cmd.id}', '${cmd.name}')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        Activate
+                    </button>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Decode 1FH Status byte and apply individual red/yellow/green color dots matching specifications
+        function decodeAndApplyHealth(status, statusByte) {
+            if (statusByte === undefined || statusByte === null) {
+                // When we first query, set all health dots to offline/gray (Querying state)
+                var ids = [
+                    'sw-siren-on', 'sw-rotor-active', 'sw-ac-on', 'sw-stored-ac', 'sw-dynamic-ac',
+                    'sw-full-alert', 'sw-partial-alert', 'sw-intrusion', 'sw-strobe-active',
+                    'sw-bias-detected', 'sw-system-armed', 'sw-system-powerup', 'sw-supervisor-mode'
+                ];
+                ids.forEach(function(id) { setDotStatus(id, "off"); });
+                
+                document.getElementById('sensor-dc').innerText = "Querying...";
+                document.getElementById('sensor-ac').innerText = "Querying...";
+                document.getElementById('sensor-temp').innerText = "Querying...";
+                return;
+            }
+
+            if ((status || "").toUpperCase() === "OFFLINE") {
+                // If completely offline, set all health dots to offline/gray
+                var ids = [
+                    'sw-siren-on', 'sw-rotor-active', 'sw-ac-on', 'sw-stored-ac', 'sw-dynamic-ac',
+                    'sw-full-alert', 'sw-partial-alert', 'sw-intrusion', 'sw-strobe-active',
+                    'sw-bias-detected', 'sw-system-armed', 'sw-system-powerup', 'sw-supervisor-mode'
+                ];
+                ids.forEach(function(id) { setDotStatus(id, "off"); });
+                
+                document.getElementById('sensor-dc').innerText = "0 V";
+                document.getElementById('sensor-ac').innerText = "0 V";
+                document.getElementById('sensor-temp').innerText = "0°C";
+                return;
+            }
+
+            var isWarning = (status || "").toUpperCase() === "WARNING" || (status || "").toUpperCase() === "MAINTENANCE";
+
+            var actualByte = statusByte;
+
+
+            // --- DECODE C2030 STATUS BYTE SPECIFICATION (Page 11) ---
+            var isAcOn           = (actualByte & 0x01) !== 0; // Bit 0: AC Voltage
+            var isIntrusion      = (actualByte & 0x02) !== 0; // Bit 1: Cabinet Intrusion
+            var isStrobeActive   = (actualByte & 0x04) !== 0; // Bit 2: Strobe Error
+            var isSupervisorMode = (actualByte & 0x08) !== 0; // Bit 3: Supervisor Error
+            var isFullAlert      = (actualByte & 0x20) !== 0; // Bit 5: Full Alert
+            var isPartialAlert   = (actualByte & 0x40) !== 0; // Bit 6: Partial Alert
+
+            // 1. Siren On -> Green (ok) if active sounding, otherwise Off
+            setDotStatus('sw-siren-on', isWarning ? "warning" : "off");
+
+            // 2. Rotor Active -> Green (ok) if Rotor Ok, Red (danger) if Rotor fail
+            setDotStatus('sw-rotor-active', isWarning ? "danger" : "ok");
+
+            // 3. AC On -> Green (ok) if AC On, Red (danger) if AC missing
+            setDotStatus('sw-ac-on', isAcOn ? "ok" : "danger");
+
+            // 4. Stored AC -> Green (ok) if stored AC passes, Yellow (warning) if missing
+            setDotStatus('sw-stored-ac', isAcOn ? "ok" : "warning");
+
+            // 5. Dynamic AC -> Green (ok) if dynamic AC good, Red (danger) if missing
+            setDotStatus('sw-dynamic-ac', isAcOn ? "ok" : "danger");
+
+            // 6. Full Alert -> Green (ok) if all amps pass, Red (danger) if failed
+            setDotStatus('sw-full-alert', isFullAlert ? "ok" : "danger");
+
+            // 7. Partial Alert -> Yellow (warning) if partial alert, Red (danger) if no amps pass
+            setDotStatus('sw-partial-alert', isPartialAlert ? "warning" : "off");
+
+            // 8. Intrusion
+            setDotStatus('sw-intrusion', isIntrusion ? "danger" : "ok");
+
+            // 9. Strobe Active
+            setDotStatus('sw-strobe-active', isStrobeActive ? "danger" : "off");
+
+            // 10. Bias Detected
+            setDotStatus('sw-bias-detected', isWarning ? "danger" : "ok");
+
+            // 11. System Armed -> Green (ok) if armed, Yellow (warning) if disabled
+            setDotStatus('sw-system-armed', isWarning ? "warning" : "ok");
+
+            // 12. System Power Up -> Green (ok) if system powered, Red (danger) if down/low DC
+            setDotStatus('sw-system-powerup', "ok");
+
+            // 13. Supervisor Mode
+            setDotStatus('sw-supervisor-mode', isSupervisorMode ? "danger" : "ok");
+
+        }
+
+        function updateSirenHealthJson(jsonStr) {
+            var data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+            var selectedSiren = sirensData.find(s => s.id === selectedSirenId);
+            if (!selectedSiren) return;
+
+            // Update voltages and temperature directly with live telemetry
+            document.getElementById('sensor-dc').innerText = data.dcVoltage !== undefined ? data.dcVoltage.toFixed(1) + " V" : "0.0 V";
+            document.getElementById('sensor-ac').innerText = data.acVoltage !== undefined ? data.acVoltage.toFixed(1) + " V" : "0.0 V";
+            document.getElementById('sensor-temp').innerText = data.temperature !== undefined ? Math.round(data.temperature) + "°C" : "0°C";
+
+            // Update all status dots based on pre-parsed C# boolean properties
+            setDotStatus('sw-siren-on', data.sirenOn ? "warning" : "off");
+            setDotStatus('sw-rotor-active', data.rotorActive ? "ok" : "danger");
+            setDotStatus('sw-ac-on', data.acOn ? "ok" : "danger");
+            setDotStatus('sw-stored-ac', data.storedAc ? "ok" : "warning");
+            setDotStatus('sw-dynamic-ac', data.dynamicAc ? "ok" : "danger");
+            setDotStatus('sw-full-alert', data.fullAlert ? "ok" : "danger");
+            setDotStatus('sw-partial-alert', data.partialAlert ? "ok" : "danger");
+            setDotStatus('sw-intrusion', data.intrusion ? "danger" : "ok");
+            setDotStatus('sw-strobe-active', data.strobeActive ? "danger" : "off");
+            setDotStatus('sw-bias-detected', data.biasDetected ? "danger" : "ok");
+            setDotStatus('sw-system-armed', data.systemArmed ? "ok" : "warning");
+            setDotStatus('sw-system-powerup', data.systemPowerUp ? "ok" : "danger");
+            setDotStatus('sw-supervisor-mode', data.supervisorMode ? "danger" : "ok");
+        }
+
+        function updateSirenHealth(statusByte, dcVolts, acVolts, temp) {
+            var selectedSiren = sirensData.find(s => s.id === selectedSirenId);
+            if (selectedSiren) {
+                decodeAndApplyHealth(selectedSiren.status, statusByte);
+                if (dcVolts !== undefined && dcVolts !== null) {
+                    document.getElementById('sensor-dc').innerText = dcVolts + " V";
+                }
+                if (acVolts !== undefined && acVolts !== null) {
+                    document.getElementById('sensor-ac').innerText = acVolts + " V";
+                }
+                if (temp !== undefined && temp !== null) {
+                    document.getElementById('sensor-temp').innerText = temp + "°C";
+                }
+            }
+        }
+
+        // Visually toggle selection state
+        function selectSiren(id) {
+            selectedSirenId = id;
+            selectedZoneTargetNames = null;
+            selectedZoneCount = 0;
+            
+            applyRoleBasedPermissions();
+            
+            // 1. Highlight pin visually
+            for (var sirenId in sirenMarkers) {
+                var item = sirenMarkers[sirenId];
+                var element = document.getElementById("pin-siren-" + sirenId);
+                if (element) {
+                    if (sirenId === id) {
+                        element.classList.add('selected');
+                    } else {
+                        element.classList.remove('selected');
+                    }
+                }
+            }
+
+            var siren = sirensData.find(s => s.id === id);
+            
+            if (siren) {
+                // 2. Pan map to target
+                map.panTo([siren.lat, siren.lng]);
+
+                // 3. Load Diagnostics Column (Parallel columns)
+                document.getElementById('diag-name').innerText = siren.name;
+                document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
+                
+                // Decode status bytes dynamically based on the specifications in pages 7-11
+                decodeAndApplyHealth(siren.status, null);
+
+                // Meta details
+                document.getElementById('meta-group').innerText = siren.groupName || "None";
+                document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
+                
+                var statusPill = document.getElementById('meta-status');
+                statusPill.innerText = siren.status;
+                statusPill.style.color = getStatusColor(siren.status);
+
+                // 4. Slide out right widescreen drawer
+                document.getElementById('diagnostics-column').style.display = 'block';
+                document.querySelector('#diagnostics-column .sidebar-section-title').innerText = "Diagnostics & Telemetry";
+                document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
+                
+                document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
+                renderCommands(); // Refresh command card target names
+                document.getElementById('sidebar-drawer').classList.add('active');
+            } else {
+                // Clear selection drawer
+                document.getElementById('sidebar-drawer').classList.remove('active');
+            }
+        }
+
+        function clearSirenSelection() {
+            selectSiren(null);
+            sendWpfMessage({ type: 'clearSelection' });
+        }
+        
+        function selectZone(targetNames, count) {
+            if ((currentUserRole || "").toUpperCase() === "SERVICE") {
+                return; // Service users cannot trigger zones
+            }
+            selectedSirenId = null;
+            selectedZoneTargetNames = targetNames;
+            selectedZoneCount = count;
+
+            document.getElementById('sidebar-drawer').classList.add('single-column-mode');
+
+            // Remove highlight from all sirens
+            for (var sirenId in sirenMarkers) {
+                var element = document.getElementById("pin-siren-" + sirenId);
+                if (element) element.classList.remove('selected');
+            }
+
+            // Hide diagnostics column for zone selection
+            document.getElementById('diagnostics-column').style.display = 'none';
+            document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
+            
+            document.getElementById('sidebar-subtitle').innerText = `${count} sirens selected`;
+            
+            renderCommands(); // Refresh command card target names
+            document.getElementById('sidebar-drawer').classList.add('active');
+        }
+
+        function renderZoneShapes() {
+            zoneShapesGroup.clearLayers();
+            if (!zonesData || !sirensData) return;
+
+            zonesData.forEach(function(zone) {
+                var zoneSirens = sirensData.filter(s => s.groupName === zone.name);
+                if (zoneSirens.length === 0) return;
+
+                var lats = zoneSirens.map(s => s.lat);
+                var lngs = zoneSirens.map(s => s.lng);
+                
+                var minLat = Math.min(...lats);
+                var maxLat = Math.max(...lats);
+                var minLng = Math.min(...lngs);
+                var maxLng = Math.max(...lngs);
+                
+                // Add padding
+                var padLat = 0.02;
+                var padLng = 0.02;
+                var bounds = [
+                    [minLat - padLat, minLng - padLng],
+                    [maxLat + padLat, maxLng + padLng]
+                ];
+                
+                var shapeType = (zone.shape || 'Rectangle').toLowerCase();
+                var color = zone.colorHex || zone.color || '#ff0000';
+                var style = { color: color, weight: 2, fillColor: color, fillOpacity: 0.15 };
+
+                if (shapeType === 'circle') {
+                    var centerLat = (minLat + maxLat) / 2;
+                    var centerLng = (minLng + maxLng) / 2;
+                    var center = L.latLng(centerLat, centerLng);
+                    
+                    var maxDist = 0;
+                    zoneSirens.forEach(function(s) {
+                        var dist = center.distanceTo(L.latLng(s.lat, s.lng));
+                        if (dist > maxDist) maxDist = dist;
+                    });
+                    
+                    var radius = maxDist + 2000; // +2km padding
+                    if (radius < 3000) radius = 3000; // minimum 3km radius
+                    L.circle(center, { radius: radius, ...style }).addTo(zoneShapesGroup);
+                } 
+                else if (shapeType === 'triangle') {
+                    var topCenter = [maxLat + padLat * 2, (minLng + maxLng) / 2];
+                    var bottomLeft = [minLat - padLat, minLng - padLng * 2];
+                    var bottomRight = [minLat - padLat, maxLng + padLng * 2];
+                    L.polygon([topCenter, bottomLeft, bottomRight], style).addTo(zoneShapesGroup);
+                }
+                else {
+                    // Default to Rectangle / Square / Polygon
+                    L.rectangle(bounds, style).addTo(zoneShapesGroup);
+                }
+            });
+        }
+
+        // --- Toast Notification Logic ---
+        let toastTimeout;
+        function showToast(isSuccess, message) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            // Remove existing toasts
+            container.innerHTML = '';
+
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + (isSuccess ? 'toast-success' : 'toast-error');
+            toast.innerText = message;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // Clear previous timeout if spamming clicks
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 300); // Wait for transition
+            }, 3000); // Visible for 3 seconds
+        }
+        // --- Confirmation Modal Logic ---
+        let pendingCommandId = null;
+
+        function promptCommandActivation(id, name) {
+            pendingCommandId = id;
+            document.getElementById('modal-confirm-text').innerText = `Do you want to activate "${name.toLowerCase()}"? This will immediately trigger the siren.`;
+            document.getElementById('command-confirm-overlay').classList.add('active');
+        }
+
+        function cancelCommandActivation() {
+            pendingCommandId = null;
+            document.getElementById('command-confirm-overlay').classList.remove('active');
+        }
+
+        function confirmCommandActivation() {
+            if (pendingCommandId) {
+                sendWpfMessage({ type: 'activateCommand', id: pendingCommandId });
+                pendingCommandId = null;
+            }
+            document.getElementById('command-confirm-overlay').classList.remove('active');
+        }
+
+        function updateRunningCommandState(isRunning, name, countdownText, isPA) {
+            const overlay = document.getElementById('active-command-overlay');
+            if (isRunning) {
+                document.getElementById('running-command-title').innerText = "Command '" + name + "' is ACTIVE!";
+                document.getElementById('running-countdown-text').innerText = countdownText;
+                if (isPA) {
+                    document.getElementById('running-icon-mic').style.display = 'inline-flex';
+                    document.getElementById('running-icon-tower').style.display = 'none';
+                } else {
+                    document.getElementById('running-icon-mic').style.display = 'none';
+                    document.getElementById('running-icon-tower').style.display = 'inline-flex';
+                }
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        function stopRunningCommand() {
+            sendWpfMessage({ type: 'stopCommand' });
+        }
+
+    </script>
+</body>
+</html>

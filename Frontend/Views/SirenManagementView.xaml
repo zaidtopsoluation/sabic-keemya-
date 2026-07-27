@@ -1,0 +1,387 @@
+<UserControl x:Class="Keemya.Frontend.Views.SirenManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Keemya.Frontend.Views"
+             xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             mc:Ignorable="d" 
+             d:DesignHeight="768" d:DesignWidth="1366">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Back button -->
+            <RowDefinition Height="Auto" /> <!-- Title / Subtitle -->
+            <RowDefinition Height="*" />    <!-- Main Content Card -->
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Back Button -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <Button Command="{Binding BackCommand}" 
+            materialDesign:ButtonAssist.CornerRadius="5"
+            HorizontalAlignment="Left" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="15,8" Style="{StaticResource MaterialDesignFlatButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Back to Modules" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Row 1: Title and Actions -->
+        <Grid Grid.Row="1" Margin="0,0,0,25">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource ModSirenMgmt}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,5" />
+                <TextBlock Text="{DynamicResource ModSirenMgmtDesc}" FontSize="14" Foreground="{StaticResource TextSecondary}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Row 2: Central Card Area -->
+        <Border Grid.Row="2" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Padding="25">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" /> <!-- Search and Add button -->
+                    <RowDefinition Height="*" />    <!-- Scrollable list of sirens -->
+                </Grid.RowDefinitions>
+
+                <!-- Header Actions -->
+                <Grid Grid.Row="0" Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{DynamicResource ModSirenMgmt}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" Grid.Column="0" />
+
+                    <!-- Search Box -->
+                    <Border Grid.Column="1" Width="300" Height="40" Background="{StaticResource AppBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Padding="12,0" Margin="0,0,15,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="Search" Width="18" Height="18" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextPrimary}" CaretBrush="{StaticResource TextPrimary}" VerticalAlignment="Center" VerticalContentAlignment="Center" materialDesign:HintAssist.Hint="{DynamicResource SearchSirensPlaceholder}" materialDesign:HintAssist.Foreground="{StaticResource TextSecondary}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Add button -->
+                    <Button Grid.Column="2" Command="{Binding OpenAddSirenPopupCommand}" 
+                            materialDesign:ButtonAssist.CornerRadius="5"
+                            Background="#2563EB" BorderBrush="Transparent" Foreground="White" Padding="15,10" Height="40">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Add Siren" VerticalAlignment="Center" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- Scrollable Siren Items Rows -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Sirens}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- Row Card matching screenshot -->
+                                <Border Height="70" Background="{StaticResource AppBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,12" Padding="15,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" /> <!-- Sound Icon -->
+                                            <ColumnDefinition Width="*" />    <!-- Name and subtext -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Actions -->
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Status Sound Icon -->
+                                        <Border Grid.Column="0" Width="40" Height="40" CornerRadius="6" Background="{StaticResource CardBackground}" VerticalAlignment="Center" Margin="0,0,15,0">
+                                            <materialDesign:PackIcon Kind="VolumeHigh" Width="20" Height="20" Foreground="{Binding StatusColorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+
+                                        <!-- Name, Status Pill and Info Subtext -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,10,0"/>
+                                                <!-- Status Pill -->
+                                                <Border CornerRadius="10" Background="{StaticResource CardBackground}" Padding="8,2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="Bold" Foreground="{Binding StatusColorBrush}"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Subtext}" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                        </StackPanel>
+
+                                        <!-- Action Buttons on the Right -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- Alert test circular arrow ping button -->
+                                            <Button Command="{Binding DataContext.TriggerTestPingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Width="36" Height="36" Padding="0" Margin="0,0,8,0" Style="{StaticResource MaterialDesignIconButton}">
+                                                <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18" Foreground="{StaticResource TextSecondary}" />
+                                            </Button>
+
+                                            <!-- Edit button -->
+                                            <Button Command="{Binding DataContext.OpenEditSirenPopupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Width="36" Height="36" Padding="0" Margin="0,0,8,0" Style="{StaticResource MaterialDesignIconButton}">
+                                                <materialDesign:PackIcon Kind="Pencil" Width="18" Height="18" Foreground="#60A5FA" />
+                                            </Button>
+
+                                            <!-- Delete button -->
+                                            <Button Command="{Binding DataContext.DeleteSirenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Width="36" Height="36" Padding="0" Style="{StaticResource MaterialDesignIconButton}">
+                                                <materialDesign:PackIcon Kind="TrashCan" Width="18" Height="18" Foreground="#F87171" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Centered Modal Add/Edit Popup Card -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100"
+              Visibility="{Binding IsAddSirenPopupOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+            <!-- Backdrop -->
+            <Border Background="#80000000" Cursor="Arrow">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding CloseAddSirenPopupCommand}"/>
+                </Border.InputBindings>
+            </Border>
+
+            <!-- centered modal card -->
+            <Border Width="500" Height="600" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="12" Padding="25" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="10" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /> <!-- Header -->
+                        <RowDefinition Height="*" />    <!-- Inputs scrollable -->
+                        <RowDefinition Height="Auto" /> <!-- Actions -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Popup Header -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="{Binding PopupTitle}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding PopupSubtitle}" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                    </StackPanel>
+
+                    <!-- Close X Cross button -->
+                    <Button Grid.Row="0" Command="{Binding CloseAddSirenPopupCommand}" Background="Transparent" BorderBrush="Transparent" Padding="0" Width="30" Height="30" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource MaterialDesignIconButton}">
+                        <materialDesign:PackIcon Kind="Close" Foreground="{StaticResource TextSecondary}" Width="20" Height="20" />
+                    </Button>
+
+                    <!-- Scrollable Input Fields -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="0,0,10,0">
+                            <!-- Error Banner -->
+                            <TextBlock Text="{Binding PopupErrorMessage}" Foreground="#EF4444" FontSize="12" Margin="0,0,0,12" 
+                                       Visibility="{Binding HasPopupError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                            <!-- Name Field -->
+                            <TextBlock Text="{DynamicResource Name}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                            <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5" Margin="0,0,0,15">
+                                <TextBox Text="{Binding SirenName, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="White" />
+                            </Border>
+
+                            <!-- Area and Address codes -->
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{DynamicResource AreaCode}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <TextBox Text="{Binding AreaCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="3" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="{StaticResource TextPrimary}" />
+                                    </Border>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{DynamicResource AddressCode}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <TextBox Text="{Binding AddressCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="{StaticResource TextPrimary}" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Location Section -->
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{DynamicResource Location}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Command="{Binding OpenMapPickerCommand}" Background="#4F46E5" BorderBrush="Transparent" Foreground="White" Height="32" Padding="12,0" materialDesign:ButtonAssist.CornerRadius="6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="MapMarkerOutline" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource PickOnMap}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- Latitude and Longitude -->
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{DynamicResource Latitude}" Foreground="{StaticResource TextPrimary}" FontSize="12" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <TextBox Text="{Binding Latitude, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="{StaticResource TextPrimary}" />
+                                    </Border>
+                                </StackPanel>
+ 
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{DynamicResource Longitude}" Foreground="{StaticResource TextPrimary}" FontSize="12" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <TextBox Text="{Binding Longitude, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="{StaticResource TextPrimary}" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Status & Zone Dropdowns -->
+                            <Grid Margin="0,0,0,15">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{DynamicResource Status}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" />
+                                    </Border>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{DynamicResource Zone}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                        <ComboBox ItemsSource="{Binding Zones}" SelectedItem="{Binding SelectedZone}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" Margin="2">
+                                                        <Border Width="10" Height="10" CornerRadius="5" Background="{Binding ColorHex}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Enable redundancy ToggleSwitch -->
+                            <StackPanel Margin="0,0,0,15">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource EnableRedundancy}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <ToggleButton Grid.Column="1" IsChecked="{Binding IsRedundant, Mode=TwoWay}" Style="{StaticResource CleanSwitchStyle}" />
+                                </Grid>
+
+                                <!-- Collapsible IP Input Panel based on Redundancy checked state -->
+                                <Border Margin="0,12,0,0" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0" Padding="0,12,0,0"
+                                        Visibility="{Binding IsRedundant, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource IP}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                        <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Background="{StaticResource AppBackground}" Padding="10,5">
+                                            <TextBox Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}" Foreground="{StaticResource TextPrimary}" Background="Transparent" BorderThickness="0" CaretBrush="{StaticResource TextPrimary}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Save & Cancel Buttons -->
+                    <Grid Grid.Row="2" Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="{DynamicResource Save}" Command="{Binding SaveSirenCommand}" Background="#6366F1" BorderBrush="Transparent" Foreground="White" FontWeight="Bold" Margin="0,0,10,0" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                        <Button Grid.Column="1" Content="{DynamicResource Cancel}" Command="{Binding CloseAddSirenPopupCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Map Location Picker Sub-Overlay — Real Leaflet WebView2 Map -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="200"
+              Visibility="{Binding IsMapPickerOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+            <!-- Backdrop -->
+            <Border Background="#C0000000" Cursor="Arrow" />
+
+            <Border Width="700" Height="600" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="12" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="10" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /> <!-- Header -->
+                        <RowDefinition Height="*" />    <!-- WebView2 Map -->
+                        <RowDefinition Height="Auto" /> <!-- Coord readout + Actions -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource SelectLocation}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,3" />
+                            <TextBlock Text="{DynamicResource ClickMapDesc}" FontSize="12" Foreground="{StaticResource TextSecondary}" />
+                        </StackPanel>
+                        <!-- Close X -->
+                        <Button Command="{Binding CancelMapLocationCommand}" Background="Transparent" BorderBrush="Transparent" Padding="0"
+                                Width="28" Height="28" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Style="{StaticResource MaterialDesignIconButton}">
+                            <materialDesign:PackIcon Kind="Close" Foreground="{StaticResource TextSecondary}" Width="18" Height="18" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Real Leaflet Map via WebView2 -->
+                    <Border Grid.Row="1" CornerRadius="8" BorderThickness="1.5" BorderBrush="{StaticResource CardBorder}" ClipToBounds="True" Margin="0,0,0,14">
+                        <wv2:WebView2 x:Name="PickerMapWebView" />
+                    </Border>
+
+                    <!-- Coordinate readout + action buttons -->
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Live coordinate display -->
+                        <Border Grid.Row="0" Background="{StaticResource AppBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="6" Padding="14,8" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <materialDesign:PackIcon Kind="MapMarkerOutline" Width="16" Height="16" Foreground="#6366F1" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Lat: " FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding MapLatitude, StringFormat='{}{0:F5}'}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,18,0" />
+                                <TextBlock Text="Lng: " FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding MapLongitude, StringFormat='{}{0:F5}'}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Confirm / Cancel buttons -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="{DynamicResource Confirm}" Command="{Binding ConfirmMapLocationCommand}" Background="#6366F1" BorderBrush="Transparent" Foreground="White" FontWeight="Bold" Margin="0,0,10,0" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                            <Button Grid.Column="1" Content="{DynamicResource Cancel}" Command="{Binding CancelMapLocationCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Height="40" materialDesign:ButtonAssist.CornerRadius="5" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

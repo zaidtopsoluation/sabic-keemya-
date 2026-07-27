@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>EMS Location Picker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #0b1120;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* ── Top instruction banner ── */
+        #instruction-banner {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 9px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            white-space: nowrap;
+            backdrop-filter: blur(4px);
+        }
+
+        #instruction-banner .icon {
+            color: #6366f1;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        #instruction-banner span {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        /* ── Coordinates readout (bottom center) ── */
+        #coords-display {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            transition: color 0.2s;
+        }
+
+        #coords-display.has-pin {
+            color: #a5b4fc;
+            border-color: #6366f1;
+        }
+
+        #coords-display .coord-label {
+            color: #64748b;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #coords-display .coord-value {
+            color: #e2e8f0;
+            font-size: 14px;
+            font-weight: 700;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        #coords-display .divider {
+            width: 1px;
+            height: 28px;
+            background: #334155;
+        }
+
+        /* ── Crosshair cursor on map ── */
+        .leaflet-container {
+            cursor: crosshair !important;
+        }
+
+        /* ── Leaflet attribution override ── */
+        .leaflet-control-attribution {
+            background: rgba(17, 24, 39, 0.8) !important;
+            color: #9ca3af !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: #6366f1 !important;
+        }
+
+        /* ── Custom marker pin ── */
+        .picker-pin-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+        }
+
+        .picker-pin-circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #6366f1;
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .picker-pin-circle::after {
+            content: '';
+            position: absolute;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 2px solid rgba(99, 102, 241, 0.35);
+            animation: picker-pulse 1.8s infinite ease-in-out;
+        }
+
+        @keyframes picker-pulse {
+            0% {
+                transform: scale(0.85);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .picker-pin-tail {
+            width: 3px;
+            height: 12px;
+            background: #6366f1;
+            border-radius: 0 0 3px 3px;
+            margin-top: -1px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Instruction banner -->
+    <div id="instruction-banner">
+        <span class="icon">📍</span>
+        <span id="banner-text">Click anywhere on the map to place the siren marker</span>
+    </div>
+
+    <!-- Coordinates readout -->
+    <div id="coords-display">
+        <div>
+            <div class="coord-label">Latitude</div>
+            <div id="lat-value" class="coord-value">—</div>
+        </div>
+        <div class="divider"></div>
+        <div>
+            <div class="coord-label">Longitude</div>
+            <div id="lng-value" class="coord-value">—</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ── State ───────────────────────────────────────────────────────────
+        let map = null;
+        let marker = null;
+        let currentLat = null;
+        let currentLng = null;
+
+        // ── Helper: send message to WPF host ────────────────────────────────
+        function sendToWpf(obj) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify(obj));
+            }
+        }
+
+        // ── Build custom marker icon ─────────────────────────────────────────
+        function buildPickerIcon() {
+            return L.divIcon({
+                className: '',
+                iconSize: [38, 62],
+                iconAnchor: [19, 62],
+                html: `
+                    <div class="picker-pin-wrapper">
+                        <div class="picker-pin-circle">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                        </div>
+                        <div class="picker-pin-tail"></div>
+                    </div>`
+            });
+        }
+
+        // ── Place / move marker ──────────────────────────────────────────────
+        function placeMarker(latlng) {
+            currentLat = latlng.lat;
+            currentLng = latlng.lng;
+
+            if (marker) {
+                marker.setLatLng(latlng);
+            } else {
+                marker = L.marker(latlng, { icon: buildPickerIcon(), draggable: true }).addTo(map);
+                marker.on('dragend', function (e) {
+                    var pos = e.target.getLatLng();
+                    updateCoordsDisplay(pos.lat, pos.lng);
+                    currentLat = pos.lat;
+                    currentLng = pos.lng;
+                    sendToWpf({ type: 'locationPicked', lat: pos.lat, lng: pos.lng });
+                });
+            }
+
+            updateCoordsDisplay(currentLat, currentLng);
+            sendToWpf({ type: 'locationPicked', lat: currentLat, lng: currentLng });
+        }
+
+        // ── Update the coords readout ────────────────────────────────────────
+        function updateCoordsDisplay(lat, lng) {
+            document.getElementById('lat-value').textContent = lat.toFixed(5);
+            document.getElementById('lng-value').textContent = lng.toFixed(5);
+            document.getElementById('coords-display').classList.add('has-pin');
+        }
+
+        // ── Initialise map ───────────────────────────────────────────────────
+        function initMap(lat, lng) {
+            if (map) { map.remove(); map = null; marker = null; }
+
+            map = L.map('map', {
+                center: [lat || 26.3927, lng || 49.9777],
+                zoom: 10,
+                zoomControl: true,
+                attributionControl: true
+            });
+
+            // Light OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // If pre-existing coordinates → place marker immediately
+            if (lat && lng && lat !== 0 && lng !== 0) {
+                placeMarker(L.latLng(lat, lng));
+            }
+
+            // Click handler
+            map.on('click', function (e) {
+                placeMarker(e.latlng);
+            });
+        }
+
+        // ── Called from C# to initialise with optional existing coords ───────
+        function initPickerMap(lat, lng) {
+            initMap(lat, lng);
+        }
+
+        // ── Called from C# to get the current picked position ────────────────
+        function getPickedLocation() {
+            if (currentLat !== null && currentLng !== null) {
+                sendToWpf({ type: 'confirmedLocation', lat: currentLat, lng: currentLng });
+            } else {
+                sendToWpf({ type: 'confirmedLocation', lat: null, lng: null });
+            }
+        }
+
+        // Boot with default center (C# will call initPickerMap with real coords)
+        initMap(26.3927, 49.9777);
+    </script>
+</body>
+
+</html>

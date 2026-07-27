@@ -1,0 +1,786 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "EMS.Frontend/1.0.0": {
+        "dependencies": {
+          "CommunityToolkit.Mvvm": "8.4.2",
+          "MaterialDesignThemes": "5.3.2",
+          "Microsoft.Web.WebView2": "1.0.3967.48",
+          "MySqlConnector": "2.5.0",
+          "NAudio": "2.3.0",
+          "QuestPDF": "2026.5.0",
+          "System.IO.Ports": "10.0.8",
+          "Microsoft.Web.WebView2.Core": "1.0.3967.48",
+          "Microsoft.Web.WebView2.WinForms": "1.0.3967.48",
+          "Microsoft.Web.WebView2.Wpf": "1.0.3967.48"
+        },
+        "runtime": {
+          "EMS.Frontend.dll": {}
+        }
+      },
+      "CommunityToolkit.Mvvm/8.4.2": {
+        "runtime": {
+          "lib/net8.0/CommunityToolkit.Mvvm.dll": {
+            "assemblyVersion": "8.4.0.0",
+            "fileVersion": "8.4.2.1"
+          }
+        }
+      },
+      "MaterialDesignColors/5.3.2": {
+        "runtime": {
+          "lib/net10.0-windows7.0/MaterialDesignColors.dll": {
+            "assemblyVersion": "5.3.2.0",
+            "fileVersion": "5.3.2.0"
+          }
+        }
+      },
+      "MaterialDesignThemes/5.3.2": {
+        "dependencies": {
+          "MaterialDesignColors": "5.3.2",
+          "Microsoft.Xaml.Behaviors.Wpf": "1.1.77"
+        },
+        "runtime": {
+          "lib/net10.0-windows7.0/MaterialDesignThemes.Wpf.dll": {
+            "assemblyVersion": "5.3.2.0",
+            "fileVersion": "5.3.2.0"
+          }
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.2": {
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1024.46610"
+          }
+        }
+      },
+      "Microsoft.Extensions.Logging.Abstractions/8.0.2": {
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1024.46610"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2/1.0.3967.48": {
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/WebView2Loader.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.0.3967.48"
+          },
+          "runtimes/win-x64/native/WebView2Loader.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.3967.48"
+          },
+          "runtimes/win-x86/native/WebView2Loader.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.3967.48"
+          }
+        }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf/1.1.77": {
+        "runtime": {
+          "lib/net6.0-windows7.0/Microsoft.Xaml.Behaviors.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.77.27830"
+          }
+        }
+      },
+      "MySqlConnector/2.5.0": {
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
+        },
+        "runtime": {
+          "lib/net10.0/MySqlConnector.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.5.0.0"
+          }
+        }
+      },
+      "NAudio/2.3.0": {
+        "dependencies": {
+          "NAudio.Asio": "2.3.0",
+          "NAudio.Core": "2.3.0",
+          "NAudio.Midi": "2.3.0",
+          "NAudio.Wasapi": "2.3.0",
+          "NAudio.WinForms": "2.3.0",
+          "NAudio.WinMM": "2.3.0"
+        },
+        "runtime": {
+          "lib/net6.0-windows7.0/NAudio.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.Asio/2.3.0": {
+        "dependencies": {
+          "NAudio.Core": "2.3.0"
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/NAudio.Asio.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.Core/2.3.0": {
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Core.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.Midi/2.3.0": {
+        "dependencies": {
+          "NAudio.Core": "2.3.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Midi.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.Wasapi/2.3.0": {
+        "dependencies": {
+          "NAudio.Core": "2.3.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Wasapi.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.WinForms/2.3.0": {
+        "dependencies": {
+          "NAudio.WinMM": "2.3.0"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/NAudio.WinForms.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "NAudio.WinMM/2.3.0": {
+        "dependencies": {
+          "NAudio.Core": "2.3.0"
+        },
+        "runtime": {
+          "lib/net6.0/NAudio.WinMM.dll": {
+            "assemblyVersion": "2.3.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "QuestPDF/2026.5.0": {
+        "runtime": {
+          "lib/net10.0/QuestPDF.dll": {
+            "assemblyVersion": "2026.5.0.0",
+            "fileVersion": "2026.5.0.0"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/linux-arm64/native/libQuestPdfSkia.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libqpdf.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-x64/native/libQuestPdfSkia.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-x64/native/libqpdf.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libQuestPdfSkia.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libqpdf.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libQuestPdfSkia.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libqpdf.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libQuestPdfSkia.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libqpdf.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/QuestPdfSkia.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libgcc_s_seh-1.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libstdc++-6.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libwinpthread-1.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.0.0"
+          },
+          "runtimes/win-x64/native/qpdf.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/zlib1.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/QuestPdfSkia.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libgcc_s_dw2-1.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libstdc++-6.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libwinpthread-1.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.0.0"
+          },
+          "runtimes/win-x86/native/qpdf.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/zlib1.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.android-arm.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/android-arm/native/libSystem.IO.Ports.Native.so": {
+            "rid": "android-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.android-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/android-arm64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "android-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.android-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/android-x64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "android-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.android-x86.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/android-x86/native/libSystem.IO.Ports.Native.so": {
+            "rid": "android-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-arm.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-arm/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-arm64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-bionic-arm64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-bionic-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-bionic-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-bionic-x64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-bionic-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-musl-arm.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-musl-arm/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-musl-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-musl-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-musl-arm64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-musl-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-musl-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-musl-x64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.linux-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/linux-x64/native/libSystem.IO.Ports.Native.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/maccatalyst-arm64/native/libSystem.IO.Ports.Native.dylib": {
+            "rid": "maccatalyst-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.maccatalyst-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/maccatalyst-x64/native/libSystem.IO.Ports.Native.dylib": {
+            "rid": "maccatalyst-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.native.System.IO.Ports/10.0.8": {
+        "dependencies": {
+          "runtime.android-arm.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.android-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.android-x64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.android-x86.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-arm.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-bionic-x64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-musl-arm.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-musl-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-musl-x64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.linux-x64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.maccatalyst-x64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.osx-arm64.runtime.native.System.IO.Ports": "10.0.8",
+          "runtime.osx-x64.runtime.native.System.IO.Ports": "10.0.8"
+        }
+      },
+      "runtime.osx-arm64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/osx-arm64/native/libSystem.IO.Ports.Native.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "runtime.osx-x64.runtime.native.System.IO.Ports/10.0.8": {
+        "runtimeTargets": {
+          "runtimes/osx-x64/native/libSystem.IO.Ports.Native.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "System.IO.Ports/10.0.8": {
+        "dependencies": {
+          "runtime.native.System.IO.Ports": "10.0.8"
+        },
+        "runtime": {
+          "lib/net10.0/System.IO.Ports.dll": {
+            "assemblyVersion": "10.0.0.8",
+            "fileVersion": "10.0.826.23019"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/unix/lib/net10.0/System.IO.Ports.dll": {
+            "rid": "unix",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.8",
+            "fileVersion": "10.0.826.23019"
+          },
+          "runtimes/win/lib/net10.0/System.IO.Ports.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.8",
+            "fileVersion": "10.0.826.23019"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Core/1.0.3967.48": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Core.dll": {
+            "assemblyVersion": "1.0.3967.48",
+            "fileVersion": "1.0.3967.48"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.WinForms/1.0.3967.48": {
+        "runtime": {
+          "Microsoft.Web.WebView2.WinForms.dll": {
+            "assemblyVersion": "1.0.3967.48",
+            "fileVersion": "1.0.3967.48"
+          }
+        }
+      },
+      "Microsoft.Web.WebView2.Wpf/1.0.3967.48": {
+        "runtime": {
+          "Microsoft.Web.WebView2.Wpf.dll": {
+            "assemblyVersion": "1.0.3967.48",
+            "fileVersion": "1.0.3967.48"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "EMS.Frontend/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CommunityToolkit.Mvvm/8.4.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg==",
+      "path": "communitytoolkit.mvvm/8.4.2",
+      "hashPath": "communitytoolkit.mvvm.8.4.2.nupkg.sha512"
+    },
+    "MaterialDesignColors/5.3.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ru09iYhsnGcTI/La30zuzSeg/DXwvdFgDfvG17XU+/+XkIY915YiQFStZlykui5vpWzMEtyADh2c2T7CodrGrg==",
+      "path": "materialdesigncolors/5.3.2",
+      "hashPath": "materialdesigncolors.5.3.2.nupkg.sha512"
+    },
+    "MaterialDesignThemes/5.3.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-G/aQKjpxcwQt7aZ3JzGX64gr1CzsJK7vtm+l57zpejCs6GebWN4MZ536PHLWpyrgrLySrKxPSjSlWCw2A1HWig==",
+      "path": "materialdesignthemes/5.3.2",
+      "hashPath": "materialdesignthemes.5.3.2.nupkg.sha512"
+    },
+    "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3iE7UF7MQkCv1cxzCahz+Y/guQbTqieyxyaWKhrRO91itI9cOKO76OHeQDahqG4MmW5umr3CcCvGmK92lWNlbg==",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/8.0.2",
+      "hashPath": "microsoft.extensions.dependencyinjection.abstractions.8.0.2.nupkg.sha512"
+    },
+    "Microsoft.Extensions.Logging.Abstractions/8.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nroMDjS7hNBPtkZqVBbSiQaQjWRDxITI8Y7XnDs97rqG3EbzVTNLZQf7bIeUJcaHOV8bca47s1Uxq94+2oGdxA==",
+      "path": "microsoft.extensions.logging.abstractions/8.0.2",
+      "hashPath": "microsoft.extensions.logging.abstractions.8.0.2.nupkg.sha512"
+    },
+    "Microsoft.Web.WebView2/1.0.3967.48": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-b7dZ5kZ9bfU5Yo11M8feCOoiyalXCN+2Gsw674RBDBmQ2dJV5EOXb8/ivN2LuLJ+VO2V7FmK6l6LsyfEnG1lXw==",
+      "path": "microsoft.web.webview2/1.0.3967.48",
+      "hashPath": "microsoft.web.webview2.1.0.3967.48.nupkg.sha512"
+    },
+    "Microsoft.Xaml.Behaviors.Wpf/1.1.77": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MCu674ZETgU18EbxfwIlRpUPJ02YbZenLsMCXTkpeA7KUBpXfFaOUDlEO+7UWu5AFnUoydg+aQENJkuaZPheMQ==",
+      "path": "microsoft.xaml.behaviors.wpf/1.1.77",
+      "hashPath": "microsoft.xaml.behaviors.wpf.1.1.77.nupkg.sha512"
+    },
+    "MySqlConnector/2.5.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hoAwfHHF8DlRRqwHOhN3u1KLi+XbX/4LPS7Anfa+SYC97vRyIfdEOEEfj1L50q01Ik8aDNvmDrNmu/VPFiAiaQ==",
+      "path": "mysqlconnector/2.5.0",
+      "hashPath": "mysqlconnector.2.5.0.nupkg.sha512"
+    },
+    "NAudio/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xN+Lzlu9DmXqBiL6XkP0VZmgTxZPdSGjVSWtKG9HKuar3LhIYNOIYQETieigS+QDS+nrs1QmHbBWWOru0nWA5A==",
+      "path": "naudio/2.3.0",
+      "hashPath": "naudio.2.3.0.nupkg.sha512"
+    },
+    "NAudio.Asio/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-I+rAAPT8vmSEw4d4ie+AoSkrvNK6ylRrXznnjQKS+qZgTA9Jnt1Pxe0EaU8nXxOOq5h8ucBSWccBEw6I/J0nkQ==",
+      "path": "naudio.asio/2.3.0",
+      "hashPath": "naudio.asio.2.3.0.nupkg.sha512"
+    },
+    "NAudio.Core/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jMd7r6dB6tAtXhOYL58ntPqwERNm1/Rhw5MKOIYvsnXzuX+PTGsa2VMam6n0npZYSwlSidKa4GAm4bFcXFUlcg==",
+      "path": "naudio.core/2.3.0",
+      "hashPath": "naudio.core.2.3.0.nupkg.sha512"
+    },
+    "NAudio.Midi/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-t8wvPFPHHQOHhoNMCaDE8OiYZoJuxmY4H6UPBtmnf+xx7oQuajFCqlG4Q00ID+tiEyj471WeVb4Nkylr4tDoow==",
+      "path": "naudio.midi/2.3.0",
+      "hashPath": "naudio.midi.2.3.0.nupkg.sha512"
+    },
+    "NAudio.Wasapi/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-y5K2BxrLnvohgu5znzg5wRsai3YcuNXfrpo68i7PmCQqpK5MC/R24e5aO3OyN/XhfRr12e0QYV0OnUWEHi5SzA==",
+      "path": "naudio.wasapi/2.3.0",
+      "hashPath": "naudio.wasapi.2.3.0.nupkg.sha512"
+    },
+    "NAudio.WinForms/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-vyKqFUlAZrZ0QPcCM1T+zimjYgC1cNDloHaiOdtV4S1eK4AGu3Dz1EE4yy/WgcneJwQNjGFaELY7b2TsL+g56w==",
+      "path": "naudio.winforms/2.3.0",
+      "hashPath": "naudio.winforms.2.3.0.nupkg.sha512"
+    },
+    "NAudio.WinMM/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5G1dRjsZm50T3luyuqcmI2BSvj3K4ZJaD/x776/0Epj88qOsOryDZG40+MufwIk1UFJSFWhRobBqtJYFc8Ss4g==",
+      "path": "naudio.winmm/2.3.0",
+      "hashPath": "naudio.winmm.2.3.0.nupkg.sha512"
+    },
+    "QuestPDF/2026.5.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-QddELSgpJ7YFrNaqlqUik/OOhK2/yVDqdqGjtdH+V3nxml2cvjUorFp2yiK8xnTLLvR139SXpVt3G/0oVCynig==",
+      "path": "questpdf/2026.5.0",
+      "hashPath": "questpdf.2026.5.0.nupkg.sha512"
+    },
+    "runtime.android-arm.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ikUVraHWpF+O0tjrBWECtAl8XVGPdwDMmVH3d+QhPUaKATmf7RiKp9sF/odiTVCTYrRupGUpyqe1YHNX5Lkhig==",
+      "path": "runtime.android-arm.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.android-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.android-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-BAhjFWiTUWOf6mh/nWGkYsNFDLPRBO9FTxWmdV1T4+BckSv08xfA/zKKXu2L4xaFIj/k6LQRXPbPgdgpZVKbOw==",
+      "path": "runtime.android-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.android-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.android-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Al4nNmRLZ4VUYPzpwXXM8wM49tIoJazdUmZbSlycgvSDCgBDcn/vbRY3loTvU1UdUCtLmJuW3djcIZnmaFt+kQ==",
+      "path": "runtime.android-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.android-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.android-x86.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-qw1KgAdl8K2WpN+JB6waYPZ6nAHgvRVmxX0qnzsQonalh7wGYbtWAC2ZEF84niBaNYh25dOn8u/P4ZJ3h7ZQuA==",
+      "path": "runtime.android-x86.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.android-x86.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-arm.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iZtcJPzwnhPhFGvL4bWHtLHywCCGQU4oCLsRfxYDl4wGjktwWG7DOKw7pxQErPkLogdXdA0saQL353DDkfGDwQ==",
+      "path": "runtime.linux-arm.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ldAfQIokuSda/vgdDhlYZMIl7XYXg9vCtIWgZ6/sd/fW8PEBA8mQ/UyCAOX0Lxr0tW8Izs3S15voARpaF3D7oQ==",
+      "path": "runtime.linux-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-bionic-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iN1jYEapKKxEZU6ye8Pc/GWyZkL4JGbCeTeNF865dsRq8ZI0FfBaK+jV2V3Ma+JIV15S7aCp8p6tg5VdigkmrQ==",
+      "path": "runtime.linux-bionic-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-bionic-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-bionic-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-otSnupO387qphu2heE8ANTeWq8EknWUKhA1r4yArpPBc/+gr4/ccvG1sPxrYFDqDLEahMnMxi0YJ6FhHbePcag==",
+      "path": "runtime.linux-bionic-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-bionic-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-musl-arm.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Lfgd701hNnVyAtR00Bak19U/U1Z+zVfS4ZV92n77dPC++BTXcKzEAKKiPNxaVF3X5UCSnaigrikFNgDBJVMxXA==",
+      "path": "runtime.linux-musl-arm.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-musl-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-musl-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-D50qwMiso0Ns8vmrsL16ivaYc78iCAT4IJa4Gh7JAB8qz0ivXH4REBKM+/qgK/5xE3MaanOT5Nx7wZnZwKRmBg==",
+      "path": "runtime.linux-musl-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-musl-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-musl-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-8x5nmR7mXZSKUrS21HtrWk82oAAqf9cI+ErcibO7hHbKn9y+RDZrsVOR/dHP1qfSjA2MLWjtlm3739LLAcpplQ==",
+      "path": "runtime.linux-musl-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-musl-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.linux-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-00wYFalY+RaWT8xljNHnFv+MduNgguE0KPU1Dm9RC0rcTs9vTdbsohRT7wgP/ljVbVeCImpF+ghdW75FJShW4g==",
+      "path": "runtime.linux-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.linux-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.maccatalyst-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ibyBEZ4C+UkMx/Uvb+efgGRcH17kVGUhQNaSpTOXGCTvKf/gbAqNx7zq0gUTBoWyMeBgCEUXyo4MMo9nkfCyPQ==",
+      "path": "runtime.maccatalyst-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.maccatalyst-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.maccatalyst-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3Z83yd4qWJu3RQADSY9vcOxSIas3Zq3GfuW1GLzWgoFaeXkkakYZXAKxqRs9hyC3IY9YQty2hUDBiapc69MuQw==",
+      "path": "runtime.maccatalyst-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.maccatalyst-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-wKGNKLkea4FvsZk93d/m9wxFY1jrFeIXpQVhXe1sRSwM8s7LvFK/iQGw2Zwz4sOdHSA4ysX/odiL9SUjmhPmig==",
+      "path": "runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.osx-arm64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-yf8oxCBSsXJSu96GlGhk+OzaUs13qypzH0FkxKT3bVYKBw5ZTQ/AVnzzdfPKdviGA5uCLuMkuZauoJSisAbBlQ==",
+      "path": "runtime.osx-arm64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.osx-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "runtime.osx-x64.runtime.native.System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-c3hrWgxtT8UiWpbMg75uMGXswKjoL7GWhJWEuaaY8NKYeyuGfDitTvXUqdp/6Q1a5CbQRswu4zLSOKhFjfi2Mw==",
+      "path": "runtime.osx-x64.runtime.native.system.io.ports/10.0.8",
+      "hashPath": "runtime.osx-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "System.IO.Ports/10.0.8": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-lsYvM/iNnjnzPLgtBmBoy8o5qdmoXz4vHGwfYnoQ1gQveooRGpS5A9kX+d00ojxCWjp/VGZjXKueR3ZJpYGjEQ==",
+      "path": "system.io.ports/10.0.8",
+      "hashPath": "system.io.ports.10.0.8.nupkg.sha512"
+    },
+    "Microsoft.Web.WebView2.Core/1.0.3967.48": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.WinForms/1.0.3967.48": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.Web.WebView2.Wpf/1.0.3967.48": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
