@@ -94,6 +94,7 @@
 
         /* Zones Card Overlay (Bottom Left) */
         .overlay-zones-card {
+            display: none !important;
             position: absolute;
             left: 20px;
             bottom: 20px;
@@ -1384,58 +1385,6 @@
 
         function renderZoneShapes() {
             zoneShapesGroup.clearLayers();
-            if (!zonesData || !sirensData) return;
-
-            zonesData.forEach(function(zone) {
-                var zoneSirens = sirensData.filter(s => s.groupName === zone.name);
-                if (zoneSirens.length === 0) return;
-
-                var lats = zoneSirens.map(s => s.lat);
-                var lngs = zoneSirens.map(s => s.lng);
-                
-                var minLat = Math.min(...lats);
-                var maxLat = Math.max(...lats);
-                var minLng = Math.min(...lngs);
-                var maxLng = Math.max(...lngs);
-                
-                // Add padding
-                var padLat = 0.02;
-                var padLng = 0.02;
-                var bounds = [
-                    [minLat - padLat, minLng - padLng],
-                    [maxLat + padLat, maxLng + padLng]
-                ];
-                
-                var shapeType = (zone.shape || 'Rectangle').toLowerCase();
-                var color = zone.colorHex || zone.color || '#ff0000';
-                var style = { color: color, weight: 2, fillColor: color, fillOpacity: 0.15 };
-
-                if (shapeType === 'circle') {
-                    var centerLat = (minLat + maxLat) / 2;
-                    var centerLng = (minLng + maxLng) / 2;
-                    var center = L.latLng(centerLat, centerLng);
-                    
-                    var maxDist = 0;
-                    zoneSirens.forEach(function(s) {
-                        var dist = center.distanceTo(L.latLng(s.lat, s.lng));
-                        if (dist > maxDist) maxDist = dist;
-                    });
-                    
-                    var radius = maxDist + 2000; // +2km padding
-                    if (radius < 3000) radius = 3000; // minimum 3km radius
-                    L.circle(center, { radius: radius, ...style }).addTo(zoneShapesGroup);
-                } 
-                else if (shapeType === 'triangle') {
-                    var topCenter = [maxLat + padLat * 2, (minLng + maxLng) / 2];
-                    var bottomLeft = [minLat - padLat, minLng - padLng * 2];
-                    var bottomRight = [minLat - padLat, maxLng + padLng * 2];
-                    L.polygon([topCenter, bottomLeft, bottomRight], style).addTo(zoneShapesGroup);
-                }
-                else {
-                    // Default to Rectangle / Square / Polygon
-                    L.rectangle(bounds, style).addTo(zoneShapesGroup);
-                }
-            });
         }
 
         // --- Toast Notification Logic ---

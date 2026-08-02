@@ -107,9 +107,6 @@
                 <views:UserManagementView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type viewmodels:ZoneManagementViewModel}">
-                <views:ZoneManagementView />
-            </DataTemplate>
 
             <DataTemplate DataType="{x:Type viewmodels:ProfileViewModel}">
                 <views:ProfileView />
@@ -119,9 +116,6 @@
                 <views:SirenManagementView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type viewmodels:CommandConfigViewModel}">
-                <views:CommandConfigView />
-            </DataTemplate>
 
             <DataTemplate DataType="{x:Type viewmodels:CommandCenterViewModel}">
                 <views:CommandCenterView />

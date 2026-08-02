@@ -121,6 +121,7 @@ namespace Keemya.Frontend.ViewModels
         // ── Left panel ──────────────────────────────────────────────────────
         [ObservableProperty] private bool isBroadcastSelected = true;
         [ObservableProperty] private ObservableCollection<ZoneSelectionItem> zoneItems = new();
+        [ObservableProperty] private ObservableCollection<SirenRowItem> allSirenItems = new();
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasUngroupedSirens))]
         [NotifyPropertyChangedFor(nameof(UngroupedSubtitle))]
@@ -152,6 +153,13 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty] private string currentTargetLabel = "Broadcast to All Sirens";
         [ObservableProperty] private int    currentTargetCount = 0;
 
+        // ── Station Routing Selections ──────────────────────────────────────
+        [ObservableProperty] private bool isAdminEccSelected;
+        [ObservableProperty] private bool isPcbEcsSelected;
+        [ObservableProperty] private bool isRcbEcsSelected;
+        [ObservableProperty] private bool isPcbControllerSelected;
+        [ObservableProperty] private bool isRcbControllerSelected;
+
         // ── Right panel ─────────────────────────────────────────────────────
         [ObservableProperty] private ObservableCollection<CommandCardDto> commandCards = new();
 
@@ -174,6 +182,7 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty]
         private double microphoneVolume;
 
+        private List<CommandCardDto> _allCommands = new();
         private CommandCardDto? _commandToConfirm;
         private System.Threading.CancellationTokenSource? _activeCommandCts;
         private List<SirenRowItem> _activeTargets = new();
@@ -242,6 +251,7 @@ namespace Keemya.Frontend.ViewModels
 
                 _allZones = zones;
                 ZoneItems = new ObservableCollection<ZoneSelectionItem>(zones);
+                AllSirenItems = new ObservableCollection<SirenRowItem>(sirens);
                 UngroupedSirens = new ObservableCollection<SirenRowItem>(
                     sirens.Where(s => s.GroupId == null));
 
@@ -268,8 +278,7 @@ namespace Keemya.Frontend.ViewModels
                 const string sql = @"SELECT c.Id, c.Name, c.CommandType, c.CommandHex, c.Color, c.Duration, a.FilePath
                                      FROM CommandConfigs c
                                      LEFT JOIN AudioFiles a ON c.AudioFileId = a.Id
-                                     WHERE c.IsSystemDefault = 0 AND c.IsEnabled = 1
-                                     ORDER BY c.SortOrder ASC, c.Name ASC";
+                                     WHERE c.IsEnabled = 1";
 
                 var cards = new List<CommandCardDto>();
                 using var cmd = new MySqlCommand(sql, conn);
@@ -286,7 +295,7 @@ namespace Keemya.Frontend.ViewModels
                         AudioFilePath = rdr.IsDBNull(6) ? null : System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "uploads", rdr.GetString(6))
                     });
 
-                CommandCards = new ObservableCollection<CommandCardDto>(cards);
+                _allCommands = cards;
             }
             catch (Exception ex)
             {
@@ -368,14 +377,157 @@ namespace Keemya.Frontend.ViewModels
         }
 
         [RelayCommand]
-        private void ConfirmActivate(CommandCardDto card)
+        private void SelectFireAlarm()
         {
-            if (card == null) return;
-            
-            _commandToConfirm = card;
-            CommandToConfirmName = card.Name;
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 2);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "FIRE ALARM";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured Attack tone command (Fire Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectGasAlarm()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 1);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "GAS ALARM";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured Wail tone command (Gas Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectAllClearAlarm()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 5);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "ALL CLEAR ALARM";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured Air Horn command (All Clear Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectResetAlarm()
+        {
+            _commandToConfirm = new CommandCardDto
+            {
+                Id = Guid.NewGuid(),
+                Name = "RESET ALARM",
+                CommandHex = 0,
+                Color = "Yellow",
+                CommandType = "Reset/Clear"
+            };
+            CommandToConfirmName = "RESET ALARM";
             IsConfirmingCommand = true;
         }
+
+        [RelayCommand]
+        private void SelectAttention()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 3);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "ATTENTION";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured Alert tone command (Attention) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectEmCallPaging()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 4);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "EM. CALL PAGING";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured PA Paging command not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectEmCallRadioPaging()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 4);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "EM. CALL RADIO & PAGING";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured PA Radio Paging command not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectPublicAddress()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 4);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "PUBLIC ADDRESS";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                var mockCmd = new CommandCardDto
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "PUBLIC ADDRESS",
+                    CommandType = "Live",
+                    CommandHex = 4,
+                    Color = "#3B82F6",
+                    Duration = 0
+                };
+                _commandToConfirm = mockCmd;
+                CommandToConfirmName = "PUBLIC ADDRESS";
+                IsConfirmingCommand = true;
+            }
+        }
+
+        [RelayCommand]
+        private void SelectAdminEcc() => IsAdminEccSelected = !IsAdminEccSelected;
+
+        [RelayCommand]
+        private void SelectPcbEcs() => IsPcbEcsSelected = !IsPcbEcsSelected;
+
+        [RelayCommand]
+        private void SelectRcbEcs() => IsRcbEcsSelected = !IsRcbEcsSelected;
+
+        [RelayCommand]
+        private void SelectPcbController() => IsPcbControllerSelected = !IsPcbControllerSelected;
+
+        [RelayCommand]
+        private void SelectRcbController() => IsRcbControllerSelected = !IsRcbControllerSelected;
 
         [RelayCommand]
         private void CancelActivate()
@@ -534,22 +686,31 @@ namespace Keemya.Frontend.ViewModels
             // Dismiss the confirmation overlay so running overlay is shown cleanly
             IsConfirmingCommand = false;
 
-            // 1. Identify target sirens based on selection mode
-            List<SirenRowItem> targets = new();
-            bool isBroadcast = false;
-            if (IsBroadcastSelected)
+            if (card.CommandHex == 0)
             {
-                targets = _allSirens.ToList();
-                isBroadcast = true;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        IsCommandRunning = true;
+                        ActiveDurationDisplay = "Resetting All Sirens...";
+                        await ClearAll();
+                    }
+                    catch (Exception ex)
+                    {
+                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"Error during Reset Alarm: {ex.Message}");
+                    }
+                    finally
+                    {
+                        IsCommandRunning = false;
+                    }
+                });
+                return;
             }
-            else if (_mode == SelectionMode.Zone && _selZoneId.HasValue)
-            {
-                targets = _allSirens.Where(s => s.GroupId == _selZoneId.Value).ToList();
-            }
-            else if (_mode == SelectionMode.Siren && _selSirenId.HasValue)
-            { 
-                targets = _allSirens.Where(s => s.Id == _selSirenId.Value).ToList();
-            }
+
+            // Always target all sirens (Broadcast)
+            List<SirenRowItem> targets = _allSirens.ToList();
+            bool isBroadcast = true;
 
             if (targets.Count == 0)
             {

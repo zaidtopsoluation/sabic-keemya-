@@ -52,9 +52,7 @@ namespace Keemya.Frontend.ViewModels
 
         [ObservableProperty] private bool isMapVisible = false;
         [ObservableProperty] private bool isCommandCenterVisible = false;
-        [ObservableProperty] private bool isCommandConfigVisible = false;
         [ObservableProperty] private bool isSirenMgmtVisible = false;
-        [ObservableProperty] private bool isZoneMgmtVisible = false;
         [ObservableProperty] private bool isUserMgmtVisible = false;
         [ObservableProperty] private bool isNotificationsVisible = false;
         [ObservableProperty] private bool isAuditLogsVisible = false;
@@ -78,14 +76,8 @@ namespace Keemya.Frontend.ViewModels
             // CommandCenter: Admin, Operator
             IsCommandCenterVisible = role == "ADMIN" || role == "ADMINISTRATOR" || role == "OPERATOR";
             
-            // CommandConfig: Admin
-            IsCommandConfigVisible = role == "ADMIN" || role == "ADMINISTRATOR";
-            
             // SirenManagement: Admin
             IsSirenMgmtVisible = role == "ADMIN" || role == "ADMINISTRATOR";
-            
-            // ZoneManagement: Admin
-            IsZoneMgmtVisible = role == "ADMIN" || role == "ADMINISTRATOR";
             
             // UserManagement: Admin
             IsUserMgmtVisible = role == "ADMIN" || role == "ADMINISTRATOR";
@@ -221,12 +213,7 @@ namespace Keemya.Frontend.ViewModels
                 _navigationStore.CurrentViewModel = new UserManagementViewModel(_navigationStore);
         }
 
-        [RelayCommand]
-        private void NavigateToZoneManagement()
-        {
-            if (IsZoneMgmtVisible)
-                _navigationStore.CurrentViewModel = new ZoneManagementViewModel(_navigationStore);
-        }
+
 
         [RelayCommand]
         private void NavigateToProfile()
@@ -242,12 +229,6 @@ namespace Keemya.Frontend.ViewModels
                 _navigationStore.CurrentViewModel = new SirenManagementViewModel(_navigationStore);
         }
 
-        [RelayCommand]
-        private void NavigateToCommandConfig()
-        {
-            if (IsCommandConfigVisible)
-                _navigationStore.CurrentViewModel = new CommandConfigViewModel(_navigationStore);
-        }
 
         [RelayCommand]
         private void NavigateToCommandCenter()

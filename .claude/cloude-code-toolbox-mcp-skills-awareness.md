@@ -1,6 +1,6 @@
 # Cloude Code ToolBox — MCP & Skills awareness
 
-_Generated: 2026-07-27T06:45:12.851Z_
+_Generated: 2026-08-02T13:38:45.381Z_
 
 ## How to use this report
 
@@ -13,9 +13,9 @@ _Generated: 2026-07-27T06:45:12.851Z_
 
 ## MCP — workspace
 
-Workspace `mcp.json` _(folder: keemya project)_
+Workspace `mcp.json` _(folder: sabic-keemya-)_
 
-- **c:\Users\HP\Desktop\keemya project\.mcp.json** — _File missing_
+- **c:\Users\HP\Desktop\sabic-keemya-\.mcp.json** — _File missing_
 
 _No active workspace servers in mcp.json._
 

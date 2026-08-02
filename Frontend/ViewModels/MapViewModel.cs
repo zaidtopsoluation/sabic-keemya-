@@ -991,14 +991,7 @@ namespace Keemya.Frontend.ViewModels
 
         public string GetZonesJson()
         {
-            var list = Zones.Select(z => new
-            {
-                id = z.Id.ToString(),
-                name = z.Name,
-                colorHex = z.ColorHex,
-                shape = z.Shape
-            }).ToList();
-            return System.Text.Json.JsonSerializer.Serialize(list);
+            return "[]";
         }
 
         public string GetCommandsJson()

@@ -146,18 +146,6 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Commands Configuration -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#8B5CF6" BorderThickness="4,1,1,1" Command="{Binding NavigateToCommandConfigCommand}" Visibility="{Binding IsCommandConfigVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                            <Border Background="#F5F3FF" CornerRadius="6" Width="40" Height="40">
-                                <materialDesign:PackIcon Kind="CogOutline" Width="20" Height="20" Foreground="#8B5CF6" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="{DynamicResource ModCommandsConfig}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="15,0,0,0" />
-                        </StackPanel>
-                        <TextBlock Text="{DynamicResource ModCommandsConfigDesc}" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Button>
 
                 <!-- Siren Management -->
                 <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#EF4444" BorderThickness="4,1,1,1" Command="{Binding NavigateToSirenManagementCommand}" Visibility="{Binding IsSirenMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -172,18 +160,6 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Zone Management -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#10B981" BorderThickness="4,1,1,1" Command="{Binding NavigateToZoneManagementCommand}" Visibility="{Binding IsZoneMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                            <Border Background="#ECFDF5" CornerRadius="6" Width="40" Height="40">
-                                <materialDesign:PackIcon Kind="MapMarkerRadiusOutline" Width="20" Height="20" Foreground="#10B981" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="{DynamicResource ModZoneMgmt}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="15,0,0,0" />
-                        </StackPanel>
-                        <TextBlock Text="{DynamicResource ModZoneMgmtDesc}" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Button>
 
                 <!-- User Management -->
                 <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#3B82F6" BorderThickness="4,1,1,1" Command="{Binding NavigateToUserManagementCommand}" Visibility="{Binding IsUserMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">

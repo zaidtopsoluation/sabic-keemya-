@@ -75,6 +75,7 @@ namespace Keemya.Frontend.Services
         private SerialPort? _serialPort;
         private string _serialPortName = "COM4";
         private int _serialBaudRate = 9600; // Default — actual value loaded from DB (match your physical siren's DIP switch setting)
+        private CancellationTokenSource? _serialReadCts;
 
         // Ensures only one serial send+read cycle runs at a time
         private readonly SemaphoreSlim _serialLock = new SemaphoreSlim(1, 1);
@@ -108,7 +109,12 @@ namespace Keemya.Frontend.Services
 
             try
             {
-                System.IO.File.AppendAllText("c:\\Users\\HP\\Desktop\\keemya-system\\siren_comm.log", formatted + Environment.NewLine);
+                string logPath = "C:\\Users\\HP\\Desktop\\sabic-keemya-\\siren_comm.log";
+                if (!System.IO.Directory.Exists("C:\\Users\\HP\\Desktop\\sabic-keemya-"))
+                {
+                    logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "siren_comm.log");
+                }
+                System.IO.File.AppendAllText(logPath, formatted + Environment.NewLine);
             }
             catch {}
 
@@ -421,10 +427,17 @@ namespace Keemya.Frontend.Services
 
             try
             {
-                // Temporarily close active serial port if open
-                if (_serialPort != null && _serialPort.IsOpen)
+                // Temporarily close and dispose active serial port
+                if (_serialPort != null)
                 {
-                    _serialPort.Close();
+                    try
+                    {
+                        if (_serialPort.IsOpen)
+                            _serialPort.Close();
+                    }
+                    catch {}
+                    _serialPort.Dispose();
+                    _serialPort = null;
                 }
 
                 // Determine bauds to test (try current default/configured baud first)
@@ -475,7 +488,12 @@ namespace Keemya.Frontend.Services
                                     // Reinitialize main serial port to this config
                                     if (_serialPort != null)
                                     {
-                                        if (_serialPort.IsOpen) _serialPort.Close();
+                                        try
+                                        {
+                                            if (_serialPort.IsOpen) _serialPort.Close();
+                                        }
+                                        catch {}
+                                        _serialPort.Dispose();
                                     }
                                     _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
                                     _serialPort.ReadTimeout = 5000;
@@ -554,16 +572,27 @@ namespace Keemya.Frontend.Services
             await _serialLock.WaitAsync();
             try
             {
-                if (!_serialPort.IsOpen)
+                if (_serialPort == null || !_serialPort.IsOpen)
                 {
-                    // Try to open it if closed
                     if (_serialPort != null && _serialPort.PortName == _serialPortName)
                     {
                         _serialPort.Open();
                     }
                     else
                     {
-                        return;
+                        if (_serialPort != null)
+                        {
+                            try
+                            {
+                                if (_serialPort.IsOpen) _serialPort.Close();
+                            }
+                            catch {}
+                            _serialPort.Dispose();
+                        }
+                        _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
+                        _serialPort.ReadTimeout = 2000;
+                        _serialPort.WriteTimeout = 2000;
+                        _serialPort.Open();
                     }
                 }
 
@@ -690,7 +719,6 @@ namespace Keemya.Frontend.Services
         {
             if (isUserInitiated)
             {
-                _lastUserCommandTime = DateTime.Now;
                 InterruptSerialRead();
             }
 
@@ -708,8 +736,16 @@ namespace Keemya.Frontend.Services
                 // Check if port is already open or configured
                 if (_serialPort == null || _serialPort.PortName != _serialPortName)
                 {
-                    if (_serialPort != null && _serialPort.IsOpen)
-                        _serialPort.Close();
+                    if (_serialPort != null)
+                    {
+                        try
+                        {
+                            if (_serialPort.IsOpen)
+                                _serialPort.Close();
+                        }
+                        catch {}
+                        _serialPort.Dispose();
+                    }
 
                     _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
                     _serialPort.ReadTimeout = 2000; // 2 seconds is extremely generous and prevents long delays
@@ -763,7 +799,6 @@ namespace Keemya.Frontend.Services
                 {
                     // Delay to allow the UART transmission to clear the buffer and let the siren process the command cleanly without serial line interference
                     await Task.Delay(950);
-                    _serialLock.Release();
                     byte cmdByte = (byte)(frame.Length > 10 ? (frame[10] & 0x7F) : 0);
                     Log($"✅ [Serial Sender] Command {cmdByte:X2}H does not require ACK. Fast-completing.");
                     return true;
@@ -771,12 +806,7 @@ namespace Keemya.Frontend.Services
 
                 // Wait for the siren's ACK reply and return whether it was valid
                 // This is key for redundancy: TCP failover only triggers if siren truly didn't reply
-                var port = _serialPort;
-                bool ackReceived = await Task.Run(() =>
-                {
-                    try   { return ReadSerialResponse(port, frame, isUserInitiated); }
-                    finally { _serialLock.Release(); }
-                });
+                bool ackReceived = await ReadSerialResponseAsync(_serialPort, frame, isUserInitiated);
 
                 if (!ackReceived && !_hasSuccessfulSerialComm)
                 {
@@ -795,7 +825,6 @@ namespace Keemya.Frontend.Services
             }
             catch (Exception ex)
             {
-                _serialLock.Release(); // Always release on send failure
                 Log($"❌ [Serial Sender] Port {_serialPortName} is unavailable or locked: {ex.Message}");
 
                 // Trigger auto-detect asynchronously if the port failed to open or transmit,
@@ -808,14 +837,20 @@ namespace Keemya.Frontend.Services
 
                 return false;
             }
+            finally
+            {
+                _serialLock.Release(); // Always release in outer finally block!
+            }
         }
 
         // Returns true if a valid ACK frame with matching address was received, false on timeout or error
-        private bool ReadSerialResponse(SerialPort port, byte[] sentFrame, bool isUserInitiated = true)
+        private async Task<bool> ReadSerialResponseAsync(SerialPort port, byte[] sentFrame, bool isUserInitiated = true)
         {
             _isReadingResponse = true;
             _activeReadIsUserInitiated = isUserInitiated;
             _cancelPendingRead = false;
+            _serialReadCts = new CancellationTokenSource();
+
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -840,9 +875,15 @@ namespace Keemya.Frontend.Services
                     }
                 }
 
+                using var timeoutCts = new CancellationTokenSource(totalTimeoutMs);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _serialReadCts.Token);
+                var token = linkedCts.Token;
+
                 var frameBuffer = new System.Collections.Generic.List<byte>();
+
                 while (sw.ElapsedMilliseconds < totalTimeoutMs)
                 {
+                    token.ThrowIfCancellationRequested();
                     if (_cancelPendingRead)
                     {
                         Log("🔌 [Serial Rx] Read cancelled gracefully (interrupted by user command).");
@@ -852,59 +893,60 @@ namespace Keemya.Frontend.Services
                     int remainingTimeout = totalTimeoutMs - (int)sw.ElapsedMilliseconds;
                     if (remainingTimeout <= 0) break;
 
-                    // Set short read timeout to check cancellation flag frequently
-                    port.ReadTimeout = Math.Min(50, remainingTimeout);
-
-                    try
+                    if (port.BytesToRead > 0)
                     {
-                        int b = port.ReadByte(); // throws TimeoutException if nothing arrives
-                        if (b >= 0)
+                        try
                         {
-                            frameBuffer.Add((byte)b);
-
-                            // C2030 frame ends with CR (0x0D) - this ensures we consume the checksum and CR bytes too!
-                            if (b == 0x0D)
+                            // Guaranteed not to block because BytesToRead > 0
+                            int b = port.ReadByte();
+                            if (b >= 0)
                             {
-                                byte[] received = frameBuffer.ToArray();
-                                string hex   = string.Join(" ", received.Select(b => b.ToString("X2")));
-                                string ascii = new string(received.Select(b => b >= 0x20 && b < 0x7F ? (char)b : '.').ToArray());
+                                frameBuffer.Add((byte)b);
 
-                                Log($"📥 [Serial Rx] Full Frame ({received.Length} bytes)");
-                                Log($"    HEX : {hex}");
-                                Log($"    STR : {ascii}");
-
-                                // Process and verify address. If mismatch, loop continues to read any other incoming frame
-                                if (ProcessSirenResponse("SerialPort", received, "Serial", sentFrame))
+                                // C2030 frame ends with CR (0x0D) - this ensures we consume the checksum and CR bytes too!
+                                if (b == 0x0D)
                                 {
-                                    return true;
+                                    byte[] received = frameBuffer.ToArray();
+                                    string hex = string.Join(" ", received.Select(x => x.ToString("X2")));
+                                    string ascii = new string(received.Select(x => x >= 0x20 && x < 0x7F ? (char)x : '.').ToArray());
+
+                                    Log($"📥 [Serial Rx] Full Frame ({received.Length} bytes)");
+                                    Log($"    HEX : {hex}");
+                                    Log($"    STR : {ascii}");
+
+                                    // Process and verify address. If mismatch, loop continues to read any other incoming frame
+                                    if (ProcessSirenResponse("SerialPort", received, "Serial", sentFrame))
+                                    {
+                                        return true;
+                                    }
+
+                                    frameBuffer.Clear(); // Clear buffer to prepare for next incoming frame
                                 }
 
-                                frameBuffer.Clear(); // Clear buffer to prepare for next incoming frame
+                                // Safety cap — no valid frame should exceed 128 bytes
+                                if (frameBuffer.Count >= 128)
+                                {
+                                    frameBuffer.Clear();
+                                }
                             }
-
-                            // Safety cap — no valid frame should exceed 128 bytes
-                            if (frameBuffer.Count >= 128)
+                        }
+                        catch (Exception ex)
+                        {
+                            if (ex is InvalidOperationException || ex is System.IO.IOException)
                             {
-                                frameBuffer.Clear();
+                                Log("🔌 [Serial Rx] Read interrupted (port closed or disconnected).");
                             }
+                            else
+                            {
+                                Log($"❌ [Serial Rx] Error reading: {ex.Message}");
+                            }
+                            return false;
                         }
                     }
-                    catch (TimeoutException)
+                    else
                     {
-                        // Tiny slice timeout, check cancellation and loop again
-                        continue;
-                    }
-                    catch (Exception ex)
-                    {
-                        if (ex is InvalidOperationException || ex is System.IO.IOException)
-                        {
-                            Log("🔌 [Serial Rx] Read interrupted (port closed).");
-                        }
-                        else
-                        {
-                            Log($"❌ [Serial Rx] Error reading: {ex.Message}");
-                        }
-                        return false;
+                        // Wait a tiny bit before polling again. Yields CPU and is fully cancellable.
+                        await Task.Delay(15, token);
                     }
                 }
 
@@ -912,8 +954,8 @@ namespace Keemya.Frontend.Services
                 if (frameBuffer.Count > 0)
                 {
                     byte[] partial = frameBuffer.ToArray();
-                    string hex   = string.Join(" ", partial.Select(b => b.ToString("X2")));
-                    string ascii = new string(partial.Select(b => b >= 0x20 && b < 0x7F ? (char)b : '.').ToArray());
+                    string hex = string.Join(" ", partial.Select(x => x.ToString("X2")));
+                    string ascii = new string(partial.Select(x => x >= 0x20 && x < 0x7F ? (char)x : '.').ToArray());
                     Log($"📥 [Serial Rx] Partial Frame ({partial.Length} bytes, no CR received)");
                     Log($"    HEX : {hex}");
                     Log($"    STR : {ascii}");
@@ -935,11 +977,30 @@ namespace Keemya.Frontend.Services
                 Log("⚠️ [Serial Rx] ACK Response Timeout (Siren did not reply or total timeout reached).");
                 return false;
             }
+            catch (OperationCanceledException)
+            {
+                if (_cancelPendingRead || (_serialReadCts != null && _serialReadCts.IsCancellationRequested))
+                {
+                    Log("🔌 [Serial Rx] Read cancelled gracefully (interrupted by user command).");
+                }
+                else
+                {
+                    Log("⚠️ [Serial Rx] ACK Response Timeout (Siren did not reply or total timeout reached).");
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log($"❌ [Serial Rx] Error reading: {ex.Message}");
+                return false;
+            }
             finally
             {
                 _isReadingResponse = false;
                 _activeReadIsUserInitiated = false;
                 _cancelPendingRead = false;
+                _serialReadCts?.Dispose();
+                _serialReadCts = null;
             }
         }
 
@@ -948,8 +1009,13 @@ namespace Keemya.Frontend.Services
             if (!_isReadingResponse || _activeReadIsUserInitiated) return;
             Log("🔌 [Serial] Requesting cancellation of active background serial read...");
             _cancelPendingRead = true;
+            try
+            {
+                _serialReadCts?.Cancel();
+            }
+            catch {}
             
-            // Wait up to 150ms for the read thread to exit cleanly and release the serial lock
+            // Wait up to 150ms for the read thread to exit cleanly
             var sw = System.Diagnostics.Stopwatch.StartNew();
             while (_isReadingResponse && sw.ElapsedMilliseconds < 150)
             {
@@ -993,7 +1059,7 @@ namespace Keemya.Frontend.Services
             await _serialLock.WaitAsync();
             try
             {
-                if (!_serialPort.IsOpen)
+                if (_serialPort == null || !_serialPort.IsOpen)
                 {
                     if (_serialPort != null && _serialPort.PortName == _serialPortName)
                     {
@@ -1001,7 +1067,19 @@ namespace Keemya.Frontend.Services
                     }
                     else
                     {
-                        return;
+                        if (_serialPort != null)
+                        {
+                            try
+                            {
+                                if (_serialPort.IsOpen) _serialPort.Close();
+                            }
+                            catch {}
+                            _serialPort.Dispose();
+                        }
+                        _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
+                        _serialPort.ReadTimeout = 2000;
+                        _serialPort.WriteTimeout = 2000;
+                        _serialPort.Open();
                     }
                 }
 
