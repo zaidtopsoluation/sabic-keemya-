@@ -1133,7 +1133,9 @@ namespace Keemya.Frontend.Services
                 await SendSirenOnSequenceAsync(frame);
             }
 
-            bool expectsAck = !(cmdByte == 0x00 || cmdByte == 0x04 || (cmdByte >= 0x09 && cmdByte <= 0x0E) || (cmdByte >= 0x10 && cmdByte <= 0x14) || cmdByte == 0x1E);
+            // Only query and diagnostic status commands return status responses (expects ACK).
+            // Tone and setup commands (Wail, Attack, Alert, PA, Siren On/Off) are write-only activations.
+            bool expectsAck = (cmdByte == 35 || cmdByte == 31 || cmdByte == 15 || cmdByte == 22 || cmdByte == 33 || cmdByte == 34);
 
             if (isUserInitiated)
             {
@@ -1233,13 +1235,15 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            if (!item.IsOnline)
+            if (!item.IsTcpOnline && !item.IsSerialOnline)
                 return "OFFLINE";
 
-            if (item.HasIntrusion || item.HasAcLoss || item.HasLowBattery || 
-                item.HasStrobeError || item.HasSupervisorError || item.HasRotorFailure || 
-                item.HasFullAlertFailure || item.HasPartialAlertFailure || 
-                (item.DcVoltage > 0 && item.DcVoltage < 22.0))
+            // If only one channel is online, classify status as WARNING (displays Yellow)
+            if ((item.IsTcpOnline && !item.IsSerialOnline) || (!item.IsTcpOnline && item.IsSerialOnline))
+                return "WARNING";
+
+            // If both are online, check if there is an active alarm. If so, return WARNING. Otherwise return ONLINE (displays Green).
+            if (item.HasAlarm || (item.DcVoltage > 0 && item.DcVoltage < 22.0))
             {
                 return "WARNING";
             }
@@ -1408,7 +1412,41 @@ namespace Keemya.Frontend.Services
                     Log($"❌ [Cache Initialization Error] {ex.Message}");
                 }
             });
+            InitializePolling();
+        }
 
+        private byte[] BuildStatusFrame(string areaCode, string addressCode)
+        {
+            byte[] frame = new byte[15];
+            frame[0] = 0x02;
+
+            string area = areaCode.PadLeft(3, '0');
+            frame[1] = (byte)(0x80 | (area[0] - '0'));
+            frame[2] = (byte)(0x80 | (area[1] - '0'));
+            frame[3] = (byte)(0x80 | (area[2] - '0'));
+
+            string addr = addressCode.PadLeft(4, '0');
+            frame[4] = (byte)(0x80 | (addr[0] - '0'));
+            frame[5] = (byte)(0x80 | (addr[1] - '0'));
+            frame[6] = (byte)(0x80 | (addr[2] - '0'));
+            frame[7] = (byte)(0x80 | (addr[3] - '0'));
+
+            frame[8] = 0x80;
+            frame[9] = 0x80;
+            frame[10] = 0xA3; // 0x23 | 0x80 (Status request)
+            frame[11] = 0x03;
+
+            byte xor = 0;
+            for (int i = 0; i <= 11; i++) xor ^= frame[i];
+            frame[12] = (byte)(0x80 | (xor >> 4));
+            frame[13] = (byte)(0x80 | (xor & 0x0F));
+            frame[14] = 0x0D;
+
+            return frame;
+        }
+
+        private void InitializePolling()
+        {
             Task.Run(async () =>
             {
                 // Wait briefly for startup logs and serial configurations to load
@@ -1457,46 +1495,33 @@ namespace Keemya.Frontend.Services
                                     AreaCode = s.AreaCode,
                                     AddressCode = s.AddressCode,
                                     IsOnline = false,
+                                    IsTcpOnline = false,
+                                    IsSerialOnline = false,
                                     LastKnownStatus = "OFFLINE",
                                     LastUpdated = DateTime.Now
                                 };
                             }
                         }
 
+                        // 1. Poll TCP channels in parallel for all IP-enabled sirens
                         var tcpSirens = sirens.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
-                        var serialSirens = sirens.Where(s => string.IsNullOrWhiteSpace(s.Ip)).ToList();
-
-                        // 1. Poll TCP sirens in parallel
                         var tcpTasks = tcpSirens.Select(async s =>
                         {
                             try
                             {
-                                byte[] frame = new byte[15];
-                                frame[0] = 0x02;
+                                var cacheItem = GetCacheItemByAddressOrSource(s.Name);
+                                if (cacheItem != null)
+                                {
+                                    byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
+                                    bool tcpSuccess = await SendTcpCommandAsync(s.Ip, frame, true);
+                                    cacheItem.IsTcpOnline = tcpSuccess;
 
-                                string area = s.AreaCode.PadLeft(3, '0');
-                                frame[1] = (byte)(0x80 | (area[0] - '0'));
-                                frame[2] = (byte)(0x80 | (area[1] - '0'));
-                                frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                                string addr = s.AddressCode.PadLeft(4, '0');
-                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                                frame[8] = 0x80;
-                                frame[9] = 0x80;
-                                frame[10] = 0xA3; // 0x23 | 0x80
-                                frame[11] = 0x03;
-
-                                byte xor = 0;
-                                for (int i = 0; i <= 11; i++) xor ^= frame[i];
-                                frame[12] = (byte)(0x80 | (xor >> 4));
-                                frame[13] = (byte)(0x80 | (xor & 0x0F));
-                                frame[14] = 0x0D;
-
-                                await ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, true, false);
+                                    if (!s.Redundant)
+                                    {
+                                        cacheItem.IsSerialOnline = false;
+                                        cacheItem.IsOnline = tcpSuccess;
+                                    }
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -1505,49 +1530,54 @@ namespace Keemya.Frontend.Services
                         });
                         var tcpPromise = Task.WhenAll(tcpTasks);
 
-                        // 2. Poll Serial sirens sequentially
-                        foreach (var s in serialSirens)
+                        // 2. Poll Serial channels sequentially for Serial-only and Redundant sirens
+                        var serialSirensList = sirens.Where(s => string.IsNullOrWhiteSpace(s.Ip) || s.Redundant).ToList();
+                        foreach (var s in serialSirensList)
                         {
                             try
                             {
-                                byte[] frame = new byte[15];
-                                frame[0] = 0x02;
+                                var cacheItem = GetCacheItemByAddressOrSource(s.Name);
+                                if (cacheItem != null)
+                                {
+                                    byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
+                                    bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
+                                    cacheItem.IsSerialOnline = serialSuccess;
 
-                                string area = s.AreaCode.PadLeft(3, '0');
-                                frame[1] = (byte)(0x80 | (area[0] - '0'));
-                                frame[2] = (byte)(0x80 | (area[1] - '0'));
-                                frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                                string addr = s.AddressCode.PadLeft(4, '0');
-                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                                frame[8] = 0x80;
-                                frame[9] = 0x80;
-                                frame[10] = 0xA3; // 0x23 | 0x80
-                                frame[11] = 0x03;
-
-                                byte xor = 0;
-                                for (int i = 0; i <= 11; i++) xor ^= frame[i];
-                                frame[12] = (byte)(0x80 | (xor >> 4));
-                                frame[13] = (byte)(0x80 | (xor & 0x0F));
-                                frame[14] = 0x0D;
-
-                                await ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, true, false);
+                                    if (string.IsNullOrWhiteSpace(s.Ip))
+                                    {
+                                        cacheItem.IsTcpOnline = false;
+                                        cacheItem.IsOnline = serialSuccess;
+                                    }
+                                    else
+                                    {
+                                        // Redundant siren is overall online if either channel responds
+                                        cacheItem.IsOnline = cacheItem.IsTcpOnline || serialSuccess;
+                                    }
+                                }
                             }
                             catch (Exception ex)
                             {
                                 Log($"❌ [Serial Poller Error for {s.Name}] {ex.Message}");
                             }
 
-                            // Delay between query loops to share serial access smoothly
-                            int delayMs = serialSirens.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
+                            // Enforce inter-device delay on serial port
+                            int delayMs = serialSirensList.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
                             await Task.Delay(delayMs);
                         }
 
                         await tcpPromise;
+
+                        // 3. Compute overall status and sync to database for all sirens
+                        foreach (var s in sirens)
+                        {
+                            var cacheItem = GetCacheItemByAddressOrSource(s.Name);
+                            if (cacheItem != null)
+                            {
+                                cacheItem.LastUpdated = DateTime.Now;
+                                string computedStatus = GetComputedStatus(cacheItem);
+                                _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -2037,6 +2067,8 @@ namespace Keemya.Frontend.Services
         public string AreaCode { get; set; } = "000";
         public string AddressCode { get; set; } = "0000";
         public bool IsOnline { get; set; } = false;
+        public bool IsTcpOnline { get; set; } = false;
+        public bool IsSerialOnline { get; set; } = false;
         public string LastKnownStatus { get; set; } = string.Empty;
         public bool LastSyncedAcFailed { get; set; } = false;
         public bool LastSyncedApmFailed { get; set; } = false;

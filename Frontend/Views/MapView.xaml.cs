@@ -74,7 +74,11 @@ namespace Keemya.Frontend.Views
                 if (_viewModel?.SelectedSiren != null)
                 {
                     string idStr = _viewModel.SelectedSiren.Id.ToString();
-                    await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}')");
+                    string source = _viewModel.LastSirenClickSource;
+                    if (source == "status")
+                    {
+                        await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}', false, '{source}')");
+                    }
 
                     var data = new
                     {
@@ -224,11 +228,11 @@ namespace Keemya.Frontend.Views
 
                         await MapWebView.CoreWebView2.ExecuteScriptAsync($"setUserRole('{Session.Role}')");
 
-                        // Apply initial selection if present
                         if (vm.SelectedSiren != null)
                         {
                             string idStr = vm.SelectedSiren.Id.ToString();
-                            await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}')");
+                            string source = vm.LastSirenClickSource;
+                            await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}', false, '{source}')");
                         }
                     }
                 };
@@ -255,10 +259,28 @@ namespace Keemya.Frontend.Views
                                     {
                                         Dispatcher.Invoke(() => 
                                         {
-                                            vm.ClickSirenCommand.Execute(siren);
+                                            vm.ClickSirenFromMapCommand.Execute(siren);
                                         });
                                     }
                                 }
+                            }
+                            else if (type == "sirenSelectionChanged")
+                            {
+                                var idsProp = msg.RootElement.GetProperty("ids");
+                                var listIds = new List<Guid>();
+                                foreach (var item in idsProp.EnumerateArray())
+                                {
+                                    string idStr = item.GetString() ?? "";
+                                    if (Guid.TryParse(idStr, out Guid guidId))
+                                    {
+                                        listIds.Add(guidId);
+                                    }
+                                }
+
+                                Dispatcher.Invoke(() => 
+                                {
+                                    vm.UpdateSirenSelectionFromMap(listIds);
+                                });
                             }
                             else if (type == "zoneClicked")
                             {

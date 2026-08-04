@@ -80,10 +80,10 @@ namespace Keemya.Frontend.ViewModels
         private bool isMapPickerOpen = false;
 
         [ObservableProperty]
-        private double mapLatitude = 26.3927; // Default centered near Dammam
+        private double mapLatitude = 27.028000; // Default centered near KEMYA plant
 
         [ObservableProperty]
-        private double mapLongitude = 49.9777;
+        private double mapLongitude = 49.595000;
 
         public SirenManagementViewModel(NavigationStore navigationStore)
         {
@@ -266,8 +266,8 @@ namespace Keemya.Frontend.ViewModels
         [RelayCommand]
         private void OpenMapPicker()
         {
-            MapLatitude = Latitude != 0 ? Latitude : 26.3927;
-            MapLongitude = Longitude != 0 ? Longitude : 49.9777;
+            MapLatitude = Latitude != 0 ? Latitude : 27.028000;
+            MapLongitude = Longitude != 0 ? Longitude : 49.595000;
             IsMapPickerOpen = true;
         }
 

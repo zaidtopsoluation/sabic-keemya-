@@ -18,19 +18,31 @@ namespace Keemya.Frontend.Models
         [NotifyPropertyChangedFor(nameof(HasACPower))]
         private string status = "OFFLINE";
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusColorBrush))]
+        private bool isTcpOnline = false;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusColorBrush))]
+        private bool isSerialOnline = false;
+
         public string Ip { get; set; } = string.Empty;
         public bool Redundant { get; set; }
         public Guid? GroupId { get; set; }
         public string GroupName { get; set; } = string.Empty;
 
         // Rich Presentation Properties
-        public string StatusColorBrush => Status.ToUpper() switch
+        public string StatusColorBrush
         {
-            "ONLINE" => "#10B981",       // Green
-            "MAINTENANCE" => "#3B82F6",  // Blue
-            "WARNING" => "#F59E0B",      // Amber
-            _ => "#EF4444"               // Red for OFFLINE
-        };
+            get
+            {
+                if (IsTcpOnline && IsSerialOnline)
+                    return "#10B981"; // Green (Both channels online)
+                if (IsTcpOnline || IsSerialOnline)
+                    return "#F59E0B"; // Yellow (One channel online)
+                return "#EF4444";     // Red (Offline)
+            }
+        }
 
         public string Subtext => $"{AreaCode} • {AddressCode} • {(string.IsNullOrEmpty(GroupName) ? "No Group" : GroupName)}";
 

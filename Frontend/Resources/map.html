@@ -182,17 +182,14 @@
             transform: translateX(0);
         }
         .overlay-sidebar-drawer.single-column-mode {
-            width: 380px;
-            transform: translateX(380px);
+            width: 300px;
+            transform: translateX(300px);
         }
         .overlay-sidebar-drawer.single-column-mode.active {
             transform: translateX(0);
         }
         .overlay-sidebar-drawer.single-column-mode .sidebar-content {
             grid-template-columns: 1fr;
-        }
-        .overlay-sidebar-drawer.single-column-mode .drawer-column:nth-child(2) {
-            display: none;
         }
 
         .sidebar-header {
@@ -491,10 +488,26 @@
         }
         .selected .pulse-ring {
             display: block;
+            border: 3px solid #2563eb;
+            animation: ripple-animation 1.5s infinite cubic-bezier(0.25, 0, 0, 1);
+            width: 60px;
+            height: 60px;
+            top: -12px;
+            left: -12px;
         }
         @keyframes pulse-animation {
             0% { transform: scale(0.9); opacity: 0.2; }
             100% { transform: scale(1.1); opacity: 0.8; }
+        }
+        @keyframes ripple-animation {
+            0% {
+                transform: scale(0.7);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
         }
         .pin-marker {
             width: 36px;
@@ -508,6 +521,11 @@
             justify-content: center;
             box-sizing: border-box;
             z-index: 2;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+        }
+        .selected .pin-marker {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #2563eb, 0 0 20px rgba(37, 99, 235, 0.9);
         }
         .pin-inner-circle {
             width: 24px;
@@ -896,7 +914,7 @@
                 </div>
                 
                 <!-- COLUMN 2 (RIGHT PARALLEL): Dynamic Emergency Activations -->
-                <div class="drawer-column scrollable">
+                <div class="drawer-column scrollable" id="activations-column">
                     <div class="sidebar-section-title">Emergency Activations</div>
                     <div id="commands-list">
                         <!-- Loaded dynamically from C# backend -->
@@ -908,28 +926,31 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Define KEMYA plant boundaries (GPS)
+        var kemyaBounds = L.latLngBounds(
+            L.latLng(27.018000, 49.582000), // Southwest corner
+            L.latLng(27.038000, 49.606000)  // Northeast corner
+        );
+
         var map = L.map('map', {
             zoomControl: false,
-            attributionControl: true
-        }).setView([26.0, 50.0], 10);
+            attributionControl: true,
+            maxBounds: kemyaBounds,
+            maxBoundsViscosity: 1.0,
+            minZoom: 14,
+            maxZoom: 20
+        }).setView([27.028, 49.595], 16);
 
         // Add standard zoom control at bottom-right
         L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
 
-        var lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        });
-
-        var darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors, © CARTO'
-        });
-
-        // Default to light tiles
-        lightTiles.addTo(map);
+        // Add Google Hybrid Tiles (Satellite + Road labels)
+        var googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            attribution: '© Google Maps'
+        }).addTo(map);
 
         var markersGroup = L.layerGroup().addTo(map);
         var zoneShapesGroup = L.layerGroup().addTo(map);
@@ -940,7 +961,19 @@
         var commandsData = [];
         
         var selectedSirenId = null;
+        var selectedSirenIds = [];
         var selectedZoneTargetNames = null;
+        function getCommandColor(name) {
+            switch ((name || "").toUpperCase()) {
+                case "FIRE ALARM": return "#A72A2A";
+                case "GAS ALARM": return "#E68A00";
+                case "ALL CLEAR ALARM": return "#2A75B3";
+                case "RESET ALARM": return "#E6D900";
+                case "PUBLIC ADDRESS": return "#3B82F6";
+                case "ATTENTION": return "#5C2AB3";
+                default: return "#3B82F6";
+            }
+        }
 
         // Monitor zoom changes
         map.on('zoomend', function() {
@@ -1051,7 +1084,7 @@
                     var marker = L.marker([siren.lat, siren.lng], { icon: customIcon });
                     
                     marker.on('click', function() {
-                        sendWpfMessage({ type: 'sirenClicked', id: siren.id });
+                        toggleSirenSelection(siren.id);
                     });
 
                     markersGroup.addLayer(marker);
@@ -1112,12 +1145,26 @@
             var listContainer = document.getElementById('commands-list');
             listContainer.innerHTML = '';
             
+            // Set flex container styling to center buttons vertically stacked
+            listContainer.style.display = 'flex';
+            listContainer.style.flexDirection = 'column';
+            listContainer.style.alignItems = 'center';
+            listContainer.style.gap = '15px';
+            listContainer.style.padding = '10px 0';
+            
             var targetName = "-";
             var availableCount = "0";
 
             if (selectedZoneTargetNames) {
                 targetName = selectedZoneTargetNames;
                 availableCount = selectedZoneCount || "0";
+            } else if (selectedSirenIds.length > 0) {
+                var names = selectedSirenIds.map(sid => {
+                    var s = sirensData.find(x => x.id === sid);
+                    return s ? s.name : "";
+                }).filter(Boolean);
+                targetName = names.join(", ");
+                availableCount = selectedSirenIds.length.toString();
             } else {
                 var selectedSiren = sirensData.find(s => s.id === selectedSirenId);
                 targetName = selectedSiren ? selectedSiren.name : "-";
@@ -1125,42 +1172,55 @@
             }
 
             commandsData.forEach(function(cmd) {
-                var card = document.createElement('div');
-                card.className = 'command-card';
+                var btn = document.createElement('button');
+                btn.className = 'command-card-touch';
+                var color = getCommandColor(cmd.name);
+                var isReset = cmd.name.toUpperCase() === 'RESET ALARM';
+                var textColor = isReset ? '#000000' : '#ffffff';
                 
-                card.innerHTML = `
-                    <div class="command-card-title">${cmd.name}</div>
-                    <div class="command-details">
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                            Default Target: <span class="command-detail-value">${targetName}</span>
-                        </div>
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                            </svg>
-                            ${availableCount} Siren(s) Available
-                        </div>
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
-                            Duration: <span class="command-detail-value">${cmd.duration}s</span>
-                        </div>
-                    </div>
-                    <button class="activate-btn" onclick="promptCommandActivation('${cmd.id}', '${cmd.name}')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        Activate
-                    </button>
-                `;
-                listContainer.appendChild(card);
+                btn.style.backgroundColor = color;
+                btn.style.borderColor = '#ffffff';
+                btn.style.borderWidth = '1.2px';
+                btn.style.borderStyle = 'solid';
+                btn.style.color = textColor;
+                btn.style.cursor = 'pointer';
+                
+                // Centered compact touch bar layout
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.justifyContent = 'center';
+                btn.style.width = '240px'; // Shorter width as requested to fit 300px drawer
+                btn.style.height = '50px';
+                btn.style.boxSizing = 'border-box';
+                btn.style.borderRadius = '4px';
+                btn.style.textAlign = 'center';
+                btn.style.fontWeight = 'bold';
+                btn.style.fontSize = '11.5px'; // Fits names cleanly on a single line
+                btn.style.textTransform = 'uppercase';
+                btn.style.whiteSpace = 'nowrap';
+                btn.style.boxShadow = '0 3px 6px rgba(0,0,0,0.3)';
+                btn.style.transition = 'transform 0.1s, filter 0.2s';
+                
+                btn.onmouseenter = function() {
+                    btn.style.filter = 'brightness(1.1)';
+                };
+                btn.onmouseleave = function() {
+                    btn.style.filter = 'brightness(1.0)';
+                };
+                btn.onmousedown = function() {
+                    btn.style.transform = 'scale(0.96)';
+                };
+                btn.onmouseup = function() {
+                    btn.style.transform = 'scale(1.0)';
+                };
+                
+                btn.onclick = function() {
+                    promptCommandActivation(cmd.id, cmd.name);
+                };
+                
+                btn.innerText = cmd.name.toUpperCase();
+                
+                listContainer.appendChild(btn);
             });
         }
 
@@ -1292,9 +1352,70 @@
             }
         }
 
+        function toggleSirenSelection(id) {
+            if (!id) return;
+            selectedZoneTargetNames = null;
+            selectedZoneCount = 0;
+            
+            var index = selectedSirenIds.indexOf(id);
+            if (index > -1) {
+                // Deselect
+                selectedSirenIds.splice(index, 1);
+            } else {
+                // Select
+                selectedSirenIds.push(id);
+            }
+            
+            // Set selectedSirenId to the last one (or null if empty)
+            selectedSirenId = selectedSirenIds.length > 0 ? selectedSirenIds[selectedSirenIds.length - 1] : null;
+
+            applyRoleBasedPermissions();
+            
+            // Highlight selected pins
+            for (var sirenId in sirenMarkers) {
+                var element = document.getElementById("pin-siren-" + sirenId);
+                if (element) {
+                    if (selectedSirenIds.indexOf(sirenId) > -1) {
+                        element.classList.add('selected');
+                    } else {
+                        element.classList.remove('selected');
+                    }
+                }
+            }
+
+            if (selectedSirenIds.length > 0) {
+                // Show activations drawer (single column mode 'map')
+                var sidebarDrawer = document.getElementById('sidebar-drawer');
+                var diagnosticsCol = document.getElementById('diagnostics-column');
+                var activationsCol = document.getElementById('activations-column');
+
+                if (diagnosticsCol) diagnosticsCol.style.display = 'none';
+                if (activationsCol) activationsCol.style.display = 'block';
+                sidebarDrawer.classList.add('single-column-mode');
+                document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
+                
+                var names = selectedSirenIds.map(sid => {
+                    var s = sirensData.find(x => x.id === sid);
+                    return s ? s.name : "";
+                }).filter(Boolean);
+                
+                document.getElementById('sidebar-subtitle').innerText = "Selected: " + names.join(", ");
+                renderCommands();
+                sidebarDrawer.classList.add('active');
+
+                // Send list of selected IDs to C#
+                sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
+            } else {
+                // Clear selection
+                document.getElementById('sidebar-drawer').classList.remove('active');
+                sendWpfMessage({ type: 'sirenSelectionChanged', ids: [], source: 'map' });
+            }
+        }
+
         // Visually toggle selection state
-        function selectSiren(id, preserveTelemetry) {
+        function selectSiren(id, preserveTelemetry, showMode) {
             selectedSirenId = id;
+            selectedSirenIds = id ? [id] : [];
             selectedZoneTargetNames = null;
             selectedZoneCount = 0;
             
@@ -1338,14 +1459,34 @@
                 statusPill.innerText = siren.status;
                 statusPill.style.color = getStatusColor(siren.status);
 
-                // 4. Slide out right widescreen drawer
-                document.getElementById('diagnostics-column').style.display = 'block';
-                document.querySelector('#diagnostics-column .sidebar-section-title').innerText = "Diagnostics & Telemetry";
-                document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
+                // 4. Slide out right widescreen drawer dynamically based on showMode
+                var sidebarDrawer = document.getElementById('sidebar-drawer');
+                var diagnosticsCol = document.getElementById('diagnostics-column');
+                var activationsCol = document.getElementById('activations-column');
+
+                if (showMode === 'map') {
+                    // Show only activations column
+                    if (diagnosticsCol) diagnosticsCol.style.display = 'none';
+                    if (activationsCol) activationsCol.style.display = 'block';
+                    sidebarDrawer.classList.add('single-column-mode');
+                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
+                } else if (showMode === 'status') {
+                    // Show only diagnostics column
+                    if (diagnosticsCol) diagnosticsCol.style.display = 'block';
+                    if (activationsCol) activationsCol.style.display = 'none';
+                    sidebarDrawer.classList.add('single-column-mode');
+                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
+                } else {
+                    // Default/Both columns
+                    if (diagnosticsCol) diagnosticsCol.style.display = 'block';
+                    if (activationsCol) activationsCol.style.display = 'block';
+                    sidebarDrawer.classList.remove('single-column-mode');
+                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
+                }
                 
                 document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
                 renderCommands(); // Refresh command card target names
-                document.getElementById('sidebar-drawer').classList.add('active');
+                sidebarDrawer.classList.add('active');
             } else {
                 // Clear selection drawer
                 document.getElementById('sidebar-drawer').classList.remove('active');

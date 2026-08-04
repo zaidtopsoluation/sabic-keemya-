@@ -29,6 +29,8 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty]
         private ObservableCollection<SirenDeviceDto> sirens = new();
 
+        public ObservableCollection<string> CommLogs => SirenCommunicationService.Instance.Logs;
+
         [ObservableProperty]
         private ObservableCollection<ZoneDto> zones = new();
 
@@ -51,6 +53,9 @@ namespace Keemya.Frontend.ViewModels
         // ── Selection and Overlay States ─────────────────────────────────────
         [ObservableProperty]
         private SirenDeviceDto? selectedSiren;
+
+        [ObservableProperty]
+        private string lastSirenClickSource = "status";
 
         [ObservableProperty]
         private ObservableCollection<SirenDeviceDto> targetedSirens = new();
@@ -185,10 +190,13 @@ namespace Keemya.Frontend.ViewModels
                 using var rdr = await cmd.ExecuteReaderAsync();
                 while (await rdr.ReadAsync())
                 {
+                    var sName = rdr.GetString(1);
+                    var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(sName);
+
                     list.Add(new SirenDeviceDto
                     {
                         Id = rdr.GetGuid(0),
-                        Name = rdr.GetString(1),
+                        Name = sName,
                         AreaCode = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2),
                         AddressCode = rdr.IsDBNull(3) ? string.Empty : rdr.GetString(3),
                         Lat = rdr.IsDBNull(4) ? 0.0 : rdr.GetDouble(4),
@@ -197,7 +205,9 @@ namespace Keemya.Frontend.ViewModels
                         Ip = rdr.IsDBNull(7) ? string.Empty : rdr.GetString(7),
                         Redundant = rdr.GetBoolean(8),
                         GroupId = rdr.IsDBNull(9) ? null : rdr.GetGuid(9),
-                        GroupName = rdr.IsDBNull(10) ? string.Empty : rdr.GetString(10)
+                        GroupName = rdr.IsDBNull(10) ? string.Empty : rdr.GetString(10),
+                        IsTcpOnline = cache?.IsTcpOnline ?? false,
+                        IsSerialOnline = cache?.IsSerialOnline ?? false
                     });
                 }
 
@@ -220,31 +230,66 @@ namespace Keemya.Frontend.ViewModels
         {
             try
             {
-                var list = new List<CommandConfigDto>();
-                using var conn = new MySqlConnection(ConnStr);
-                await conn.OpenAsync();
-
-                const string sql = @"SELECT Id, Name, CommandType, CommandHex, Color, Duration
-                                     FROM CommandConfigs
-                                     WHERE IsSystemDefault = 0 AND IsEnabled = 1
-                                     ORDER BY SortOrder, Name";
-
-                using var cmd = new MySqlCommand(sql, conn);
-                using var rdr = await cmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
+                var list = new List<CommandConfigDto>
                 {
-                    list.Add(new CommandConfigDto
+                    new CommandConfigDto
                     {
-                        Id = rdr.GetGuid(0),
-                        Name = rdr.GetString(1),
-                        CommandType = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
-                        CommandHex = rdr.GetInt32(3),
-                        Color = rdr.IsDBNull(4) ? "Blue" : rdr.GetString(4),
-                        Duration = rdr.GetInt32(5)
-                    });
-                }
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000003"),
+                        Name = "FIRE ALARM",
+                        CommandType = "Attack",
+                        CommandHex = 2,
+                        Color = "#A72A2A",
+                        Duration = 90
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000002"),
+                        Name = "GAS ALARM",
+                        CommandType = "Wail",
+                        CommandHex = 1,
+                        Color = "#E68A00",
+                        Duration = 90
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000006"),
+                        Name = "ALL CLEAR ALARM",
+                        CommandType = "AirHorn",
+                        CommandHex = 5,
+                        Color = "#2A75B3",
+                        Duration = 90
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000001"),
+                        Name = "RESET ALARM",
+                        CommandType = "Clear",
+                        CommandHex = 0,
+                        Color = "#E6D900",
+                        Duration = 0
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000005"),
+                        Name = "PUBLIC ADDRESS",
+                        CommandType = "PublicAddress",
+                        CommandHex = 4,
+                        Color = "#3B82F6",
+                        Duration = 0
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.Parse("00000000-0000-0000-0001-000000000004"),
+                        Name = "ATTENTION",
+                        CommandType = "Alert",
+                        CommandHex = 3,
+                        Color = "#5C2AB3",
+                        Duration = 90
+                    }
+                };
 
                 CommandCards = new ObservableCollection<CommandConfigDto>(list);
+                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
@@ -283,6 +328,20 @@ namespace Keemya.Frontend.ViewModels
         }
 
         // ── Interaction: Select Siren ────────────────────────────────────────
+        [RelayCommand]
+        private void ClickSirenFromMap(SirenDeviceDto siren)
+        {
+            LastSirenClickSource = "map";
+            ClickSiren(siren);
+        }
+
+        [RelayCommand]
+        private void ClickSirenFromList(SirenDeviceDto siren)
+        {
+            LastSirenClickSource = "status";
+            ClickSiren(siren);
+        }
+
         [RelayCommand]
         private void ClickSiren(SirenDeviceDto siren)
         {
@@ -350,6 +409,88 @@ namespace Keemya.Frontend.ViewModels
 
             // Trigger background C2030 status request query (15-byte protocol frame)
             _ = Task.Run(() => QuerySirenHealthAsync(siren));
+        }
+
+        public void UpdateSirenSelectionFromMap(List<Guid> ids)
+        {
+            TargetedSirens.Clear();
+            foreach (var id in ids)
+            {
+                var siren = Sirens.FirstOrDefault(x => x.Id == id);
+                if (siren != null)
+                {
+                    TargetedSirens.Add(siren);
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                var lastId = ids[ids.Count - 1];
+                var lastSiren = Sirens.FirstOrDefault(x => x.Id == lastId);
+                
+                LastSirenClickSource = "map";
+                SelectedSiren = lastSiren;
+
+                if (lastSiren != null)
+                {
+                    var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(lastSiren.Name);
+                    if (cache != null)
+                    {
+                        HealthStatusByte = cache.StatusByte;
+                        HealthSirenOn = cache.SirenOn;
+                        HealthAcOn = cache.AcOn;
+                        HealthDynamicAc = cache.DynamicAc;
+                        HealthPartialAlert = cache.PartialAlert;
+                        HealthStrobeActive = cache.StrobeActive;
+                        HealthSystemArmed = cache.SystemArmed;
+                        HealthSupervisorMode = cache.SupervisorMode;
+                        HealthRotorActive = cache.RotorActive;
+                        HealthStoredAc = cache.StoredAc;
+                        HealthFullAlert = cache.FullAlert;
+                        HealthIntrusion = cache.Intrusion;
+                        HealthBiasDetected = cache.BiasDetected;
+                        HealthSystemPowerUp = cache.SystemPowerUp;
+                        HealthDcVoltage = cache.DcVoltage;
+                        HealthAcVoltage = cache.AcVoltage;
+                        HealthTemperature = cache.CabTemp;
+                    }
+                    else
+                    {
+                        HealthStatusByte = null;
+                        HealthSirenOn = false;
+                        HealthAcOn = false;
+                        HealthDynamicAc = false;
+                        HealthPartialAlert = false;
+                        HealthStrobeActive = false;
+                        HealthSystemArmed = false;
+                        HealthSupervisorMode = false;
+                        HealthRotorActive = false;
+                        HealthStoredAc = false;
+                        HealthFullAlert = false;
+                        HealthIntrusion = false;
+                        HealthBiasDetected = false;
+                        HealthSystemPowerUp = false;
+
+                        HealthDcVoltage = 0.0;
+                        HealthAcVoltage = 0.0;
+                        HealthTemperature = 0.0;
+                    }
+                }
+
+                IsDiagnosticsOpen = true;
+                string namesStr = string.Join(", ", TargetedSirens.Select(s => s.Name));
+                SidebarTitle = "Siren Activation";
+                SidebarSubtitle = "Selected: " + namesStr;
+                TargetLabel = "Selected: " + namesStr;
+                IsSidebarOpen = true;
+            }
+            else
+            {
+                SelectedSiren = null;
+                IsSidebarOpen = false;
+                SidebarSubtitle = "None Selected";
+                TargetLabel = "-";
+            }
         }
 
         // ── Interaction: Select Zone ─────────────────────────────────────────
@@ -1045,10 +1186,17 @@ namespace Keemya.Frontend.ViewModels
                 {
                     siren.Status = status.ToUpper();
                     
+                    var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(sirenName);
+                    if (cache != null)
+                    {
+                        siren.IsTcpOnline = cache.IsTcpOnline;
+                        siren.IsSerialOnline = cache.IsSerialOnline;
+                    }
+                    
                     // Update Zone online/offline counters dynamically
                     foreach (var z in Zones)
                     {
-                        z.OnlineDevices = Sirens.Count(s => s.GroupId == z.Id && s.Status.ToUpper() == "ONLINE");
+                        z.OnlineDevices = Sirens.Count(s => s.GroupId == z.Id && (s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING"));
                     }
 
                     // Notify view to refresh map pins

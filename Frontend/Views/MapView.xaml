@@ -8,7 +8,145 @@
              d:DesignHeight="768" d:DesignWidth="1366">
              
     <Grid Background="{StaticResource AppBackground}">
-        <!-- The Full Screen Leaflet Map and Overlay hybrid controls inside WebView2 -->
-        <wv2:WebView2 x:Name="MapWebView" />
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>      <!-- Column 0: Full Leaflet Map -->
+            <ColumnDefinition Width="260"/>    <!-- Column 1: STATUS & ACTIVITY sidebar -->
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Column: WebView2 Map -->
+        <wv2:WebView2 Grid.Column="0" x:Name="MapWebView" />
+
+        <!-- Right Column: Split Status / Activity Sidebar -->
+        <Border Grid.Column="1" Background="#333333" BorderBrush="#444444" BorderThickness="1,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>      <!-- Row 0: STATUS list -->
+                    <RowDefinition Height="200"/>    <!-- Row 1: ACTIVITY logs -->
+                </Grid.RowDefinitions>
+
+                <!-- STATUS SECTION -->
+                <Grid Grid.Row="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="#262626" BorderBrush="#444444" BorderThickness="0,0,0,1">
+                        <TextBlock Text="STATUS" Foreground="White" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Scrollable Siren List -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Sirens}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{x:Null}"
+                                            Command="{Binding DataContext.ClickSirenFromListCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="0"
+                                            Height="Auto"
+                                            MinHeight="0"
+                                            HorizontalContentAlignment="Stretch"
+                                            VerticalContentAlignment="Stretch"
+                                            Padding="0"
+                                            Cursor="Hand">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="Transparent" BorderBrush="#444444" BorderThickness="0,0,0,1" Padding="10,12">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#2A2A2A"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        
+                                        <!-- Item Content Grid -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Status dot -->
+                                            <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5"
+                                                    Background="{Binding StatusColorBrush}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+
+                                            <!-- Siren Name & Dynamic Health Subtitle -->
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock Foreground="White" FontSize="12" FontWeight="Bold">
+                                                    <Run Text="Siren ("/>
+                                                    <Run Text="{Binding Name, Mode=OneWay}"/>
+                                                    <Run Text=")"/>
+                                                </TextBlock>
+                                                <TextBlock FontSize="10" Margin="0,2,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="Normal Operation"/>
+                                                            <Setter Property="Foreground" Value="#10B981"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Status}" Value="OFFLINE">
+                                                                    <Setter Property="Text" Value="Error communicating with device"/>
+                                                                    <Setter Property="Foreground" Value="#EF4444"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="MAINTENANCE">
+                                                                    <Setter Property="Text" Value="Maintenance Mode"/>
+                                                                    <Setter Property="Foreground" Value="#3B82F6"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="WARNING">
+                                                                    <Setter Property="Text" Value="Warning Status"/>
+                                                                    <Setter Property="Foreground" Value="#F59E0B"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- ACTIVITY SECTION -->
+                <Border Grid.Row="1" BorderBrush="#444444" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="35"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Header -->
+                        <Border Grid.Row="0" Background="#262626" BorderBrush="#444444" BorderThickness="0,0,0,1">
+                            <TextBlock Text="ACTIVITY" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Logs List -->
+                        <Border Grid.Row="1" Background="#1E1E1E" Padding="6">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding CommLogs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Foreground="#34D399" FontSize="9.5" 
+                                                       FontFamily="Consolas" TextWrapping="Wrap" Margin="0,2"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>
