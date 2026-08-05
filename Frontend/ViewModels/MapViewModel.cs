@@ -61,6 +61,9 @@ namespace Keemya.Frontend.ViewModels
         private ObservableCollection<SirenDeviceDto> targetedSirens = new();
 
         [ObservableProperty]
+        private ObservableCollection<StationStatusDto> stationStatuses = new();
+
+        [ObservableProperty]
         private bool isDiagnosticsOpen = false;
 
         [ObservableProperty]
@@ -134,6 +137,13 @@ namespace Keemya.Frontend.ViewModels
             {
                 System.Windows.Application.Current?.Dispatcher?.Invoke(() => MicrophoneVolume = vol);
             };
+
+            // Initialize station status refresh timer
+            var stationTimer = new System.Windows.Threading.DispatcherTimer();
+            stationTimer.Interval = TimeSpan.FromSeconds(5);
+            stationTimer.Tick += async (s, e) => await LoadStationStatusesAsync();
+            stationTimer.Start();
+            _ = Task.Run(() => LoadStationStatusesAsync());
         }
 
         private async Task InitializeDataAsync()
@@ -1203,6 +1213,56 @@ namespace Keemya.Frontend.ViewModels
                     SirensDataChanged?.Invoke();
                 }
             });
+        }
+
+        private async Task LoadStationStatusesAsync()
+        {
+            try
+            {
+                var list = new List<StationStatusDto>();
+                using (var connection = new MySqlConnection(ConnStr))
+                {
+                    await connection.OpenAsync();
+                    string sql = "SELECT Id, Name, Type, IpAddress, Status FROM StationStatuses";
+                    using (var cmd = new MySqlCommand(sql, connection))
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new StationStatusDto
+                            {
+                                Id = reader.GetGuid(0),
+                                Name = reader.GetString(1),
+                                Type = reader.GetString(2),
+                                IpAddress = reader.GetString(3),
+                                Status = reader.GetString(4)
+                            });
+                        }
+                    }
+                }
+
+                // Update the collection on UI thread
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    foreach (var item in list)
+                    {
+                        var existing = StationStatuses.FirstOrDefault(x => x.Name == item.Name);
+                        if (existing != null)
+                        {
+                            existing.Status = item.Status;
+                            existing.IpAddress = item.IpAddress;
+                        }
+                        else
+                        {
+                            StationStatuses.Add(item);
+                        }
+                    }
+                });
+            }
+            catch
+            {
+                // Silence DB errors during polling
+            }
         }
     }
 }

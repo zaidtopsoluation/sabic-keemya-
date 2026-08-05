@@ -29,6 +29,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="40"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Header -->
@@ -116,6 +117,22 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+
+                    <!-- Workstation & Controller Status Grid -->
+                    <StackPanel Grid.Row="2" Margin="0,5,0,0">
+                        <Border Background="#262626" BorderBrush="#444444" BorderThickness="0,1,0,1" Padding="0,8">
+                            <TextBlock Text="SYSTEM GATEWAYS" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding StationStatuses}" Margin="5,8">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding StatusColorBrush}" BorderBrush="White" BorderThickness="1" CornerRadius="3" Margin="3" Height="34" SnapsToDevicePixels="True">
+                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </Grid>
 
                 <!-- ACTIVITY SECTION -->

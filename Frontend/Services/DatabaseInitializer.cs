@@ -208,6 +208,72 @@ namespace Keemya.Frontend.Services
                     }
                 }
                 catch { /* Ignore migration errors */ }
+
+                // 7. Ensure StationStatuses table exists and is seeded with default workstations/controllers
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        string createTableSql = @"
+                            CREATE TABLE IF NOT EXISTS `StationStatuses` (
+                                `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+                                `Name` varchar(255) NOT NULL UNIQUE,
+                                `Type` varchar(50) NOT NULL,
+                                `IpAddress` varchar(50) NOT NULL,
+                                `LastHeartbeat` datetime(6) NULL,
+                                `Status` varchar(50) NOT NULL DEFAULT 'OFFLINE',
+                                CONSTRAINT `PK_StationStatuses` PRIMARY KEY (`Id`)
+                            );";
+                        using (var createCmd = new MySqlCommand(createTableSql, connection))
+                        {
+                            createCmd.ExecuteNonQuery();
+                        }
+
+                        // Create PendingCommands queue table
+                        string createQueueSql = @"
+                            CREATE TABLE IF NOT EXISTS `PendingCommands` (
+                                `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+                                `TargetSirenName` varchar(255) NOT NULL,
+                                `IpAddress` varchar(255) NOT NULL,
+                                `Redundant` tinyint(1) NOT NULL,
+                                `FrameHex` text NOT NULL,
+                                `TrackStatus` tinyint(1) NOT NULL,
+                                `IsUserInitiated` tinyint(1) NOT NULL,
+                                `Created` datetime(6) NOT NULL,
+                                `Status` varchar(50) NOT NULL DEFAULT 'PENDING',
+                                CONSTRAINT `PK_PendingCommands` PRIMARY KEY (`Id`)
+                            );";
+                        using (var createCmd = new MySqlCommand(createQueueSql, connection))
+                        {
+                            createCmd.ExecuteNonQuery();
+                        }
+
+                        // Seed default stations if table is empty
+                        string checkCountSql = "SELECT COUNT(*) FROM StationStatuses";
+                        int count = 0;
+                        using (var countCmd = new MySqlCommand(checkCountSql, connection))
+                        {
+                            count = Convert.ToInt32(countCmd.ExecuteScalar());
+                        }
+
+                        if (count == 0)
+                        {
+                            string seedSql = @"
+                                INSERT INTO `StationStatuses` (`Id`, `Name`, `Type`, `IpAddress`, `Status`) VALUES
+                                ('00000000-0000-0000-0004-000000000001', 'Admin ECC', 'Workstation', '127.0.0.1', 'OFFLINE'),
+                                ('00000000-0000-0000-0004-000000000002', 'PCB/ECS', 'Workstation', '192.168.1.51', 'OFFLINE'),
+                                ('00000000-0000-0000-0004-000000000003', 'RCB/ECS', 'Workstation', '192.168.1.52', 'OFFLINE'),
+                                ('00000000-0000-0000-0004-000000000004', 'PCB-Controller', 'Controller', '192.168.1.60', 'OFFLINE'),
+                                ('00000000-0000-0000-0004-000000000005', 'RCB-Controller', 'Controller', '192.168.1.61', 'OFFLINE');";
+                            using (var seedCmd = new MySqlCommand(seedSql, connection))
+                            {
+                                seedCmd.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                }
+                catch { /* Ignore */ }
             }
             catch (Exception ex)
             {

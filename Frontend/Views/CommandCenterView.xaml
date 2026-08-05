@@ -186,28 +186,28 @@
 
                 <!-- Row 0 -->
                 <!-- Admin ECC -->
-                <ToggleButton Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsAdminEccSelected}" Command="{Binding SelectAdminEccCommand}" Margin="8" Width="140" Height="75" Background="#4A6B4A">
+                <ToggleButton Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsAdminEccSelected}" Command="{Binding SelectAdminEccCommand}" Margin="8" Width="140" Height="75" Background="{Binding AdminEccStatusColor}">
                     <TextBlock Text="Admin ECC" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </ToggleButton>
 
                 <!-- PCB/ECS -->
-                <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbEcsSelected}" Command="{Binding SelectPcbEcsCommand}" Margin="8" Width="140" Height="75" Background="#4A6B4A">
+                <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbEcsSelected}" Command="{Binding SelectPcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding PcbEcsStatusColor}">
                     <TextBlock Text="PCB/ECS" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </ToggleButton>
 
                 <!-- RCB/ECS -->
-                <ToggleButton Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbEcsSelected}" Command="{Binding SelectRcbEcsCommand}" Margin="8" Width="140" Height="75" Background="#4A6B4A">
+                <ToggleButton Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbEcsSelected}" Command="{Binding SelectRcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding RcbEcsStatusColor}">
                     <TextBlock Text="RCB/ECS" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </ToggleButton>
 
                 <!-- Row 1 -->
                 <!-- PCB-Controller -->
-                <ToggleButton Grid.Row="1" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbControllerSelected}" Command="{Binding SelectPcbControllerCommand}" Margin="8" Width="140" Height="75" Background="#4A6B4A">
+                <ToggleButton Grid.Row="1" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbControllerSelected}" Command="{Binding SelectPcbControllerCommand}" Margin="8" Width="140" Height="75" Background="{Binding PcbControllerStatusColor}">
                     <TextBlock Text="PCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </ToggleButton>
 
                 <!-- RCB-Controller -->
-                <ToggleButton Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbControllerSelected}" Command="{Binding SelectRcbControllerCommand}" Margin="8" Width="140" Height="75" Background="#4A6B4A">
+                <ToggleButton Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbControllerSelected}" Command="{Binding SelectRcbControllerCommand}" Margin="8" Width="140" Height="75" Background="{Binding RcbControllerStatusColor}">
                     <TextBlock Text="RCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </ToggleButton>
             </Grid>
@@ -227,33 +227,56 @@
                 </Border>
 
                 <!-- List of sirens -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding AllSirenItems}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#444444" BorderThickness="0,0,0,1" Padding="8,10">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="18"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        
-                                        <!-- Status dot -->
-                                        <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5"
-                                                Background="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                                        
-                                        <!-- Name & Address inline -->
-                                        <TextBlock Grid.Column="1" Foreground="White" FontSize="11" Margin="6,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center">
-                                            <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/>
-                                            <Run Text=" with device address " Foreground="#AAAAAA"/>
-                                            <Run Text="{Binding AddressDisplay, Mode=OneWay}" Foreground="#AAAAAA"/>
-                                        </TextBlock>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding AllSirenItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#444444" BorderThickness="0,0,0,1" Padding="8,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="18"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            
+                                            <!-- Status dot -->
+                                            <Border Grid.Column="0" Width="10" Height="10" CornerRadius="5"
+                                                    Background="{Binding StatusColor}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                            
+                                            <!-- Name & Address inline -->
+                                            <TextBlock Grid.Column="1" Foreground="White" FontSize="11" Margin="6,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center">
+                                                <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                <Run Text=" with device address " Foreground="#AAAAAA"/>
+                                                <Run Text="{Binding AddressDisplay, Mode=OneWay}" Foreground="#AAAAAA"/>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Workstation & Controller Status Grid -->
+                    <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                        <Border Background="#262626" BorderBrush="#444444" BorderThickness="0,1,0,1" Padding="0,8">
+                            <TextBlock Text="SYSTEM GATEWAYS" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding StationStatuses}" Margin="5,8">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding StatusColorBrush}" BorderBrush="White" BorderThickness="1" CornerRadius="3" Margin="3" Height="34" SnapsToDevicePixels="True">
+                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 

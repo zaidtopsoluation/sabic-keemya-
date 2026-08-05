@@ -310,30 +310,33 @@ namespace Keemya.Frontend.Services
                 using var conn = new MySqlConnection(connStr);
                 conn.Open();
 
-                // Read both port name AND baud rate from DB — the baud must match the physical siren's DIP switch setting
-                using var cmd = new MySqlCommand("SELECT PortName, BaudRate FROM SerialPortConfigs LIMIT 1", conn);
+                // Read port name and baud rate for the CURRENT workstation from the database
+                string sql = "SELECT PortName, BaudRate FROM WorkstationSerialConfigs WHERE StationName = @StationName LIMIT 1";
+                using var cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@StationName", AppConfig.StationName);
                 using var rdr = cmd.ExecuteReader();
                 if (rdr.Read())
                 {
                     _serialPortName = rdr.GetString(0);
                     int dbBaud = rdr.GetInt32(1);
-                    // Accept only valid baud rates for C2030 (1200 or 9600)
                     if (dbBaud == 1200 || dbBaud == 9600)
                         _serialBaudRate = dbBaud;
                     else
                         Log($"⚠️ [Serial Config] Invalid baud rate {dbBaud} in DB — keeping default {_serialBaudRate}.");
 
-                    Log($"⚙️ [Serial Config] Loaded: {_serialPortName} @ {_serialBaudRate} baud");
+                    Log($"⚙️ [Serial Config] Loaded: {_serialPortName} @ {_serialBaudRate} baud for workstation {AppConfig.StationName}");
                 }
             }
             catch
             {
-                Log($"⚙️ [Serial Config] DB table missing. Using defaults: {_serialPortName} @ {_serialBaudRate} baud");
+                Log($"⚙️ [Serial Config] DB table missing or unseeded for {AppConfig.StationName}. Using defaults: {_serialPortName} @ {_serialBaudRate} baud");
             }
         }
 
         public async Task<string?> AutoDetectSerialPortAsync()
         {
+            if (AppConfig.StationName != "Admin ECC") return null;
+
             if (_isAutoDetecting)
             {
                 Log("🔍 [Auto-Detect] Port scanning is already in progress.");
@@ -529,34 +532,38 @@ namespace Keemya.Frontend.Services
 
         private async Task SaveSerialPortConfigAsync(string portName, int baudRate)
         {
+            if (AppConfig.StationName != "Admin ECC") return;
+
             try
             {
                 using var conn = new MySqlConnection(AppConfig.ConnectionString);
                 await conn.OpenAsync();
                 
                 string createTableSql = @"
-                    CREATE TABLE IF NOT EXISTS `SerialPortConfigs` (
+                    CREATE TABLE IF NOT EXISTS `WorkstationSerialConfigs` (
+                        `StationName` VARCHAR(255) NOT NULL,
                         `PortName` VARCHAR(50) NOT NULL,
-                        `BaudRate` INT NOT NULL
+                        `BaudRate` INT NOT NULL,
+                        PRIMARY KEY (`StationName`)
                     );";
                 using (var createCmd = new MySqlCommand(createTableSql, conn))
                 {
                     await createCmd.ExecuteNonQueryAsync();
                 }
 
-                using (var deleteCmd = new MySqlCommand("DELETE FROM SerialPortConfigs", conn))
+                string insertSql = @"
+                    INSERT INTO WorkstationSerialConfigs (StationName, PortName, BaudRate) 
+                    VALUES (@StationName, @PortName, @BaudRate)
+                    ON DUPLICATE KEY UPDATE PortName = @PortName, BaudRate = @BaudRate;";
+                using (var insertCmd = new MySqlCommand(insertSql, conn))
                 {
-                    await deleteCmd.ExecuteNonQueryAsync();
-                }
-
-                using (var insertCmd = new MySqlCommand("INSERT INTO SerialPortConfigs (PortName, BaudRate) VALUES (@PortName, @BaudRate)", conn))
-                {
+                    insertCmd.Parameters.AddWithValue("@StationName", AppConfig.StationName);
                     insertCmd.Parameters.AddWithValue("@PortName", portName);
                     insertCmd.Parameters.AddWithValue("@BaudRate", baudRate);
                     await insertCmd.ExecuteNonQueryAsync();
                 }
                 
-                Log($"⚙️ [Serial Config] Saved to DB: {portName} @ {baudRate} baud");
+                Log($"⚙️ [Serial Config] Saved to DB for {AppConfig.StationName}: {portName} @ {baudRate} baud");
             }
             catch (Exception ex)
             {
@@ -679,6 +686,34 @@ namespace Keemya.Frontend.Services
 
         public async Task<bool> SendWildcardClearAsync()
         {
+            if (AppConfig.StationName != "Admin ECC")
+            {
+                Log("📥 [Remote Station] Relaying wildcard clear to Admin ECC...");
+                try
+                {
+                    using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                    {
+                        await connection.OpenAsync();
+                        string sql = @"
+                            INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
+                            VALUES (@Id, '__WILDCARD_CLEAR__', '', 0, '', 0, 1, @Created, 'PENDING');";
+                        using (var cmd = new MySqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
+                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    Log("✅ [Remote Station] Wildcard clear successfully queued in database.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Remote Station] Failed to queue wildcard clear: {ex.Message}");
+                    return false;
+                }
+            }
+
             // Send binary cancel packets first for immediate C2030 board response
             await SendBinaryCancelPacketsAsync();
             await Task.Delay(950);
@@ -717,6 +752,37 @@ namespace Keemya.Frontend.Services
 
         public async Task<bool> SendSerialCommandAsync(byte[] frame, bool expectsAck = true, bool isUserInitiated = true)
         {
+            if (AppConfig.StationName != "Admin ECC")
+            {
+                Log($"📥 [Remote Station] Relaying raw serial command to Admin ECC via database queue...");
+                try
+                {
+                    using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                    {
+                        await connection.OpenAsync();
+                        string sql = @"
+                            INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
+                            VALUES (@Id, '__RAW_SERIAL__', '', 0, @FrameHex, @TrackStatus, @IsUserInitiated, @Created, 'PENDING');";
+                        using (var cmd = new MySqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
+                            cmd.Parameters.AddWithValue("@FrameHex", BitConverter.ToString(frame).Replace("-", ""));
+                            cmd.Parameters.AddWithValue("@TrackStatus", expectsAck ? 1 : 0);
+                            cmd.Parameters.AddWithValue("@IsUserInitiated", isUserInitiated ? 1 : 0);
+                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    Log($"✅ [Remote Station] Raw serial command successfully queued in database.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Remote Station] Failed to queue raw serial command: {ex.Message}");
+                    return false;
+                }
+            }
+
             if (isUserInitiated)
             {
                 InterruptSerialRead();
@@ -1053,6 +1119,8 @@ namespace Keemya.Frontend.Services
 
         public async Task SendSirenOnSequenceAsync(byte[] targetFrame)
         {
+            if (AppConfig.StationName != "Admin ECC") return;
+
             _lastUserCommandTime = DateTime.Now;
             InterruptSerialRead();
 
@@ -1120,6 +1188,40 @@ namespace Keemya.Frontend.Services
         // ────────────────────────────────────────────────────────────────────
         public async Task<bool> ExecuteTransmitAsync(string sirenName, string ipAddress, bool redundant, byte[] frame, bool trackStatus = true, bool isUserInitiated = true)
         {
+            if (AppConfig.StationName != "Admin ECC")
+            {
+                Log($"📥 [Remote Station] Relaying command for {sirenName} to Admin ECC...");
+                try
+                {
+                    using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                    {
+                        await connection.OpenAsync();
+                        string sql = @"
+                            INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
+                            VALUES (@Id, @Target, @Ip, @Redundant, @FrameHex, @TrackStatus, @IsUserInitiated, @Created, 'PENDING');";
+                        using (var cmd = new MySqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
+                            cmd.Parameters.AddWithValue("@Target", sirenName);
+                            cmd.Parameters.AddWithValue("@Ip", ipAddress ?? "");
+                            cmd.Parameters.AddWithValue("@Redundant", redundant ? 1 : 0);
+                            cmd.Parameters.AddWithValue("@FrameHex", BitConverter.ToString(frame).Replace("-", ""));
+                            cmd.Parameters.AddWithValue("@TrackStatus", trackStatus ? 1 : 0);
+                            cmd.Parameters.AddWithValue("@IsUserInitiated", isUserInitiated ? 1 : 0);
+                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    Log($"✅ [Remote Station] Command successfully queued in database for {sirenName}.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Remote Station] Failed to queue command in database: {ex.Message}");
+                    return false;
+                }
+            }
+
             Log($"🚀 [Redundant Transmit] Activating target: {sirenName}");
 
             // Check if this command expects an ACK based on Whelen Protocol
@@ -1413,6 +1515,119 @@ namespace Keemya.Frontend.Services
                 }
             });
             InitializePolling();
+            StartStationHeartbeatLoop();
+            if (AppConfig.StationName == "Admin ECC")
+            {
+                StartCommandQueueListener();
+            }
+        }
+
+        private async Task<bool> PingIpAddressAsync(string ipAddress)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress) || ipAddress == "127.0.0.1") return false;
+            try
+            {
+                using (var ping = new System.Net.NetworkInformation.Ping())
+                {
+                    var reply = await ping.SendPingAsync(ipAddress, 1000);
+                    return reply.Status == System.Net.NetworkInformation.IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void StartStationHeartbeatLoop()
+        {
+            Task.Run(async () =>
+            {
+                // Wait briefly for startup
+                await Task.Delay(5000);
+
+                while (true)
+                {
+                    try
+                    {
+                        using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                        {
+                            await connection.OpenAsync();
+
+                            // 1. Update our own workstation heartbeat
+                            string updateLocalSql = @"
+                                UPDATE StationStatuses 
+                                SET LastHeartbeat = @Now, Status = 'ONLINE' 
+                                WHERE Name = @Name;";
+                            using (var cmd = new MySqlCommand(updateLocalSql, connection))
+                            {
+                                cmd.Parameters.AddWithValue("@Now", DateTime.Now);
+                                cmd.Parameters.AddWithValue("@Name", AppConfig.StationName);
+                                await cmd.ExecuteNonQueryAsync();
+                            }
+
+                            // 2. Query all stations to check heartbeats of remote workstations & ping controllers
+                            var stations = new List<(Guid Id, string Name, string Type, string IpAddress, DateTime? LastHeartbeat)>();
+                            string selectSql = "SELECT Id, Name, Type, IpAddress, LastHeartbeat FROM StationStatuses";
+                            using (var selectCmd = new MySqlCommand(selectSql, connection))
+                            using (var reader = await selectCmd.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    stations.Add((
+                                        reader.GetGuid(0),
+                                        reader.GetString(1),
+                                        reader.GetString(2),
+                                        reader.GetString(3),
+                                        reader.IsDBNull(4) ? null : reader.GetDateTime(4)
+                                    ));
+                                }
+                            }
+
+                            foreach (var station in stations)
+                            {
+                                if (station.Name == AppConfig.StationName) continue;
+
+                                string newStatus = "OFFLINE";
+
+                                if (station.Type == "Workstation")
+                                {
+                                    // Check last heartbeat timestamp
+                                    if (station.LastHeartbeat.HasValue && 
+                                        (DateTime.Now - station.LastHeartbeat.Value).TotalSeconds <= 15)
+                                    {
+                                        newStatus = "ONLINE";
+                                    }
+                                }
+                                else if (station.Type == "Controller")
+                                {
+                                    // Ping IP address
+                                    bool isAlive = await PingIpAddressAsync(station.IpAddress);
+                                    newStatus = isAlive ? "ONLINE" : "OFFLINE";
+                                }
+
+                                // Update status in database if changed
+                                string updateStatusSql = @"
+                                    UPDATE StationStatuses 
+                                    SET Status = @Status 
+                                    WHERE Id = @Id;";
+                                using (var updateCmd = new MySqlCommand(updateStatusSql, connection))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@Status", newStatus);
+                                    updateCmd.Parameters.AddWithValue("@Id", station.Id);
+                                    await updateCmd.ExecuteNonQueryAsync();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Heartbeat Loop Error] {ex.Message}");
+                    }
+
+                    await Task.Delay(5000); // Run every 5 seconds
+                }
+            });
         }
 
         private byte[] BuildStatusFrame(string areaCode, string addressCode)
@@ -1454,6 +1669,53 @@ namespace Keemya.Frontend.Services
 
                 while (true)
                 {
+                    if (AppConfig.StationName != "Admin ECC")
+                    {
+                        // Remote workstation: just load status from DB and update local cache
+                        try
+                        {
+                            var list = new List<(string Name, string Status)>();
+                            using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                            {
+                                await connection.OpenAsync();
+                                string sql = "SELECT Name, Status FROM SirenDevices";
+                                using var command = new MySqlCommand(sql, connection);
+                                using var reader = await command.ExecuteReaderAsync();
+                                while (await reader.ReadAsync())
+                                {
+                                    list.Add((
+                                        reader.GetString(0),
+                                        reader.GetString(1)
+                                    ));
+                                }
+                            }
+
+                            foreach (var item in list)
+                            {
+                                var cacheItem = GetCacheItemByAddressOrSource(item.Name);
+                                if (cacheItem != null)
+                                {
+                                    bool isOnline = item.Status == "ONLINE" || item.Status == "WARNING";
+                                    cacheItem.IsOnline = isOnline;
+                                    cacheItem.IsTcpOnline = isOnline;
+                                    cacheItem.IsSerialOnline = isOnline;
+                                    cacheItem.LastKnownStatus = item.Status;
+                                    cacheItem.LastUpdated = DateTime.Now;
+
+                                    // Raise local event to refresh UI
+                                    SirenStatusChanged?.Invoke(item.Name, item.Status);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"❌ [Remote Poller Error] {ex.Message}");
+                        }
+
+                        await Task.Delay(10000);
+                        continue;
+                    }
+
                     if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5))
                     {
                         Log("⏳ [Global Poller] User command in progress. Suspending background polling briefly...");
@@ -2057,6 +2319,91 @@ namespace Keemya.Frontend.Services
                 }
             }
             return null;
+        }
+
+        private void StartCommandQueueListener()
+        {
+            Task.Run(async () =>
+            {
+                // Wait briefly for startup
+                await Task.Delay(5000);
+
+                while (true)
+                {
+                    try
+                    {
+                        var pendingList = new List<(string Id, string Target, string Ip, bool Redundant, string FrameHex, bool Track, bool User)>();
+                        using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                        {
+                            await connection.OpenAsync();
+                            string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated FROM PendingCommands WHERE Status = 'PENDING' ORDER BY Created";
+                            using (var cmd = new MySqlCommand(sql, connection))
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    pendingList.Add((
+                                        reader.GetGuid(0).ToString(),
+                                        reader.GetString(1),
+                                        reader.GetString(2),
+                                        reader.GetBoolean(3),
+                                        reader.GetString(4),
+                                        reader.GetBoolean(5),
+                                        reader.GetBoolean(6)
+                                    ));
+                                }
+                            }
+
+                            foreach (var item in pendingList)
+                            {
+                                Log($"📥 [Queue Listener] Processing relayed command: {item.Target} (ID: {item.Id})");
+
+                                bool success = false;
+
+                                if (item.Target == "__RAW_SERIAL__")
+                                {
+                                    byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
+                                    success = await SendSerialCommandAsync(frame, item.Track, item.User);
+                                }
+                                else if (item.Target == "__WILDCARD_CLEAR__")
+                                {
+                                    success = await SendWildcardClearAsync();
+                                }
+                                else
+                                {
+                                    byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
+                                    success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User);
+                                }
+
+                                string updateSql = "UPDATE PendingCommands SET Status = @Status WHERE Id = @Id";
+                                using (var updateCmd = new MySqlCommand(updateSql, connection))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@Status", success ? "COMPLETED" : "FAILED");
+                                    updateCmd.Parameters.AddWithValue("@Id", item.Id);
+                                    await updateCmd.ExecuteNonQueryAsync();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Queue Listener Error] {ex.Message}");
+                    }
+
+                    await Task.Delay(1000);
+                }
+            });
+        }
+
+        private byte[] ConvertHexStringToByteArray(string hex)
+        {
+            int numberChars = hex.Length;
+            byte[] bytes = new byte[numberChars / 2];
+            for (int i = 0; i < numberChars; i += 2)
+            {
+                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+            }
+            return bytes;
         }
     }
 

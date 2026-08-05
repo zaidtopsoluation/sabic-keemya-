@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Keemya.Frontend.Models;
 using Keemya.Frontend.Stores;
 using MySqlConnector;
+using System.Windows.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -160,6 +162,42 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty] private bool isPcbControllerSelected;
         [ObservableProperty] private bool isRcbControllerSelected;
 
+        [ObservableProperty]
+        private ObservableCollection<StationStatusDto> stationStatuses = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(AdminEccStatusColor))]
+        private string adminEccStatus = "OFFLINE";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PcbEcsStatusColor))]
+        private string pcbEcsStatus = "OFFLINE";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(RcbEcsStatusColor))]
+        private string rcbEcsStatus = "OFFLINE";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PcbControllerStatusColor))]
+        private string pcbControllerStatus = "OFFLINE";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(RcbControllerStatusColor))]
+        private string rcbControllerStatus = "OFFLINE";
+
+        public Brush AdminEccStatusColor => GetBrushForStatus(AdminEccStatus);
+        public Brush PcbEcsStatusColor => GetBrushForStatus(PcbEcsStatus);
+        public Brush RcbEcsStatusColor => GetBrushForStatus(RcbEcsStatus);
+        public Brush PcbControllerStatusColor => GetBrushForStatus(PcbControllerStatus);
+        public Brush RcbControllerStatusColor => GetBrushForStatus(RcbControllerStatus);
+
+        private Brush GetBrushForStatus(string status)
+        {
+            return status == "ONLINE"
+                ? new SolidColorBrush(Color.FromRgb(45, 106, 79))  // Deep Green #2D6A4F
+                : new SolidColorBrush(Color.FromRgb(128, 15, 47)); // Deep Red #800F2F
+        }
+
         // ── Right panel ─────────────────────────────────────────────────────
         [ObservableProperty] private ObservableCollection<CommandCardDto> commandCards = new();
 
@@ -198,6 +236,13 @@ namespace Keemya.Frontend.ViewModels
             };
 
             _ = LoadAllDataAsync();
+
+            // Initialize station status refresh timer
+            var stationTimer = new System.Windows.Threading.DispatcherTimer();
+            stationTimer.Interval = TimeSpan.FromSeconds(5);
+            stationTimer.Tick += async (s, e) => await LoadStationStatusesAsync();
+            stationTimer.Start();
+            _ = Task.Run(() => LoadStationStatusesAsync());
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -1160,6 +1205,72 @@ namespace Keemya.Frontend.ViewModels
             {
                 c.TargetLabel    = label;
                 c.AvailableCount = count;
+            }
+        }
+
+        private async Task LoadStationStatusesAsync()
+        {
+            try
+            {
+                var list = new List<StationStatusDto>();
+                using (var connection = new MySqlConnection(ConnStr))
+                {
+                    await connection.OpenAsync();
+                    string sql = "SELECT Id, Name, Type, IpAddress, Status FROM StationStatuses";
+                    using (var cmd = new MySqlCommand(sql, connection))
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new StationStatusDto
+                            {
+                                Id = reader.GetGuid(0),
+                                Name = reader.GetString(1),
+                                Type = reader.GetString(2),
+                                IpAddress = reader.GetString(3),
+                                Status = reader.GetString(4)
+                            });
+                        }
+                    }
+                }
+
+                // Update the collection on UI thread
+                Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    foreach (var item in list)
+                    {
+                        var existing = StationStatuses.FirstOrDefault(x => x.Name == item.Name);
+                        if (existing != null)
+                        {
+                            existing.Status = item.Status;
+                            existing.IpAddress = item.IpAddress;
+                        }
+                        else
+                        {
+                            StationStatuses.Add(item);
+                        }
+                    }
+
+                    // Update local helper properties for command center toggle backgrounds
+                    var admin = list.FirstOrDefault(x => x.Name == "Admin ECC");
+                    AdminEccStatus = admin?.Status ?? "OFFLINE";
+
+                    var pcb = list.FirstOrDefault(x => x.Name == "PCB/ECS");
+                    PcbEcsStatus = pcb?.Status ?? "OFFLINE";
+
+                    var rcb = list.FirstOrDefault(x => x.Name == "RCB/ECS");
+                    RcbEcsStatus = rcb?.Status ?? "OFFLINE";
+
+                    var pcbCtrl = list.FirstOrDefault(x => x.Name == "PCB-Controller");
+                    PcbControllerStatus = pcbCtrl?.Status ?? "OFFLINE";
+
+                    var rcbCtrl = list.FirstOrDefault(x => x.Name == "RCB-Controller");
+                    RcbControllerStatus = rcbCtrl?.Status ?? "OFFLINE";
+                });
+            }
+            catch
+            {
+                // Silence DB errors during polling
             }
         }
     }

@@ -7,6 +7,7 @@ namespace Keemya.Frontend
     public static class AppConfig
     {
         public static string ConnectionString { get; private set; } = "Server=localhost;Port=3306;Database=keemya;User=root;Password=root1234;";
+        public static string StationName { get; private set; } = "Admin ECC";
 
         static AppConfig()
         {
@@ -17,6 +18,7 @@ namespace Keemya.Frontend
                 {
                     string json = File.ReadAllText(configPath);
                     using var doc = JsonDocument.Parse(json);
+                    
                     if (doc.RootElement.TryGetProperty("ConnectionStrings", out var connStrings) &&
                         connStrings.TryGetProperty("DefaultConnection", out var connStr))
                     {
@@ -24,6 +26,15 @@ namespace Keemya.Frontend
                         if (!string.IsNullOrWhiteSpace(value))
                         {
                             ConnectionString = value;
+                        }
+                    }
+
+                    if (doc.RootElement.TryGetProperty("StationName", out var stationNameProp))
+                    {
+                        var value = stationNameProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            StationName = value;
                         }
                     }
                 }
