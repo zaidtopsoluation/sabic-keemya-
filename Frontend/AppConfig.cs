@@ -8,6 +8,7 @@ namespace Keemya.Frontend
     {
         public static string ConnectionString { get; private set; } = "Server=localhost;Port=3306;Database=keemya;User=root;Password=root1234;";
         public static string StationName { get; private set; } = "Admin ECC";
+        public static string PttRelayPort { get; private set; } = "COM3";
 
         static AppConfig()
         {
@@ -35,6 +36,15 @@ namespace Keemya.Frontend
                         if (!string.IsNullOrWhiteSpace(value))
                         {
                             StationName = value;
+                        }
+                    }
+
+                    if (doc.RootElement.TryGetProperty("PttRelayPort", out var pttProp))
+                    {
+                        var value = pttProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            PttRelayPort = value;
                         }
                     }
                 }

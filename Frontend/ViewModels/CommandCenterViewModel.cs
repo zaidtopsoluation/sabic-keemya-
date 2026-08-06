@@ -1046,7 +1046,7 @@ namespace Keemya.Frontend.ViewModels
             // Transition UI to Active State
             IsCommandRunning = true;
 
-            // Start Audio Loopback simulation if it's the Public Address command (0x04) or Custom (0x64)
+            // Start Audio Loopback simulation or VoIP audio stream if it's the Public Address command (0x04) or Custom (0x64)
             if (card.CommandHex == 0x04 || card.CommandHex == 0x64)
             {
                 IsPublicAddressActive = true;
@@ -1057,7 +1057,24 @@ namespace Keemya.Frontend.ViewModels
                 }
                 else
                 {
-                    Keemya.Frontend.Services.AudioSimulationService.Instance.StartLoopback();
+                    if (AppConfig.StationName == "Admin ECC")
+                    {
+                        Keemya.Frontend.Services.AudioSimulationService.Instance.StartLoopback();
+                    }
+                    else
+                    {
+                        // We are the office PC: Start live PA voice streaming to Admin ECC
+                        ActiveIntercomStation = "PA:Admin ECC";
+                        _ = UpdateActiveCallTargetInDbAsync("PA:Admin ECC");
+                        _ = Task.Run(async () =>
+                        {
+                            string? ip = await GetStationIpAsync("Admin ECC");
+                            if (!string.IsNullOrEmpty(ip))
+                            {
+                                Keemya.Frontend.Services.AudioCommunicationService.Instance.StartRecording(ip);
+                            }
+                        });
+                    }
                 }
             }
 
@@ -1353,14 +1370,27 @@ namespace Keemya.Frontend.ViewModels
 
                     // DB-driven Intercom voice Call Synchronization
                     // Find if another workstation has initiated a call to our workstation
-                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget == AppConfig.StationName);
+                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget != null && x.ActiveCallTarget.EndsWith(AppConfig.StationName));
                     if (caller != null)
                     {
+                        string? targetSignal = caller.ActiveCallTarget;
+                        bool isLivePA = targetSignal?.StartsWith("PA:") == true;
+                        string expectedStationState = isLivePA ? "PA:" + caller.Name : caller.Name;
+                        
                         // If they are calling us and we haven't connected locally yet, answer and start streaming back!
-                        if (ActiveIntercomStation != caller.Name)
+                        if (ActiveIntercomStation != expectedStationState)
                         {
-                            Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming call request detected from {caller.Name}. Connecting voice link...");
-                            StartIntercomCallInternal(caller.Name);
+                            if (isLivePA)
+                            {
+                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming live Public Address broadcast from {caller.Name}. Keying PTT relay...");
+                                ActiveIntercomStation = expectedStationState;
+                                Keemya.Frontend.Services.AudioSimulationService.Instance.SetPttRelayState(true);
+                            }
+                            else
+                            {
+                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming call request detected from {caller.Name}. Connecting voice link...");
+                                StartIntercomCallInternal(caller.Name);
+                            }
                         }
                     }
                     else
@@ -1368,11 +1398,27 @@ namespace Keemya.Frontend.ViewModels
                         // If no remote machine is calling us, but we are currently marked as in an incoming call (meaning they hung up), disconnect!
                         if (!string.IsNullOrEmpty(ActiveIntercomStation))
                         {
+                            bool isLivePA = ActiveIntercomStation.StartsWith("PA:");
+                            string cleanCallerName = ActiveIntercomStation.Replace("PA:", "");
+                            
                             var myRow = list.FirstOrDefault(x => x.Name == AppConfig.StationName);
                             if (myRow == null || myRow.ActiveCallTarget != ActiveIntercomStation)
                             {
-                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Call ended by remote workstation.");
-                                StopIntercomCallInternal();
+                                var callerRow = list.FirstOrDefault(x => x.Name == cleanCallerName);
+                                if (callerRow == null || callerRow.ActiveCallTarget != (isLivePA ? "PA:" + AppConfig.StationName : AppConfig.StationName))
+                                {
+                                    if (isLivePA)
+                                    {
+                                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Live Public Address ended by {cleanCallerName}. Releasing PTT relay...");
+                                        ActiveIntercomStation = null;
+                                        Keemya.Frontend.Services.AudioSimulationService.Instance.SetPttRelayState(false);
+                                    }
+                                    else
+                                    {
+                                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Call ended by remote workstation.");
+                                        StopIntercomCallInternal();
+                                    }
+                                }
                             }
                         }
                     }

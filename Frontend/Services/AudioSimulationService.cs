@@ -16,9 +16,37 @@ namespace Keemya.Frontend.Services
 
         public event EventHandler<double>? VolumeChanged;
 
+        public void SetPttRelayState(bool state)
+        {
+            // Only key the PTT relay if the local station is the main Admin ECC dispatcher
+            if (AppConfig.StationName != "Admin ECC") return;
+
+            string portName = AppConfig.PttRelayPort;
+            if (string.IsNullOrWhiteSpace(portName) || portName.Equals("NONE", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            try
+            {
+                using (var port = new System.IO.Ports.SerialPort(portName, 9600, System.IO.Ports.Parity.None, 8, System.IO.Ports.StopBits.One))
+                {
+                    port.Open();
+                    string cmd = state ? "relay on 0\r" : "relay off 0\r";
+                    port.Write(cmd);
+                    System.Diagnostics.Debug.WriteLine($"[PTT Relay] Sent command to {portName}: {cmd.Trim()}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PTT Relay] Failed to control PTT relay on {portName}: {ex.Message}");
+            }
+        }
+
         public void StartLoopback()
         {
             StopLoopback(); // Ensure any existing loopback is stopped
+            SetPttRelayState(true);
 
             try
             {
@@ -68,6 +96,7 @@ namespace Keemya.Frontend.Services
         public void StartFilePlayback(string filePath)
         {
             StopLoopback();
+            SetPttRelayState(true);
 
             try
             {
@@ -107,6 +136,7 @@ namespace Keemya.Frontend.Services
         public void StopLoopback()
         {
             VolumeChanged?.Invoke(this, 0);
+            SetPttRelayState(false);
 
             if (_waveIn != null)
             {
