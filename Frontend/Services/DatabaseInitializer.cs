@@ -230,6 +230,16 @@ namespace Keemya.Frontend.Services
                             createCmd.ExecuteNonQuery();
                         }
 
+                        try
+                        {
+                            string alterSql = "ALTER TABLE `StationStatuses` ADD COLUMN `ActiveCallTarget` varchar(255) NULL;";
+                            using (var alterCmd = new MySqlCommand(alterSql, connection))
+                            {
+                                alterCmd.ExecuteNonQuery();
+                            }
+                        }
+                        catch {}
+
                         // Create PendingCommands queue table
                         string createQueueSql = @"
                             CREATE TABLE IF NOT EXISTS `PendingCommands` (

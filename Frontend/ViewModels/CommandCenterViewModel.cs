@@ -188,6 +188,17 @@ namespace Keemya.Frontend.ViewModels
         public Brush AdminEccStatusColor => GetBrushForStatus(AdminEccStatus);
         public Brush PcbEcsStatusColor => GetBrushForStatus(PcbEcsStatus);
         public Brush RcbEcsStatusColor => GetBrushForStatus(RcbEcsStatus);
+
+        public string ConfirmButtonText => CommandToConfirmName?.StartsWith("INTERCOM:") == true ? "Confirm Call" : "Confirm Activation";
+        public string AbortButtonText => CommandToConfirmName?.StartsWith("INTERCOM:") == true ? "Abort Call" : "Abort Activation";
+        public string TitleBarText => CommandToConfirmName?.StartsWith("INTERCOM:") == true ? "Voice Intercom Request" : "Activation Sequence";
+        public Visibility SirenDetailsVisibility => CommandToConfirmName?.StartsWith("INTERCOM:") == true ? Visibility.Collapsed : Visibility.Visible;
+        public string AdminEccButtonText => ActiveIntercomStation == "Admin ECC" ? "Admin ECC\n(ON CALL)" : "Admin ECC";
+        public string PcbEcsButtonText => ActiveIntercomStation == "PCB/ECS" ? "PCB/ECS\n(ON CALL)" : "PCB/ECS";
+        public string RcbEcsButtonText => ActiveIntercomStation == "RCB/ECS" ? "RCB/ECS\n(ON CALL)" : "RCB/ECS";
+
+        [ObservableProperty]
+        private string? activeIntercomStation;
         public Brush PcbControllerStatusColor => GetBrushForStatus(PcbControllerStatus);
         public Brush RcbControllerStatusColor => GetBrushForStatus(RcbControllerStatus);
 
@@ -237,12 +248,19 @@ namespace Keemya.Frontend.ViewModels
 
             _ = LoadAllDataAsync();
 
-            // Initialize station status refresh timer
+            // Initialize station status refresh timer (poll every 1 second for instant intercom synchronization)
             var stationTimer = new System.Windows.Threading.DispatcherTimer();
-            stationTimer.Interval = TimeSpan.FromSeconds(5);
+            stationTimer.Interval = TimeSpan.FromSeconds(1);
             stationTimer.Tick += async (s, e) => await LoadStationStatusesAsync();
             stationTimer.Start();
             _ = Task.Run(() => LoadStationStatusesAsync());
+
+            // Start listening for incoming VoIP intercom voice calls
+            try
+            {
+                Keemya.Frontend.Services.AudioCommunicationService.Instance.StartListening();
+            }
+            catch {}
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -560,25 +578,77 @@ namespace Keemya.Frontend.ViewModels
         }
 
         [RelayCommand]
-        private void SelectAdminEcc() => IsAdminEccSelected = !IsAdminEccSelected;
+        private void SelectAdminEcc()
+        {
+            if (ActiveIntercomStation == "Admin ECC")
+            {
+                StopIntercomCall();
+            }
+            else
+            {
+                CommandToConfirmName = "INTERCOM: Admin ECC";
+                IsConfirmingCommand = true;
+                OnPropertyChanged(nameof(TitleBarText));
+                OnPropertyChanged(nameof(ConfirmButtonText));
+                OnPropertyChanged(nameof(AbortButtonText));
+                OnPropertyChanged(nameof(SirenDetailsVisibility));
+            }
+        }
 
         [RelayCommand]
-        private void SelectPcbEcs() => IsPcbEcsSelected = !IsPcbEcsSelected;
+        private void SelectPcbEcs()
+        {
+            if (ActiveIntercomStation == "PCB/ECS")
+            {
+                StopIntercomCall();
+            }
+            else
+            {
+                CommandToConfirmName = "INTERCOM: PCB/ECS";
+                IsConfirmingCommand = true;
+                OnPropertyChanged(nameof(TitleBarText));
+                OnPropertyChanged(nameof(ConfirmButtonText));
+                OnPropertyChanged(nameof(AbortButtonText));
+                OnPropertyChanged(nameof(SirenDetailsVisibility));
+            }
+        }
 
         [RelayCommand]
-        private void SelectRcbEcs() => IsRcbEcsSelected = !IsRcbEcsSelected;
+        private void SelectRcbEcs()
+        {
+            if (ActiveIntercomStation == "RCB/ECS")
+            {
+                StopIntercomCall();
+            }
+            else
+            {
+                CommandToConfirmName = "INTERCOM: RCB/ECS";
+                IsConfirmingCommand = true;
+                OnPropertyChanged(nameof(TitleBarText));
+                OnPropertyChanged(nameof(ConfirmButtonText));
+                OnPropertyChanged(nameof(AbortButtonText));
+                OnPropertyChanged(nameof(SirenDetailsVisibility));
+            }
+        }
 
         [RelayCommand]
-        private void SelectPcbController() => IsPcbControllerSelected = !IsPcbControllerSelected;
+        private void SelectPcbController()
+        {
+            // Passive status only, no selection action
+        }
 
         [RelayCommand]
-        private void SelectRcbController() => IsRcbControllerSelected = !IsRcbControllerSelected;
+        private void SelectRcbController()
+        {
+            // Passive status only, no selection action
+        }
 
         [RelayCommand]
         private void CancelActivate()
         {
             _commandToConfirm = null;
             IsConfirmingCommand = false;
+            OnPropertyChanged(nameof(SirenDetailsVisibility));
         }
 
         [RelayCommand]
@@ -593,6 +663,12 @@ namespace Keemya.Frontend.ViewModels
             IsCommandRunning = false;
             IsConfirmingCommand = false;
             IsPublicAddressActive = false;
+
+            // Stop any active VoIP intercom call
+            if (!string.IsNullOrEmpty(ActiveIntercomStation))
+            {
+                StopIntercomCall();
+            }
 
             // Stop any active Audio Loopback simulation
             Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
@@ -716,6 +792,14 @@ namespace Keemya.Frontend.ViewModels
         [RelayCommand]
         private void ExecuteActivate()
         {
+            if (CommandToConfirmName != null && CommandToConfirmName.StartsWith("INTERCOM: "))
+            {
+                string targetStation = CommandToConfirmName.Replace("INTERCOM: ", "");
+                IsConfirmingCommand = false;
+                StartIntercomCall(targetStation);
+                return;
+            }
+
             var role = (Session.Role ?? "Admin").ToUpper();
             if (role == "SERVICE")
             {
@@ -1216,7 +1300,7 @@ namespace Keemya.Frontend.ViewModels
                 using (var connection = new MySqlConnection(ConnStr))
                 {
                     await connection.OpenAsync();
-                    string sql = "SELECT Id, Name, Type, IpAddress, Status FROM StationStatuses";
+                    string sql = "SELECT Id, Name, Type, IpAddress, Status, ActiveCallTarget FROM StationStatuses";
                     using (var cmd = new MySqlCommand(sql, connection))
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
@@ -1228,7 +1312,8 @@ namespace Keemya.Frontend.ViewModels
                                 Name = reader.GetString(1),
                                 Type = reader.GetString(2),
                                 IpAddress = reader.GetString(3),
-                                Status = reader.GetString(4)
+                                Status = reader.GetString(4),
+                                ActiveCallTarget = reader.IsDBNull(5) ? null : reader.GetString(5)
                             });
                         }
                     }
@@ -1244,6 +1329,7 @@ namespace Keemya.Frontend.ViewModels
                         {
                             existing.Status = item.Status;
                             existing.IpAddress = item.IpAddress;
+                            existing.ActiveCallTarget = item.ActiveCallTarget;
                         }
                         else
                         {
@@ -1261,16 +1347,179 @@ namespace Keemya.Frontend.ViewModels
                     var rcb = list.FirstOrDefault(x => x.Name == "RCB/ECS");
                     RcbEcsStatus = rcb?.Status ?? "OFFLINE";
 
-                    var pcbCtrl = list.FirstOrDefault(x => x.Name == "PCB-Controller");
-                    PcbControllerStatus = pcbCtrl?.Status ?? "OFFLINE";
+                    // Controllers show the health status of their respective office PC workstations instead of hardware pings
+                    PcbControllerStatus = PcbEcsStatus;
+                    RcbControllerStatus = RcbEcsStatus;
 
-                    var rcbCtrl = list.FirstOrDefault(x => x.Name == "RCB-Controller");
-                    RcbControllerStatus = rcbCtrl?.Status ?? "OFFLINE";
+                    // DB-driven Intercom voice Call Synchronization
+                    // Find if another workstation has initiated a call to our workstation
+                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget == AppConfig.StationName);
+                    if (caller != null)
+                    {
+                        // If they are calling us and we haven't connected locally yet, answer and start streaming back!
+                        if (ActiveIntercomStation != caller.Name)
+                        {
+                            Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming call request detected from {caller.Name}. Connecting voice link...");
+                            StartIntercomCallInternal(caller.Name);
+                        }
+                    }
+                    else
+                    {
+                        // If no remote machine is calling us, but we are currently marked as in an incoming call (meaning they hung up), disconnect!
+                        if (!string.IsNullOrEmpty(ActiveIntercomStation))
+                        {
+                            var myRow = list.FirstOrDefault(x => x.Name == AppConfig.StationName);
+                            if (myRow == null || myRow.ActiveCallTarget != ActiveIntercomStation)
+                            {
+                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Call ended by remote workstation.");
+                                StopIntercomCallInternal();
+                            }
+                        }
+                    }
                 });
             }
             catch
             {
                 // Silence DB errors during polling
+            }
+        }
+
+        private async Task UpdateActiveCallTargetInDbAsync(string? target)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(ConnStr))
+                {
+                    await conn.OpenAsync();
+                    if (target == null)
+                    {
+                        using (var cmd = new MySqlCommand("UPDATE StationStatuses SET ActiveCallTarget = NULL WHERE Name = @MyName OR ActiveCallTarget = @MyName", conn))
+                        {
+                            cmd.Parameters.AddWithValue("@MyName", AppConfig.StationName);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else
+                    {
+                        using (var cmd = new MySqlCommand("UPDATE StationStatuses SET ActiveCallTarget = @Target WHERE Name = @MyName", conn))
+                        {
+                            cmd.Parameters.AddWithValue("@Target", target);
+                            cmd.Parameters.AddWithValue("@MyName", AppConfig.StationName);
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] Failed to update call target in DB: {ex.Message}");
+            }
+        }
+
+        private void StartIntercomCall(string stationName)
+        {
+            _ = UpdateActiveCallTargetInDbAsync(stationName);
+            StartIntercomCallInternal(stationName);
+        }
+
+        private void StopIntercomCall()
+        {
+            _ = UpdateActiveCallTargetInDbAsync(null);
+            StopIntercomCallInternal();
+        }
+
+        private void StartIntercomCallInternal(string stationName)
+        {
+            if (!string.IsNullOrEmpty(ActiveIntercomStation) && ActiveIntercomStation != stationName)
+            {
+                StopIntercomCallInternal();
+            }
+
+            ActiveIntercomStation = stationName;
+            
+            if (stationName == "PCB/ECS") IsPcbEcsSelected = true;
+            if (stationName == "RCB/ECS") IsRcbEcsSelected = true;
+            if (stationName == "Admin ECC") IsAdminEccSelected = true;
+
+            // Notify button texts to display "(ON CALL)"
+            OnPropertyChanged(nameof(AdminEccButtonText));
+            OnPropertyChanged(nameof(PcbEcsButtonText));
+            OnPropertyChanged(nameof(RcbEcsButtonText));
+
+            _ = Task.Run(async () =>
+            {
+                string? ip = await GetStationIpAsync(stationName);
+                if (string.IsNullOrEmpty(ip))
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StopIntercomCallInternal();
+                    });
+                    return;
+                }
+                Keemya.Frontend.Services.AudioCommunicationService.Instance.StartRecording(ip);
+            });
+        }
+
+        private void StopIntercomCallInternal()
+        {
+            IsAdminEccSelected = false;
+            IsPcbEcsSelected = false;
+            IsRcbEcsSelected = false;
+            Keemya.Frontend.Services.AudioCommunicationService.Instance.StopRecording();
+            ActiveIntercomStation = null;
+
+            // Notify button texts to remove "(ON CALL)"
+            OnPropertyChanged(nameof(AdminEccButtonText));
+            OnPropertyChanged(nameof(PcbEcsButtonText));
+            OnPropertyChanged(nameof(RcbEcsButtonText));
+
+            // Force refresh of the color properties
+            OnPropertyChanged(nameof(AdminEccStatusColor));
+            OnPropertyChanged(nameof(PcbEcsStatusColor));
+            OnPropertyChanged(nameof(RcbEcsStatusColor));
+        }
+
+        private async Task<string?> GetStationNameByIpAsync(string ip)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(ConnStr))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand("SELECT Name FROM StationStatuses WHERE IpAddress = @Ip LIMIT 1", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Ip", ip);
+                        var name = await cmd.ExecuteScalarAsync();
+                        return name?.ToString();
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<string?> GetStationIpAsync(string stationName)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(ConnStr))
+                {
+                    await conn.OpenAsync();
+                    using (var cmd = new MySqlCommand("SELECT IpAddress FROM StationStatuses WHERE Name = @Name LIMIT 1", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Name", stationName);
+                        var ip = await cmd.ExecuteScalarAsync();
+                        return ip?.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] Failed to get IP for {stationName}: {ex.Message}");
+                return null;
             }
         }
     }

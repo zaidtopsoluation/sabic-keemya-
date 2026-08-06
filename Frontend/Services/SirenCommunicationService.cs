@@ -1539,6 +1539,45 @@ namespace Keemya.Frontend.Services
             }
         }
 
+        private async Task<string> DetectMyIpAddressAsync(MySqlConnection connection)
+        {
+            try
+            {
+                using (var cmd = new MySqlCommand("SELECT SUBSTRING_INDEX(USER(), '@', -1)", connection))
+                {
+                    var dbIp = await cmd.ExecuteScalarAsync();
+                    if (dbIp != null)
+                    {
+                        string ipStr = dbIp.ToString().Trim();
+                        if (ipStr != "localhost" && ipStr != "127.0.0.1" && !string.IsNullOrEmpty(ipStr))
+                        {
+                            return ipStr;
+                        }
+                    }
+                }
+            }
+            catch {}
+
+            try
+            {
+                var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+                foreach (var ip in host.AddressList)
+                {
+                    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        string ipStr = ip.ToString();
+                        if (ipStr != "127.0.0.1" && !ipStr.StartsWith("169.254"))
+                        {
+                            return ipStr;
+                        }
+                    }
+                }
+            }
+            catch {}
+
+            return "127.0.0.1";
+        }
+
         private void StartStationHeartbeatLoop()
         {
             Task.Run(async () =>
@@ -1554,14 +1593,16 @@ namespace Keemya.Frontend.Services
                         {
                             await connection.OpenAsync();
 
-                            // 1. Update our own workstation heartbeat
+                            // 1. Update our own workstation heartbeat and register dynamic local IP
+                            string myIp = await DetectMyIpAddressAsync(connection);
                             string updateLocalSql = @"
                                 UPDATE StationStatuses 
-                                SET LastHeartbeat = @Now, Status = 'ONLINE' 
+                                SET LastHeartbeat = @Now, Status = 'ONLINE', IpAddress = @Ip 
                                 WHERE Name = @Name;";
                             using (var cmd = new MySqlCommand(updateLocalSql, connection))
                             {
                                 cmd.Parameters.AddWithValue("@Now", DateTime.Now);
+                                cmd.Parameters.AddWithValue("@Ip", myIp);
                                 cmd.Parameters.AddWithValue("@Name", AppConfig.StationName);
                                 await cmd.ExecuteNonQueryAsync();
                             }
