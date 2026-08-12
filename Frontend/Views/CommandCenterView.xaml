@@ -121,96 +121,343 @@
 
         <!-- ── ROW 1: Main Touch Console Buttons Grid (LEFT PANEL) ──────── -->
         <Grid Grid.Row="1" Grid.Column="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="500"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-            <!-- Alarm Grid (Top) -->
-            <Grid Grid.Row="0" Margin="20,10,0,0">
+            <!-- Column 0: Left console buttons -->
+            <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
 
-                <!-- Row 0 -->
-                <!-- FIRE ALARM -->
-                <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectFireAlarmCommand}" Margin="8" Width="140" Height="75" Background="#A72A2A">
-                    <TextBlock Text="FIRE ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                <!-- Alarm Grid (Top) -->
+                <Grid Grid.Row="0" Margin="20,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- GAS ALARM -->
-                <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectGasAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E68A00">
-                    <TextBlock Text="GAS ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                    <!-- Row 0 -->
+                    <!-- FIRE ALARM -->
+                    <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectFireAlarmCommand}" Margin="8" Width="140" Height="75" Background="#A72A2A">
+                        <TextBlock Text="FIRE ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
 
-                <!-- ALL CLEAR ALARM -->
-                <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAllClearAlarmCommand}" Margin="8" Width="140" Height="75" Background="#2A75B3">
-                    <TextBlock Text="ALL CLEAR ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                    <!-- GAS ALARM -->
+                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectGasAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E68A00">
+                        <TextBlock Text="GAS ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
 
-                <!-- Row 1 -->
-                <!-- RESET ALARM -->
-                <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectResetAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E6D900">
-                    <TextBlock Text="RESET ALARM" Foreground="Black" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                    <!-- ALL CLEAR ALARM -->
+                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAllClearAlarmCommand}" Margin="8" Width="140" Height="75" Background="#2A75B3">
+                        <TextBlock Text="ALL CLEAR ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
 
-                <!-- PUBLIC ADDRESS -->
-                <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectPublicAddressCommand}" Margin="8" Width="140" Height="75" Background="#3B82F6">
-                    <TextBlock Text="PUBLIC ADDRESS" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                    <!-- Row 1 -->
+                    <!-- RESET ALARM -->
+                    <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectResetAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E6D900">
+                        <TextBlock Text="RESET ALARM" Foreground="Black" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
 
-                <!-- ATTENTION -->
-                <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAttentionCommand}" Margin="8" Width="140" Height="75" Background="#5C2AB3">
-                    <TextBlock Text="ATTENTION" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Button>
+                    <!-- PUBLIC ADDRESS -->
+                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectPublicAddressCommand}" Margin="8" Width="140" Height="75" Background="#3B82F6">
+                        <TextBlock Text="PUBLIC ADDRESS" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+
+                    <!-- ATTENTION -->
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAttentionCommand}" Margin="8" Width="140" Height="75" Background="#5C2AB3">
+                        <TextBlock Text="ATTENTION" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                </Grid>
+
+                <!-- Station Grid (Bottom) -->
+                <Grid Grid.Row="2" Margin="20,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Row 0 -->
+                    <!-- Admin ECC -->
+                    <ToggleButton Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsAdminEccSelected}" Command="{Binding SelectAdminEccCommand}" Margin="8" Width="140" Height="75" Background="{Binding AdminEccStatusColor}">
+                        <TextBlock Text="{Binding AdminEccButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- PCB/ECS -->
+                    <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbEcsSelected}" Command="{Binding SelectPcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding PcbEcsStatusColor}">
+                        <TextBlock Text="{Binding PcbEcsButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- RCB/ECS -->
+                    <ToggleButton Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbEcsSelected}" Command="{Binding SelectRcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding RcbEcsStatusColor}">
+                        <TextBlock Text="{Binding RcbEcsButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Row 1 -->
+                    <!-- PCB-Controller -->
+                    <Border Grid.Row="1" Grid.Column="1" CornerRadius="2" BorderThickness="1" BorderBrush="#555555" Background="{Binding PcbControllerStatusColor}" Margin="8" Width="140" Height="75">
+                        <TextBlock Text="PCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- RCB-Controller -->
+                    <Border Grid.Row="1" Grid.Column="2" CornerRadius="2" BorderThickness="1" BorderBrush="#555555" Background="{Binding RcbControllerStatusColor}" Margin="8" Width="140" Height="75">
+                        <TextBlock Text="RCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Border>
+                </Grid>
             </Grid>
 
-            <!-- Station Grid (Bottom) -->
-            <Grid Grid.Row="2" Margin="20,0,0,10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <!-- Column 1: Middle Voice Dispatch Wizard (Exactly matching user's layout screenshot) -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="30,10,30,10">
+                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Stretch">
+                    <StackPanel.Resources>
+                        <!-- Custom styled dark ComboBox -->
+                        <Style TargetType="ComboBox" x:Key="DarkComboBoxStyle">
+                            <Setter Property="Background" Value="#2D2D2D"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#555555"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Height" Value="36"/>
+                            <Setter Property="Margin" Value="0,0,0,15"/>
+                            <Setter Property="Padding" Value="10,0"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ComboBox">
+                                        <Grid>
+                                            <ToggleButton x:Name="ToggleButton" 
+                                                          Style="{x:Null}"
+                                                          BorderBrush="{TemplateBinding BorderBrush}" 
+                                                          Background="{TemplateBinding Background}" 
+                                                          Foreground="{TemplateBinding Foreground}"
+                                                          HorizontalAlignment="Stretch"
+                                                          VerticalAlignment="Stretch"
+                                                          Focusable="false"
+                                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" 
+                                                          ClickMode="Press">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border x:Name="Border" 
+                                                                Background="{TemplateBinding Background}" 
+                                                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                                                BorderThickness="1" 
+                                                                CornerRadius="4">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition />
+                                                                    <ColumnDefinition Width="30" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <!-- Down Arrow -->
+                                                                <Path x:Name="Arrow" 
+                                                                      Grid.Column="1" 
+                                                                      Fill="White" 
+                                                                      HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center" 
+                                                                      Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                                            </Grid>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="true">
+                                                                <Setter TargetName="Border" Property="Background" Value="#3D3D3D" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsChecked" Value="true">
+                                                                <Setter TargetName="Border" Property="Background" Value="#1E1E1E" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                            </ToggleButton>
+                                            
+                                            <!-- Selected Item Presenter -->
+                                            <ContentPresenter x:Name="ContentSite" 
+                                                              IsHitTestVisible="False" 
+                                                              Content="{TemplateBinding SelectionBoxItem}" 
+                                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" 
+                                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" 
+                                                              Margin="10,3,30,3" 
+                                                              VerticalAlignment="Center" 
+                                                              HorizontalAlignment="Left">
+                                                <!-- Force the selected text inside the closed combo to be bold white -->
+                                                <ContentPresenter.Resources>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                    </Style>
+                                                </ContentPresenter.Resources>
+                                            </ContentPresenter>
 
-                <!-- Row 0 -->
-                <!-- Admin ECC -->
-                <ToggleButton Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsAdminEccSelected}" Command="{Binding SelectAdminEccCommand}" Margin="8" Width="140" Height="75" Background="{Binding AdminEccStatusColor}">
-                    <TextBlock Text="{Binding AdminEccButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </ToggleButton>
+                                            <!-- Dropdown Popup -->
+                                            <Popup x:Name="Popup" 
+                                                   Placement="Bottom" 
+                                                   IsOpen="{TemplateBinding IsDropDownOpen}" 
+                                                   AllowsTransparency="True" 
+                                                   Focusable="False" 
+                                                   PopupAnimation="Slide">
+                                                <Grid x:Name="DropDown" 
+                                                      SnapsToDevicePixels="True" 
+                                                      MinWidth="{TemplateBinding ActualWidth}" 
+                                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                                    <Border x:Name="DropDownBorder" 
+                                                            Background="#2D2D2D" 
+                                                            BorderBrush="#555555" 
+                                                            BorderThickness="1" 
+                                                            CornerRadius="4"
+                                                            Margin="0,2,0,0">
+                                                        <ScrollViewer SnapsToDevicePixels="True">
+                                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </Grid>
+                                            </Popup>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
 
-                <!-- PCB/ECS -->
-                <ToggleButton Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsPcbEcsSelected}" Command="{Binding SelectPcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding PcbEcsStatusColor}">
-                    <TextBlock Text="{Binding PcbEcsButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </ToggleButton>
+                        <!-- ComboBoxItem Style override -->
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Background" Value="#2D2D2D"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="Padding" Value="10,8"/>
+                            <Setter Property="FontSize" Value="12.5"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#3D3D3D"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#4D4D4D"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Resources>
+                    <!-- Title -->
+                    <TextBlock Text="Weekly test" Foreground="White" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
-                <!-- RCB/ECS -->
-                <ToggleButton Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchToggleButtonStyle}" IsChecked="{Binding IsRcbEcsSelected}" Command="{Binding SelectRcbEcsCommand}" Margin="8" Width="140" Height="75" Background="{Binding RcbEcsStatusColor}">
-                    <TextBlock Text="{Binding RcbEcsButtonText}" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </ToggleButton>
+                    <!-- Audio Player Control -->
+                    <Border Background="#2D2D2D" BorderBrush="#444444" BorderThickness="1" CornerRadius="6" Padding="10,10" Margin="0,0,0,15">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/> <!-- Play/Pause Button -->
+                                <ColumnDefinition Width="*"/>    <!-- Track Slider -->
+                                <ColumnDefinition Width="Auto"/> <!-- Timer Display -->
+                                <ColumnDefinition Width="Auto"/> <!-- Message Button -->
+                            </Grid.ColumnDefinitions>
 
-                <!-- Row 1 -->
-                <!-- PCB-Controller -->
-                <Border Grid.Row="1" Grid.Column="1" CornerRadius="2" BorderThickness="1" BorderBrush="#555555" Background="{Binding PcbControllerStatusColor}" Margin="8" Width="140" Height="75">
-                    <TextBlock Text="PCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Border>
+                            <!-- Play/Pause Toggle -->
+                            <Button Grid.Column="0" Command="{Binding TogglePlayCommand}" Width="32" Height="32" Background="Transparent" BorderBrush="Transparent" Padding="0" Cursor="Hand" Margin="0,0,8,0">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent">
+                                            <Path Fill="White" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Width="14" Height="14">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsAudioPlaying}" Value="True">
+                                                                <Setter Property="Data" Value="M 6 4 L 10 4 L 10 20 L 6 20 Z M 14 4 L 18 4 L 18 20 L 14 20 Z"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsAudioPlaying}" Value="False">
+                                                                <Setter Property="Data" Value="M 6 4 L 20 12 L 6 20 Z"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
 
-                <!-- RCB-Controller -->
-                <Border Grid.Row="1" Grid.Column="2" CornerRadius="2" BorderThickness="1" BorderBrush="#555555" Background="{Binding RcbControllerStatusColor}" Margin="8" Width="140" Height="75">
-                    <TextBlock Text="RCB-Controller" Foreground="White" FontWeight="Bold" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Border>
-            </Grid>
+                            <!-- Track Seek Slider -->
+                            <Slider Grid.Column="1" Minimum="0" Maximum="{Binding AudioDuration}" Value="{Binding AudioPosition}" VerticalAlignment="Center" Foreground="#3B82F6" Cursor="Hand" Margin="4,0,8,0" IsEnabled="{Binding IsAudioPlaying}"/>
+
+                            <!-- Timer Display -->
+                            <TextBlock Grid.Column="2" Text="{Binding AudioPositionText}" Foreground="White" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                            <!-- Message Button -->
+                            <Button Grid.Column="3" Content="Message" Background="#3A3A3A" Foreground="White" BorderBrush="White" BorderThickness="1" Padding="8,4" Height="28" FontSize="11" Style="{StaticResource FlatTouchButtonStyle}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Sub-heading -->
+                    <TextBlock Text="ANCESSURNT" Foreground="#AAAAAA" FontSize="11" FontWeight="Bold" Margin="0,5,0,8"/>
+
+                    <!-- 6 Dropdowns in 2 Rows of 3 Grid -->
+                    <Grid Margin="0,0,0,15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/> <!-- Spacer Row -->
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/> <!-- Spacer Column -->
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/> <!-- Spacer Column -->
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Row 0, Column 0: Event -->
+                        <StackPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock Text="Event" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Events}" SelectedItem="{Binding SelectedEvent}"/>
+                        </StackPanel>
+
+                        <!-- Row 0, Column 2: Type -->
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Text="Type" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Types}" SelectedItem="{Binding SelectedType}"/>
+                        </StackPanel>
+
+                        <!-- Row 0, Column 4: Category -->
+                        <StackPanel Grid.Row="0" Grid.Column="4">
+                            <TextBlock Text="Category" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"/>
+                        </StackPanel>
+
+                        <!-- Row 2, Column 0: Plant -->
+                        <StackPanel Grid.Row="2" Grid.Column="0">
+                            <TextBlock Text="Plant" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding Areas}" SelectedItem="{Binding SelectedArea}"/>
+                        </StackPanel>
+
+                        <!-- Row 2, Column 2: Wind direction -->
+                        <StackPanel Grid.Row="2" Grid.Column="2">
+                            <TextBlock Text="Wind direction" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding WindDirections}" SelectedItem="{Binding SelectedWindDirection}"/>
+                        </StackPanel>
+
+                        <!-- Row 2, Column 4: Assembly point -->
+                        <StackPanel Grid.Row="2" Grid.Column="4">
+                            <TextBlock Text="Assembly point" Foreground="White" FontSize="11" Margin="0,0,0,4"/>
+                            <ComboBox Style="{StaticResource DarkComboBoxStyle}" ItemsSource="{Binding AssemblyPoints}" SelectedItem="{Binding SelectedAssemblyPoint}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Action Check Button -->
+                    <Button Content="Check option" Command="{Binding CheckOptionCommand}" Background="#801D38" Foreground="White" BorderThickness="0" Height="40" Margin="0,5,0,15" FontSize="13" FontWeight="Bold" Style="{StaticResource FlatTouchButtonStyle}"/>
+
+                    <!-- Preview Selection Summary -->
+                    <TextBlock Text="{Binding SelectedSummaryText}" Foreground="#D1D5DB" FontSize="12.5" TextWrapping="Wrap"/>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- ── RIGHT PANEL: SIREN STATUS LIST SIDEBAR (No Gap, Starts from top) ── -->

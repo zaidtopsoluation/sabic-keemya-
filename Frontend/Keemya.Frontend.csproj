@@ -26,7 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\**" />
+    <Resource Include="Assets\**" Exclude="Assets\Audio\**" />
+    <None Update="Assets\Audio\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Resources\map.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

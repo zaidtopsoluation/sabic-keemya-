@@ -21,6 +21,8 @@ namespace Keemya.Frontend.Services
 
         public static SirenCommunicationService Instance => _instance.Value;
 
+        public bool IsRadioOnline => _serialPort != null && _serialPort.IsOpen;
+
         // UI bound logs
         public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>();
 
@@ -797,6 +799,7 @@ namespace Keemya.Frontend.Services
                 return false;
             }
 
+            bool shouldReleaseLockInFinally = true;
             try
             {
                 // Check if port is already open or configured
@@ -863,10 +866,22 @@ namespace Keemya.Frontend.Services
 
                 if (!expectsAck)
                 {
-                    // Delay to allow the UART transmission to clear the buffer and let the siren process the command cleanly without serial line interference
-                    await Task.Delay(950);
+                    // Release the caller immediately, but keep holding the serial lock in the background for 950ms to enforce spacing
+                    shouldReleaseLockInFinally = false;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(950);
+                        }
+                        finally
+                        {
+                            _serialLock.Release();
+                        }
+                    });
+
                     byte cmdByte = (byte)(frame.Length > 10 ? (frame[10] & 0x7F) : 0);
-                    Log($"✅ [Serial Sender] Command {cmdByte:X2}H does not require ACK. Fast-completing.");
+                    Log($"✅ [Serial Sender] Command {cmdByte:X2}H does not require ACK. Fast-completing instantly.");
                     return true;
                 }
 
@@ -905,7 +920,10 @@ namespace Keemya.Frontend.Services
             }
             finally
             {
-                _serialLock.Release(); // Always release in outer finally block!
+                if (shouldReleaseLockInFinally)
+                {
+                    _serialLock.Release(); // Always release in outer finally block if not offloaded!
+                }
             }
         }
 
@@ -1155,7 +1173,7 @@ namespace Keemya.Frontend.Services
                 _serialPort.DiscardInBuffer();
                 _serialPort.DiscardOutBuffer();
 
-                // 1. Send Binary Siren On (0x06, 0x1A, 0x20) 3 times for noise resilience
+                // 1. Send Binary Siren On (0x06, 0x1A, 0x20) 3 times with 150ms delays to open the radio squelch gate
                 for (int i = 0; i < 3; i++)
                 {
                     byte[] binSirenOn = new byte[] { 0x06, 0x1A, 0x20 };
@@ -1164,11 +1182,17 @@ namespace Keemya.Frontend.Services
                     await Task.Delay(150);
                 }
 
-                // 2. Send ASCII Siren On frame
+                // 2. Send ASCII Siren On frame immediately
                 byte[] asciiSirenOn = BuildSirenOnFrame(targetFrame);
                 _serialPort.Write(asciiSirenOn, 0, asciiSirenOn.Length);
                 string hex = string.Join(" ", asciiSirenOn.Select(b => b.ToString("X2")));
                 Log($"📤 [Serial Sender] Dispatched ASCII SIREN ON frame: {hex}");
+
+                // 3. Wait 500ms for the C2030 controller board to fully wake up and unmute its amplifiers
+                await Task.Delay(500);
+
+                // 4. Reset spacing timer so the subsequent tone frame is transmitted immediately without extra delay
+                _lastSerialFrameSentTime = DateTime.Now - TimeSpan.FromMilliseconds(1000);
             }
             catch (Exception ex)
             {
@@ -1178,9 +1202,6 @@ namespace Keemya.Frontend.Services
             {
                 _serialLock.Release();
             }
-
-            // Enforce C2030 inter-command delay
-            await Task.Delay(950);
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -1229,11 +1250,6 @@ namespace Keemya.Frontend.Services
             
             // If it is an activation command for a tone or digital voice (not cancel, status, or strobe commands)
             bool isToneActivation = (cmdByte >= 0x01 && cmdByte <= 0x08) || (cmdByte >= 0x31 && cmdByte <= 0x41) || cmdByte == 0x1A;
-            if (isToneActivation && isUserInitiated)
-            {
-                Log($"🔊 [Redundant Transmit] Tone command {cmdByte:X2}H detected. Ensuring Siren power amplifiers are ON first...");
-                await SendSirenOnSequenceAsync(frame);
-            }
 
             // Only query and diagnostic status commands return status responses (expects ACK).
             // Tone and setup commands (Wail, Attack, Alert, PA, Siren On/Off) are write-only activations.
@@ -1277,37 +1293,61 @@ namespace Keemya.Frontend.Services
                 }
             }
 
-            // 2. Serial-only or Redundant (Try serial first)
-            Log($"ℹ️ [Redundant Transmit] Routing via Serial for {sirenName}.");
-            bool serialSuccess = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
-
-            if (serialSuccess)
-            {
-                // Serial ACK confirmed (or not expected) — done, no need to touch TCP unless not redundant
-                Log($"✅ [Redundant Transmit] Serial transmit successful for {sirenName}. Done.");
-
-                // If it is redundant and command does not expect ACK, we also transmit via TCP as redundant delivery.
-                if (redundant && hasIp && !expectsAck)
-                {
-                    Log($"ℹ️ [Redundant Transmit] Command {cmdByte:X2}H has no ACK and target has redundant IP. Also transmitting to TCP/IP backup...");
-                    await SendTcpCommandAsync(ipAddress, frame, expectsAck);
-                }
-
-                if (trackStatus)
-                {
-                    TrackSuccess(sirenName, cmdByte);
-                }
-                return true;
-            }
-            
-            // 3. Serial failed (port error, timeout, no ACK)
+            // 2. Redundant (Try TCP and Serial concurrently)
             if (redundant && hasIp)
             {
-                Log($"⚠️ [Redundant Transmit] Serial failed for {sirenName}. Switching to TCP/IP backup...");
-                bool tcpSuccess = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
-                if (tcpSuccess)
+                Log($"ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for {sirenName}.");
+                
+                var tcpTask = Task.Run(async () =>
                 {
-                    Log($"✅ [Redundant Transmit] TCP/IP failover succeeded for {sirenName}.");
+                    try
+                    {
+                        return await SendTcpCommandAsync(ipAddress, frame, expectsAck);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Redundant Transmit] TCP concurrent transmit error for {sirenName}: {ex.Message}");
+                        return false;
+                    }
+                });
+
+                var serialTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (isToneActivation && isUserInitiated)
+                        {
+                            Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
+                            await SendSirenOnSequenceAsync(frame);
+                        }
+                        return await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Redundant Transmit] Serial concurrent transmit error for {sirenName}: {ex.Message}");
+                        return false;
+                    }
+                });
+
+                // Wait up to 500ms for TCP to complete since it is usually instant
+                var completedTask = await Task.WhenAny(tcpTask, Task.Delay(500));
+                if (completedTask == tcpTask && await tcpTask)
+                {
+                    Log($"✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for {sirenName}.");
+                    if (trackStatus)
+                    {
+                        TrackSuccess(sirenName, cmdByte);
+                    }
+                    return true;
+                }
+                
+                Log($"⚠️ [Redundant Transmit] TCP did not succeed instantly. Waiting for either TCP or Serial backup to complete...");
+                bool tcpOk = await tcpTask;
+                bool serialOk = await serialTask;
+
+                if (tcpOk || serialOk)
+                {
+                    Log($"✅ [Redundant Transmit] Dual path completed: TCP={tcpOk}, Serial={serialOk} for {sirenName}.");
                     if (trackStatus)
                     {
                         TrackSuccess(sirenName, cmdByte);
@@ -1316,7 +1356,7 @@ namespace Keemya.Frontend.Services
                 }
                 else
                 {
-                    Log($"❌ [Redundant Transmit] ALL channels failed for {sirenName}. Siren may be offline!");
+                    Log($"❌ [Redundant Transmit] BOTH TCP and Serial paths failed for {sirenName}.");
                     if (trackStatus)
                     {
                         TrackFailure(sirenName);
@@ -1324,9 +1364,28 @@ namespace Keemya.Frontend.Services
                     return false;
                 }
             }
+
+            // 3. Serial-only (No IP assigned)
+            Log($"ℹ️ [Redundant Transmit] Routing via Serial-only for {sirenName}.");
+            if (isToneActivation && isUserInitiated)
+            {
+                Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
+                await SendSirenOnSequenceAsync(frame);
+            }
+            
+            bool serialSuccess = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
+            if (serialSuccess)
+            {
+                Log($"✅ [Redundant Transmit] Serial transmit successful for {sirenName}.");
+                if (trackStatus)
+                {
+                    TrackSuccess(sirenName, cmdByte);
+                }
+                return true;
+            }
             else
             {
-                Log($"❌ [Redundant Transmit] Serial failed for {sirenName}. Failover aborted: {(redundant ? "No IP address assigned" : "Device is Serial-only")}.");
+                Log($"❌ [Redundant Transmit] Serial transmit failed for {sirenName}.");
                 if (trackStatus)
                 {
                     TrackFailure(sirenName);
@@ -2395,35 +2454,47 @@ namespace Keemya.Frontend.Services
                                 }
                             }
 
-                            foreach (var item in pendingList)
+                            var tasks = pendingList.Select(async item =>
                             {
-                                Log($"📥 [Queue Listener] Processing relayed command: {item.Target} (ID: {item.Id})");
+                                Log($"📥 [Queue Listener] Processing relayed command in parallel: {item.Target} (ID: {item.Id})");
 
                                 bool success = false;
+                                try
+                                {
+                                    if (item.Target == "__RAW_SERIAL__")
+                                    {
+                                        byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
+                                        success = await SendSerialCommandAsync(frame, item.Track, item.User);
+                                    }
+                                    else if (item.Target == "__WILDCARD_CLEAR__")
+                                    {
+                                        success = await SendWildcardClearAsync();
+                                    }
+                                    else
+                                    {
+                                        byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
+                                        success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User);
+                                    }
 
-                                if (item.Target == "__RAW_SERIAL__")
-                                {
-                                    byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
-                                    success = await SendSerialCommandAsync(frame, item.Track, item.User);
+                                    using (var localConn = new MySqlConnection(AppConfig.ConnectionString))
+                                    {
+                                        await localConn.OpenAsync();
+                                        string updateSql = "UPDATE PendingCommands SET Status = @Status WHERE Id = @Id";
+                                        using (var updateCmd = new MySqlCommand(updateSql, localConn))
+                                        {
+                                            updateCmd.Parameters.AddWithValue("@Status", success ? "COMPLETED" : "FAILED");
+                                            updateCmd.Parameters.AddWithValue("@Id", item.Id);
+                                            await updateCmd.ExecuteNonQueryAsync();
+                                        }
+                                    }
                                 }
-                                else if (item.Target == "__WILDCARD_CLEAR__")
+                                catch (Exception ex)
                                 {
-                                    success = await SendWildcardClearAsync();
+                                    Log($"❌ [Queue Listener Parallel Error] Error processing {item.Target}: {ex.Message}");
                                 }
-                                else
-                                {
-                                    byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
-                                    success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User);
-                                }
+                            });
 
-                                string updateSql = "UPDATE PendingCommands SET Status = @Status WHERE Id = @Id";
-                                using (var updateCmd = new MySqlCommand(updateSql, connection))
-                                {
-                                    updateCmd.Parameters.AddWithValue("@Status", success ? "COMPLETED" : "FAILED");
-                                    updateCmd.Parameters.AddWithValue("@Id", item.Id);
-                                    await updateCmd.ExecuteNonQueryAsync();
-                                }
-                            }
+                            await Task.WhenAll(tasks);
                         }
                     }
                     catch (Exception ex)

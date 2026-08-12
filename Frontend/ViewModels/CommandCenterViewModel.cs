@@ -116,6 +116,107 @@ namespace Keemya.Frontend.ViewModels
         private static readonly string ConnStr = AppConfig.ConnectionString;
         private readonly NavigationStore _nav;
 
+        private static readonly Dictionary<string, List<string>> PlantAssemblyPoints = new()
+        {
+            { "Polymer PHD", new() { "Near security gate 2", "In front of Logistic office" } },
+            { "Polymer LAB", new() { "Front of polymer lab" } },
+            { "Polymer Logistic", new() { "Near security gate 3" } },
+            { "LLDPE Finishing", new() { "LLDPE Finishing parking", "Front polymer lab", "Near to Polymer reactor-1" } },
+            { "LLDPE Poly", new() { "Near Fire station", "Near LDPE compressor area", "Behind Polymer Control Building" } },
+            { "LDPE", new() { "Near Substation 09-1", "Near to Poly Flare", "LLDPE Finishing parking", "Initiator storage" } },
+            { "EHSS building", new() { "Near Fire station" } },
+            { "Polymer GSB", new() { "In front of GSB", "In front of PSV workshop" } },
+            { "KEMYA fabricating Shop", new() { "Polymer Control Building Parking" } },
+            { "U&O 1", new() { "Sea water area", "Fire water tank", "Near pygas storage tank", "Aramco Metering skid", "Near to gas station", "KOP area 30" } },
+            { "KOP", new() { "Near to Gas Station", "Front of Olefin Control building", "Area 30", "Area 40", "Fire water tank", "Carbon black PFO tank" } },
+            { "MCO", new() { "Near MCO" } },
+            { "Mobil workshop", new() { "Near MCO" } },
+            { "Carbon Black Building", new() { "Front of carbon black building", "Near Mobile workshop" } },
+            { "Carbon Black Plant", new() { "Front of carbon black building", "Near Mobile workshop", "Near PFO Tank" } },
+            { "U&O-2", new() { "Near cooling tower", "Near Rubber control building", "Near Mobile workshop", "In front of RCB" } },
+            { "Elastomer Logistic office", new() { "Near Rubber Lab", "Near PBR Finishing Building" } },
+            { "PBR Logistic warehouse", new() { "PBR Logistic warehouse" } },
+            { "EPDM Logistic warehouse", new() { "EPDM Logistic warehouse" } },
+            { "HB Logistic warehouse", new() { "HB Logistic warehouse" } },
+            { "Rubber Lab", new() { "In front of Rubber lab", "PBR Finishing Building" } },
+            { "PBR Finishing", new() { "Rubber Lab" } },
+            { "EPDM finishing", new() { "EPDM finishing building" } },
+            { "HB Finishing", new() { "HB finishing Building" } },
+            { "PBR Ploy", new() { "Near cooling tower", "Rubber Control Building", "Near PBR Finishing Building", "Near Rubber Lab", "KOP flare area", "Near to U&O methanol area" } },
+            { "EPDM Ploy", new() { "Near Cooling tower", "Near EPDM finishing building" } },
+            { "HB Ploy", new() { "Rubber control Building", "Near elastomer Flare", "Near HCL area.", "Near HB Finishing Building" } },
+            { "Hydrocarbon LAB", new() { "Near Elastomer GSB", "Near Elastomer workshop" } },
+            { "Elastomer GSB", new() { "Near Rubber Control Building", "Near Elastomer workshop" } },
+            { "Elastomer workshop", new() { "Near Elastomer GSB", "Near Rubber Control Building", "Near elastomer Flare" } },
+            { "Rubber Control Building", new() { "Near Elastomer GSB", "Near Substation 80-4" } },
+            { "Admin Building", new() { "Admin Parking" } },
+            { "Cafeteria", new() { "Admin Parking" } },
+            { "PBR HF area", new() { "All employee proceed to nearest building.", "All building marshal requested to shutdown the AC or keep it on internal circulation mood." } },
+            { "HB Bromine area", new() { "All employee proceed to nearest building." } }
+        };
+
+        private static readonly List<string> AllUniqueAssemblyPoints = new()
+        {
+            "Near security gate 2",
+            "In front of Logistic office",
+            "Front of polymer lab",
+            "Near security gate 3",
+            "LLDPE Finishing parking",
+            "Front polymer lab",
+            "Near to Polymer reactor-1",
+            "Near Fire station",
+            "Near LDPE compressor area",
+            "Behind Polymer Control Building",
+            "Near Substation 09-1",
+            "Near to Poly Flare",
+            "Initiator storage",
+            "In front of GSB",
+            "In front of PSV workshop",
+            "Polymer Control Building Parking",
+            "Sea water area",
+            "Fire water tank",
+            "Near pygas storage tank",
+            "Aramco Metering skid",
+            "Near to gas station",
+            "KOP area 30",
+            "Near to Gas Station",
+            "Front of Olefin Control building",
+            "Area 30",
+            "Area 40",
+            "Carbon black PFO tank",
+            "Near MCO",
+            "Front of carbon black building",
+            "Near Mobile workshop",
+            "Near PFO Tank",
+            "Near cooling tower",
+            "Near Rubber control building",
+            "In front of RCB",
+            "Near Rubber Lab",
+            "Near PBR Finishing Building",
+            "PBR Logistic warehouse",
+            "EPDM Logistic warehouse",
+            "HB Logistic warehouse",
+            "In front of Rubber lab",
+            "PBR Finishing Building",
+            "Rubber Lab",
+            "EPDM finishing building",
+            "HB finishing Building",
+            "Rubber Control Building",
+            "KOP flare area",
+            "Near to U&O methanol area",
+            "Near EPDM finishing building",
+            "Near elastomer Flare",
+            "Near HCL area.",
+            "Near HB Finishing Building",
+            "Near Elastomer GSB",
+            "Near Elastomer workshop",
+            "Near Rubber Control Building",
+            "Near Substation 80-4",
+            "Admin Parking",
+            "All employee proceed to nearest building.",
+            "All building marshal requested to shutdown the AC or keep it on internal circulation mood."
+        };
+
         // All raw data (for computing selection counts)
         private List<SirenRowItem>   _allSirens = new();
         private List<ZoneSelectionItem> _allZones = new();
@@ -199,8 +300,126 @@ namespace Keemya.Frontend.ViewModels
 
         [ObservableProperty]
         private string? activeIntercomStation;
+
+        // ── Voice Dispatch Wizard Properties ────────────────────────────────
+        [ObservableProperty]
+        private ObservableCollection<string> events = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> areas = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> windDirections = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> assemblyPoints = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> types = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> categories = new();
+
+        [ObservableProperty]
+        private string selectedEvent = string.Empty;
+
+        [ObservableProperty]
+        private string selectedType = string.Empty;
+
+        [ObservableProperty]
+        private string selectedCategory = string.Empty;
+
+        [ObservableProperty]
+        private string selectedArea = string.Empty;
+
+        [ObservableProperty]
+        private string selectedWindDirection = string.Empty;
+
+        [ObservableProperty]
+        private string selectedAssemblyPoint = string.Empty;
+
+        [ObservableProperty]
+        private string selectedSummaryText = "Selected: None";
+
+        [ObservableProperty]
+        private string audioPositionText = "0:00 / 0:00";
+
+        [ObservableProperty]
+        private double audioPosition = 0;
+
+        [ObservableProperty]
+        private double audioDuration = 0;
+
+        [ObservableProperty]
+        private bool isAudioPlaying = false;
+
+        private System.Windows.Threading.DispatcherTimer? _playPreviewTimer;
+
+        partial void OnSelectedAreaChanged(string value)
+        {
+            UpdateAssemblyPointsList(value);
+            UpdateSummaryText();
+        }
+
+        private void UpdateAssemblyPointsList(string selectedPlant)
+        {
+            if (string.IsNullOrEmpty(selectedPlant)) return;
+
+            // Get recommended ones
+            List<string> recommended = new();
+            if (PlantAssemblyPoints.TryGetValue(selectedPlant, out var list))
+            {
+                recommended = list;
+            }
+
+            // Get others (all except recommended)
+            var others = AllUniqueAssemblyPoints.Where(ap => !recommended.Contains(ap)).OrderBy(ap => ap).ToList();
+
+            // Store currently selected assembly point
+            string previouslySelected = SelectedAssemblyPoint;
+
+            // Rebuild AssemblyPoints collection
+            AssemblyPoints.Clear();
+            foreach (var r in recommended)
+            {
+                AssemblyPoints.Add(r);
+            }
+            foreach (var o in others)
+            {
+                AssemblyPoints.Add(o);
+            }
+
+            // If previously selected is in the new list, keep it; otherwise default to first recommended
+            if (AssemblyPoints.Contains(previouslySelected))
+            {
+                SelectedAssemblyPoint = previouslySelected;
+            }
+            else if (recommended.Count > 0)
+            {
+                SelectedAssemblyPoint = recommended[0];
+            }
+            else if (AssemblyPoints.Count > 0)
+            {
+                SelectedAssemblyPoint = AssemblyPoints[0];
+            }
+        }
+
+        partial void OnSelectedEventChanged(string value) => UpdateSummaryText();
+        partial void OnSelectedTypeChanged(string value) => UpdateSummaryText();
+        partial void OnSelectedCategoryChanged(string value) => UpdateSummaryText();
+        partial void OnSelectedWindDirectionChanged(string value) => UpdateSummaryText();
+        partial void OnSelectedAssemblyPointChanged(string value) => UpdateSummaryText();
+
+        private void UpdateSummaryText()
+        {
+            SelectedSummaryText = $"Selected: {SelectedEvent}, {SelectedType}, Cat: {SelectedCategory}, {SelectedArea}, {SelectedWindDirection}, {SelectedAssemblyPoint}";
+        }
+
         public Brush PcbControllerStatusColor => GetBrushForStatus(PcbControllerStatus);
         public Brush RcbControllerStatusColor => GetBrushForStatus(RcbControllerStatus);
+
+        public Brush RadioStatusColor => Keemya.Frontend.Services.SirenCommunicationService.Instance.IsRadioOnline ? GetBrushForStatus("ONLINE") : GetBrushForStatus("OFFLINE");
+        public string RadioStatusText => Keemya.Frontend.Services.SirenCommunicationService.Instance.IsRadioOnline ? "Radio-Transmitter" : "Radio-Transmitter\n(OFFLINE)";
 
         private Brush GetBrushForStatus(string status)
         {
@@ -239,6 +458,25 @@ namespace Keemya.Frontend.ViewModels
         public CommandCenterViewModel(NavigationStore nav)
         {
             _nav = nav;
+
+            // Initialize Dropdown collections
+            Events = new ObservableCollection<string> { "Fire", "Gas release", "Chemical spoilage", "Toxic Gas Release", "Shelter in place" };
+            Types = new ObservableCollection<string> { "Real", "Drill" };
+            Categories = new ObservableCollection<string> { "1", "2", "3" };
+            Areas = new ObservableCollection<string>(PlantAssemblyPoints.Keys.OrderBy(k => k));
+            WindDirections = new ObservableCollection<string> { "North to South", "South to North", "East to west", "West to East" };
+            AssemblyPoints = new ObservableCollection<string>();
+
+            // Set default selected items
+            SelectedEvent = "Fire";
+            SelectedType = "Real";
+            SelectedCategory = "1";
+            SelectedArea = "Polymer PHD";
+            SelectedWindDirection = "North to South";
+            
+            // This will populate the AssemblyPoints list and set SelectedAssemblyPoint
+            UpdateAssemblyPointsList(SelectedArea);
+            UpdateSummaryText();
             
             // Subscribe to mic volume changes for UI feedback
             Keemya.Frontend.Services.AudioSimulationService.Instance.VolumeChanged += (s, vol) => 
@@ -903,141 +1141,159 @@ namespace Keemya.Frontend.ViewModels
                 // 2. Send Serial commands
                 if (isBroadcast)
                 {
-                    // For broadcast, send ONLY a single global wildcard serial frame
+                    // For broadcast, send a single global wildcard serial frame
                     byte[] wildcardFrame = BuildWildcardFrame((byte)sendHex);
+                    
+                    // Send Siren On warmup sequence first to ensure walkie-talkie keys and sirens wake up
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(wildcardFrame);
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(wildcardFrame, expectsAck: false, isUserInitiated: true);
 
-                    // Send specific frames to all serial targets to guarantee activation
-                    foreach (var s in serialTargets)
+                    // Offload individual backup frames to a background task so it doesn't block the activation
+                    _ = Task.Run(async () =>
                     {
-                        if (token.IsCancellationRequested) break;
-                        await Task.Delay(500, token);
+                        foreach (var s in serialTargets)
+                        {
+                            if (token.IsCancellationRequested) break;
+                            try
+                            {
+                                await Task.Delay(1000, token);
 
-                        byte[] frame = new byte[15];
-                        frame[0] = 0x02;
+                                byte[] frame = new byte[15];
+                                frame[0] = 0x02;
 
-                        string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                        frame[1] = (byte)(0x80 | (area[0] - '0'));
-                        frame[2] = (byte)(0x80 | (area[1] - '0'));
-                        frame[3] = (byte)(0x80 | (area[2] - '0'));
+                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
+                                frame[1] = (byte)(0x80 | (area[0] - '0'));
+                                frame[2] = (byte)(0x80 | (area[1] - '0'));
+                                frame[3] = (byte)(0x80 | (area[2] - '0'));
 
-                        string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                        frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                        frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                        frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                        frame[7] = (byte)(0x80 | (addr[3] - '0'));
+                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
+                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
+                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
+                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
+                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
 
-                        frame[8] = 0x80;
-                        frame[9] = 0x80;
-                        frame[10] = (byte)(0x80 | sendHex);
+                                frame[8] = 0x80;
+                                frame[9] = 0x80;
+                                frame[10] = (byte)(0x80 | sendHex);
 
-                        frame[11] = 0x03;
+                                frame[11] = 0x03;
 
-                        byte xorSum = 0;
-                        for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                        frame[12] = (byte)(0x80 | (xorSum >> 4));
-                        frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                        frame[14] = 0x0D;
+                                byte xorSum = 0;
+                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
+                                frame[12] = (byte)(0x80 | (xorSum >> 4));
+                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
+                                frame[14] = 0x0D;
 
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                    }
+                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                            }
+                            catch { }
+                        }
+                    }, token);
                 }
                 else if (_mode == SelectionMode.Zone)
                 {
                     // For zone, send one area wildcard frame per unique AreaCode in serialTargets
                     var uniqueAreas = serialTargets.Select(s => s.AreaCode ?? "000").Distinct().ToList();
-                    bool isFirst = true;
                     foreach (var areaCode in uniqueAreas)
                     {
                         if (token.IsCancellationRequested) break;
-
-                        if (!isFirst)
-                        {
-                            await Task.Delay(500, token);
-                        }
-                        isFirst = false;
-
                         byte[] areaWildcardFrame = BuildAreaWildcardFrame(areaCode, (byte)sendHex);
+                        
+                        // Send Siren On warmup sequence first for this zone wildcard
+                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(areaWildcardFrame);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(areaWildcardFrame, expectsAck: false, isUserInitiated: true);
                     }
 
-                    // Send specific frames to all serial targets to guarantee activation
-                    foreach (var s in serialTargets)
+                    // Offload individual backup frames to a background task
+                    _ = Task.Run(async () =>
                     {
-                        if (token.IsCancellationRequested) break;
-                        await Task.Delay(500, token);
+                        foreach (var s in serialTargets)
+                        {
+                            if (token.IsCancellationRequested) break;
+                            try
+                            {
+                                await Task.Delay(1000, token);
 
-                        byte[] frame = new byte[15];
-                        frame[0] = 0x02;
+                                byte[] frame = new byte[15];
+                                frame[0] = 0x02;
 
-                        string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                        frame[1] = (byte)(0x80 | (area[0] - '0'));
-                        frame[2] = (byte)(0x80 | (area[1] - '0'));
-                        frame[3] = (byte)(0x80 | (area[2] - '0'));
+                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
+                                frame[1] = (byte)(0x80 | (area[0] - '0'));
+                                frame[2] = (byte)(0x80 | (area[1] - '0'));
+                                frame[3] = (byte)(0x80 | (area[2] - '0'));
 
-                        string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                        frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                        frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                        frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                        frame[7] = (byte)(0x80 | (addr[3] - '0'));
+                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
+                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
+                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
+                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
+                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
 
-                        frame[8] = 0x80;
-                        frame[9] = 0x80;
-                        frame[10] = (byte)(0x80 | sendHex);
+                                frame[8] = 0x80;
+                                frame[9] = 0x80;
+                                frame[10] = (byte)(0x80 | sendHex);
 
-                        frame[11] = 0x03;
+                                frame[11] = 0x03;
 
-                        byte xorSum = 0;
-                        for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                        frame[12] = (byte)(0x80 | (xorSum >> 4));
-                        frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                        frame[14] = 0x0D;
+                                byte xorSum = 0;
+                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
+                                frame[12] = (byte)(0x80 | (xorSum >> 4));
+                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
+                                frame[14] = 0x0D;
 
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                    }
+                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                            }
+                            catch { }
+                        }
+                    }, token);
                 }
                 else
                 {
-                    // Otherwise, send specific serial frames to selected sirens sequentially with delay
-                    bool isFirst = true;
-                    foreach (var s in serialTargets)
+                    // Otherwise, send specific serial frames to selected sirens sequentially with delay (run in background so UI completes instantly)
+                    _ = Task.Run(async () =>
                     {
-                        if (token.IsCancellationRequested) break;
-
-                        if (!isFirst)
+                        bool isFirst = true;
+                        foreach (var s in serialTargets)
                         {
-                            await Task.Delay(500, token);
+                            if (token.IsCancellationRequested) break;
+                            try
+                            {
+                                if (!isFirst)
+                                {
+                                    await Task.Delay(1000, token);
+                                }
+                                isFirst = false;
+
+                                byte[] frame = new byte[15];
+                                frame[0] = 0x02;
+
+                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
+                                frame[1] = (byte)(0x80 | (area[0] - '0'));
+                                frame[2] = (byte)(0x80 | (area[1] - '0'));
+                                frame[3] = (byte)(0x80 | (area[2] - '0'));
+
+                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
+                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
+                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
+                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
+                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
+
+                                frame[8] = 0x80;
+                                frame[9] = 0x80;
+                                frame[10] = (byte)(0x80 | sendHex);
+
+                                frame[11] = 0x03;
+
+                                byte xorSum = 0;
+                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
+                                frame[12] = (byte)(0x80 | (xorSum >> 4));
+                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
+                                frame[14] = 0x0D;
+
+                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                            }
+                            catch { }
                         }
-                        isFirst = false;
-
-                        byte[] frame = new byte[15];
-                        frame[0] = 0x02;
-
-                        string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                        frame[1] = (byte)(0x80 | (area[0] - '0'));
-                        frame[2] = (byte)(0x80 | (area[1] - '0'));
-                        frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                        string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                        frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                        frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                        frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                        frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                        frame[8] = 0x80;
-                        frame[9] = 0x80;
-                        frame[10] = (byte)(0x80 | sendHex);
-
-                        frame[11] = 0x03;
-
-                        byte xorSum = 0;
-                        for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                        frame[12] = (byte)(0x80 | (xorSum >> 4));
-                        frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                        frame[14] = 0x0D;
-
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                    }
+                    }, token);
                 }
 
                 await tcpPromise;
@@ -1271,6 +1527,35 @@ namespace Keemya.Frontend.ViewModels
             return frame;
         }
 
+        private string? FindAudioFile(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            string assetsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Audio");
+            
+            // Check for .mp3 first
+            string mp3Path = System.IO.Path.Combine(assetsDir, name + ".mp3");
+            if (System.IO.File.Exists(mp3Path)) return mp3Path;
+            
+            // Check for .wav
+            string wavPath = System.IO.Path.Combine(assetsDir, name + ".wav");
+            if (System.IO.File.Exists(wavPath)) return wavPath;
+
+            // Try case-insensitive search in directory
+            try
+            {
+                if (System.IO.Directory.Exists(assetsDir))
+                {
+                    var files = System.IO.Directory.GetFiles(assetsDir, "*.*");
+                    var match = files.FirstOrDefault(f => 
+                        string.Equals(System.IO.Path.GetFileNameWithoutExtension(f), name, StringComparison.OrdinalIgnoreCase));
+                    if (match != null) return match;
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
         // ── Navigation ───────────────────────────────────────────────────────
 
         [RelayCommand]
@@ -1307,6 +1592,161 @@ namespace Keemya.Frontend.ViewModels
                 c.TargetLabel    = label;
                 c.AvailableCount = count;
             }
+        }
+
+        [RelayCommand]
+        private void TogglePlay()
+        {
+            var audioService = Keemya.Frontend.Services.AudioSimulationService.Instance;
+
+            if (IsAudioPlaying)
+            {
+                audioService.StopLoopback();
+                IsAudioPlaying = false;
+                if (_playPreviewTimer != null)
+                {
+                    _playPreviewTimer.Stop();
+                }
+                AudioPosition = 0;
+                AudioPositionText = $"0:00 / {FormatTime(AudioDuration)}";
+            }
+            else
+            {
+                var playlist = new List<string>();
+                string[] items = new[] { SelectedEvent, SelectedType, SelectedCategory, SelectedArea, SelectedWindDirection, SelectedAssemblyPoint };
+                foreach (var item in items)
+                {
+                    if (string.IsNullOrEmpty(item)) continue;
+                    string? path = FindAudioFile(item);
+                    if (path != null)
+                    {
+                        playlist.Add(path);
+                    }
+                    else
+                    {
+                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[Audio] Snippet not found for: {item}");
+                    }
+                }
+
+                if (playlist.Count == 0)
+                {
+                    System.Windows.MessageBox.Show("No audio files found for the current selections.", "Playback Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return;
+                }
+
+                audioService.StartSequentialPlayback(playlist);
+                IsAudioPlaying = true;
+
+                if (_playPreviewTimer == null)
+                {
+                    _playPreviewTimer = new System.Windows.Threading.DispatcherTimer();
+                    _playPreviewTimer.Interval = TimeSpan.FromMilliseconds(100);
+                    _playPreviewTimer.Tick += (s, e) =>
+                    {
+                        if (audioService.IsPlaybackActive())
+                        {
+                            AudioPosition = audioService.GetPlaybackPosition();
+                            AudioDuration = audioService.GetPlaybackDuration();
+                            AudioPositionText = $"{FormatTime(AudioPosition)} / {FormatTime(AudioDuration)}";
+                        }
+                        else
+                        {
+                            IsAudioPlaying = false;
+                            _playPreviewTimer.Stop();
+                            AudioPosition = 0;
+                            AudioPositionText = $"0:00 / {FormatTime(AudioDuration)}";
+                        }
+                    };
+                }
+                _playPreviewTimer.Start();
+            }
+        }
+
+        [RelayCommand]
+        private void CheckOption()
+        {
+            var role = (Session.Role ?? "Admin").ToUpper();
+            if (role == "SERVICE")
+            {
+                MessageBox.Show("Technical/Service users are not authorized to dispatch emergency activations.", 
+                    "Access Denied", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            string cleanEvent = SelectedEvent.Replace(" ", "").ToLower();
+            string cleanType = SelectedType.Replace(" ", "").ToLower();
+            string cleanCategory = SelectedCategory.Replace(" ", "").ToLower();
+            string cleanArea = SelectedArea.Replace(" ", "").ToLower();
+            string cleanWind = SelectedWindDirection.Replace(" ", "").Replace("to", "_to_").ToLower();
+            string cleanAssembly = SelectedAssemblyPoint.Replace(" ", "").ToLower();
+
+            string fileName = $"{cleanEvent}_{cleanType}_{cleanCategory}_{cleanArea}_{cleanWind}_{cleanAssembly}.wav";
+            string assetsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Audio");
+            string fullPath = System.IO.Path.Combine(assetsDir, fileName);
+
+            Keemya.Frontend.Services.AudioSimulationService.Instance.EnsureDummyAudioFile(fullPath);
+
+            var card = _allCommands.FirstOrDefault(c => c.CommandHex == 4);
+            if (card == null)
+            {
+                card = new CommandCardDto
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "PUBLIC ADDRESS",
+                    CommandType = "Live",
+                    CommandHex = 4,
+                    Color = "#3B82F6",
+                    Duration = 0
+                };
+            }
+
+            IsCommandRunning = true;
+            IsPublicAddressActive = true;
+
+            _ = Task.Run(async () =>
+            {
+                var targetSirens = _allSirens.ToList();
+                foreach (var s in targetSirens)
+                {
+                    byte[] frame = BuildUnitFrame(s, (byte)card.CommandHex);
+                    if (frame != null)
+                    {
+                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                    }
+                }
+            });
+
+            var playlist = new List<string>();
+            string[] items = new[] { SelectedEvent, SelectedType, SelectedCategory, SelectedArea, SelectedWindDirection, SelectedAssemblyPoint };
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(item)) continue;
+                string? path = FindAudioFile(item);
+                if (path != null) playlist.Add(path);
+            }
+
+            string seqString = string.Join("|", items.Where(x => !string.IsNullOrEmpty(x)));
+
+            if (AppConfig.StationName == "Admin ECC")
+            {
+                if (playlist.Count > 0)
+                {
+                    Keemya.Frontend.Services.AudioSimulationService.Instance.StartSequentialPlayback(playlist);
+                }
+            }
+            else
+            {
+                ActiveIntercomStation = "PA:SEQ:" + seqString;
+                _ = UpdateActiveCallTargetInDbAsync("PA:SEQ:" + seqString);
+            }
+        }
+
+        private string FormatTime(double seconds)
+        {
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0) return "0:00";
+            int minutes = (int)(seconds / 60);
+            int secs = (int)(seconds % 60);
+            return $"{minutes}:{secs:D2}";
         }
 
         private async Task LoadStationStatusesAsync()
@@ -1368,14 +1808,19 @@ namespace Keemya.Frontend.ViewModels
                     PcbControllerStatus = PcbEcsStatus;
                     RcbControllerStatus = RcbEcsStatus;
 
+                    OnPropertyChanged(nameof(RadioStatusColor));
+                    OnPropertyChanged(nameof(RadioStatusText));
+
                     // DB-driven Intercom voice Call Synchronization
-                    // Find if another workstation has initiated a call to our workstation
-                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget != null && x.ActiveCallTarget.EndsWith(AppConfig.StationName));
+                    // Find if another workstation has initiated a call or pre-recorded PA request
+                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget != null && (x.ActiveCallTarget.EndsWith(AppConfig.StationName) || x.ActiveCallTarget.StartsWith("PA:FILE:") || x.ActiveCallTarget.StartsWith("PA:SEQ:")));
                     if (caller != null)
                     {
                         string? targetSignal = caller.ActiveCallTarget;
-                        bool isLivePA = targetSignal?.StartsWith("PA:") == true;
-                        string expectedStationState = isLivePA ? "PA:" + caller.Name : caller.Name;
+                        bool isLivePA = targetSignal?.StartsWith("PA:") == true && !targetSignal.StartsWith("PA:FILE:") && !targetSignal.StartsWith("PA:SEQ:");
+                        bool isFilePA = targetSignal?.StartsWith("PA:FILE:") == true;
+                        bool isSeqPA = targetSignal?.StartsWith("PA:SEQ:") == true;
+                        string expectedStationState = isLivePA ? "PA:" + caller.Name : (isFilePA || isSeqPA ? targetSignal! : caller.Name);
                         
                         // If they are calling us and we haven't connected locally yet, answer and start streaming back!
                         if (ActiveIntercomStation != expectedStationState)
@@ -1385,6 +1830,35 @@ namespace Keemya.Frontend.ViewModels
                                 Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming live Public Address broadcast from {caller.Name}. Keying PTT relay...");
                                 ActiveIntercomStation = expectedStationState;
                                 Keemya.Frontend.Services.AudioSimulationService.Instance.SetPttRelayState(true);
+                            }
+                            else if (isFilePA)
+                            {
+                                string fileName = targetSignal!.Replace("PA:FILE:", "");
+                                string assetsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Audio");
+                                string fullPath = System.IO.Path.Combine(assetsDir, fileName);
+                                
+                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming pre-recorded PA request from {caller.Name} ({fileName}). Keying PTT relay and playing audio...");
+                                ActiveIntercomStation = expectedStationState;
+                                
+                                // Ensure dummy file exists and play
+                                Keemya.Frontend.Services.AudioSimulationService.Instance.EnsureDummyAudioFile(fullPath);
+                                Keemya.Frontend.Services.AudioSimulationService.Instance.StartFilePlayback(fullPath);
+                            }
+                            else if (isSeqPA)
+                            {
+                                string seqData = targetSignal!.Replace("PA:SEQ:", "");
+                                var parts = seqData.Split('|');
+                                var playlist = new List<string>();
+                                foreach (var p in parts)
+                                {
+                                    string? path = FindAudioFile(p);
+                                    if (path != null) playlist.Add(path);
+                                }
+
+                                Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Incoming sequential PA request from {caller.Name} ({seqData}). Keying PTT relay and playing audio...");
+                                ActiveIntercomStation = expectedStationState;
+                                
+                                Keemya.Frontend.Services.AudioSimulationService.Instance.StartSequentialPlayback(playlist);
                             }
                             else
                             {
@@ -1398,20 +1872,32 @@ namespace Keemya.Frontend.ViewModels
                         // If no remote machine is calling us, but we are currently marked as in an incoming call (meaning they hung up), disconnect!
                         if (!string.IsNullOrEmpty(ActiveIntercomStation))
                         {
-                            bool isLivePA = ActiveIntercomStation.StartsWith("PA:");
-                            string cleanCallerName = ActiveIntercomStation.Replace("PA:", "");
+                            bool isLivePA = ActiveIntercomStation.StartsWith("PA:") && !ActiveIntercomStation.StartsWith("PA:FILE:") && !ActiveIntercomStation.StartsWith("PA:SEQ:");
+                            bool isFilePA = ActiveIntercomStation.StartsWith("PA:FILE:") || ActiveIntercomStation.StartsWith("PA:SEQ:");
+                            string cleanCallerName = isFilePA ? "Office PC" : ActiveIntercomStation.Replace("PA:", "");
                             
                             var myRow = list.FirstOrDefault(x => x.Name == AppConfig.StationName);
                             if (myRow == null || myRow.ActiveCallTarget != ActiveIntercomStation)
                             {
-                                var callerRow = list.FirstOrDefault(x => x.Name == cleanCallerName);
-                                if (callerRow == null || callerRow.ActiveCallTarget != (isLivePA ? "PA:" + AppConfig.StationName : AppConfig.StationName))
+                                bool shouldDisconnect = false;
+                                if (isFilePA)
                                 {
-                                    if (isLivePA)
+                                    var anyFilePA = list.Any(x => x.Type == "Workstation" && x.ActiveCallTarget == ActiveIntercomStation);
+                                    shouldDisconnect = !anyFilePA;
+                                }
+                                else
+                               {
+                                    var callerRow = list.FirstOrDefault(x => x.Name == cleanCallerName);
+                                    shouldDisconnect = (callerRow == null || callerRow.ActiveCallTarget != (isLivePA ? "PA:" + AppConfig.StationName : AppConfig.StationName));
+                                }
+
+                                if (shouldDisconnect)
+                                {
+                                    if (isLivePA || isFilePA)
                                     {
-                                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Live Public Address ended by {cleanCallerName}. Releasing PTT relay...");
+                                        Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"[VoIP] DB Sync: Public Address ended. Releasing PTT relay and stopping audio...");
                                         ActiveIntercomStation = null;
-                                        Keemya.Frontend.Services.AudioSimulationService.Instance.SetPttRelayState(false);
+                                        Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
                                     }
                                     else
                                     {
