@@ -1207,7 +1207,7 @@ namespace Keemya.Frontend.Services
         // ────────────────────────────────────────────────────────────────────
         // Redundancy Operations (Auto-Failover Logic)
         // ────────────────────────────────────────────────────────────────────
-        public async Task<bool> ExecuteTransmitAsync(string sirenName, string ipAddress, bool redundant, byte[] frame, bool trackStatus = true, bool isUserInitiated = true)
+        public async Task<bool> ExecuteTransmitAsync(string sirenName, string ipAddress, bool redundant, byte[] frame, bool trackStatus = true, bool isUserInitiated = true, bool skipWarmup = false)
         {
             if (AppConfig.StationName != "Admin ECC")
             {
@@ -1315,7 +1315,7 @@ namespace Keemya.Frontend.Services
                 {
                     try
                     {
-                        if (isToneActivation && isUserInitiated)
+                        if (isToneActivation && isUserInitiated && !skipWarmup)
                         {
                             Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
                             await SendSirenOnSequenceAsync(frame);
@@ -1367,7 +1367,7 @@ namespace Keemya.Frontend.Services
 
             // 3. Serial-only (No IP assigned)
             Log($"ℹ️ [Redundant Transmit] Routing via Serial-only for {sirenName}.");
-            if (isToneActivation && isUserInitiated)
+            if (isToneActivation && isUserInitiated && !skipWarmup)
             {
                 Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
                 await SendSirenOnSequenceAsync(frame);

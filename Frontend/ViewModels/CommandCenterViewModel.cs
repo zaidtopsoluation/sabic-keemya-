@@ -1139,161 +1139,68 @@ namespace Keemya.Frontend.ViewModels
                 var tcpPromise = Task.WhenAll(tcpTasks);
 
                 // 2. Send Serial commands
-                if (isBroadcast)
+                if (serialTargets.Any())
                 {
-                    // For broadcast, send a single global wildcard serial frame
-                    byte[] wildcardFrame = BuildWildcardFrame((byte)sendHex);
-                    
-                    // Send Siren On warmup sequence first to ensure walkie-talkie keys and sirens wake up
-                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(wildcardFrame);
-                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(wildcardFrame, expectsAck: false, isUserInitiated: true);
+                    // Send Siren On warmup sequence once using the first serial target's frame configuration to key PTT/squelch
+                    var firstSiren = serialTargets.First();
+                    byte[] warmupFrame = new byte[15];
+                    warmupFrame[0] = 0x02;
+                    string area = (firstSiren.AreaCode ?? "000").PadLeft(3, '0');
+                    warmupFrame[1] = (byte)(0x80 | (area[0] - '0'));
+                    warmupFrame[2] = (byte)(0x80 | (area[1] - '0'));
+                    warmupFrame[3] = (byte)(0x80 | (area[2] - '0'));
+                    string addr = (firstSiren.AddressCode ?? "0000").PadLeft(4, '0');
+                    warmupFrame[4] = (byte)(0x80 | (addr[0] - '0'));
+                    warmupFrame[5] = (byte)(0x80 | (addr[1] - '0'));
+                    warmupFrame[6] = (byte)(0x80 | (addr[2] - '0'));
+                    warmupFrame[7] = (byte)(0x80 | (addr[3] - '0'));
+                    warmupFrame[8] = 0x80;
+                    warmupFrame[9] = 0x80;
+                    warmupFrame[10] = (byte)(0x80 | 0x1A); // Siren On command to initialize C2030 board
+                    warmupFrame[11] = 0x03;
+                    byte xorSum = 0;
+                    for (int i = 0; i <= 11; i++) xorSum ^= warmupFrame[i];
+                    warmupFrame[12] = (byte)(0x80 | (xorSum >> 4));
+                    warmupFrame[13] = (byte)(0x80 | (xorSum & 0x0F));
+                    warmupFrame[14] = 0x0D;
 
-                    // Offload individual backup frames to a background task so it doesn't block the activation
-                    _ = Task.Run(async () =>
-                    {
-                        foreach (var s in serialTargets)
-                        {
-                            if (token.IsCancellationRequested) break;
-                            try
-                            {
-                                await Task.Delay(1000, token);
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(warmupFrame);
 
-                                byte[] frame = new byte[15];
-                                frame[0] = 0x02;
-
-                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                                frame[1] = (byte)(0x80 | (area[0] - '0'));
-                                frame[2] = (byte)(0x80 | (area[1] - '0'));
-                                frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                                frame[8] = 0x80;
-                                frame[9] = 0x80;
-                                frame[10] = (byte)(0x80 | sendHex);
-
-                                frame[11] = 0x03;
-
-                                byte xorSum = 0;
-                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                                frame[12] = (byte)(0x80 | (xorSum >> 4));
-                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                                frame[14] = 0x0D;
-
-                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                            }
-                            catch { }
-                        }
-                    }, token);
-                }
-                else if (_mode == SelectionMode.Zone)
-                {
-                    // For zone, send one area wildcard frame per unique AreaCode in serialTargets
-                    var uniqueAreas = serialTargets.Select(s => s.AreaCode ?? "000").Distinct().ToList();
-                    foreach (var areaCode in uniqueAreas)
+                    // Send specific addressed frames to all serial sirens back-to-back
+                    foreach (var s in serialTargets)
                     {
                         if (token.IsCancellationRequested) break;
-                        byte[] areaWildcardFrame = BuildAreaWildcardFrame(areaCode, (byte)sendHex);
-                        
-                        // Send Siren On warmup sequence first for this zone wildcard
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(areaWildcardFrame);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(areaWildcardFrame, expectsAck: false, isUserInitiated: true);
+                        try
+                        {
+                            byte[] frame = new byte[15];
+                            frame[0] = 0x02;
+                            string areaS = (s.AreaCode ?? "000").PadLeft(3, '0');
+                            frame[1] = (byte)(0x80 | (areaS[0] - '0'));
+                            frame[2] = (byte)(0x80 | (areaS[1] - '0'));
+                            frame[3] = (byte)(0x80 | (areaS[2] - '0'));
+                            string addrS = (s.AddressCode ?? "0000").PadLeft(4, '0');
+                            frame[4] = (byte)(0x80 | (addrS[0] - '0'));
+                            frame[5] = (byte)(0x80 | (addrS[1] - '0'));
+                            frame[6] = (byte)(0x80 | (addrS[2] - '0'));
+                            frame[7] = (byte)(0x80 | (addrS[3] - '0'));
+                            frame[8] = 0x80;
+                            frame[9] = 0x80;
+                            frame[10] = (byte)(0x80 | sendHex);
+                            frame[11] = 0x03;
+                            byte xorSumS = 0;
+                            for (int i = 0; i <= 11; i++) xorSumS ^= frame[i];
+                            frame[12] = (byte)(0x80 | (xorSumS >> 4));
+                            frame[13] = (byte)(0x80 | (xorSumS & 0x0F));
+                            frame[14] = 0x0D;
+
+                            // We set skipWarmup: true so we do not run the slow SendSirenOnSequence again for each individual siren!
+                            await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, trackStatus: true, isUserInitiated: true, skipWarmup: true);
+                            
+                            // Wait only 50ms between sequential serial transmissions
+                            await Task.Delay(50, token);
+                        }
+                        catch { }
                     }
-
-                    // Offload individual backup frames to a background task
-                    _ = Task.Run(async () =>
-                    {
-                        foreach (var s in serialTargets)
-                        {
-                            if (token.IsCancellationRequested) break;
-                            try
-                            {
-                                await Task.Delay(1000, token);
-
-                                byte[] frame = new byte[15];
-                                frame[0] = 0x02;
-
-                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                                frame[1] = (byte)(0x80 | (area[0] - '0'));
-                                frame[2] = (byte)(0x80 | (area[1] - '0'));
-                                frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                                frame[8] = 0x80;
-                                frame[9] = 0x80;
-                                frame[10] = (byte)(0x80 | sendHex);
-
-                                frame[11] = 0x03;
-
-                                byte xorSum = 0;
-                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                                frame[12] = (byte)(0x80 | (xorSum >> 4));
-                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                                frame[14] = 0x0D;
-
-                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                            }
-                            catch { }
-                        }
-                    }, token);
-                }
-                else
-                {
-                    // Otherwise, send specific serial frames to selected sirens sequentially with delay (run in background so UI completes instantly)
-                    _ = Task.Run(async () =>
-                    {
-                        bool isFirst = true;
-                        foreach (var s in serialTargets)
-                        {
-                            if (token.IsCancellationRequested) break;
-                            try
-                            {
-                                if (!isFirst)
-                                {
-                                    await Task.Delay(1000, token);
-                                }
-                                isFirst = false;
-
-                                byte[] frame = new byte[15];
-                                frame[0] = 0x02;
-
-                                string area = (s.AreaCode ?? "000").PadLeft(3, '0');
-                                frame[1] = (byte)(0x80 | (area[0] - '0'));
-                                frame[2] = (byte)(0x80 | (area[1] - '0'));
-                                frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                                string addr = (s.AddressCode ?? "0000").PadLeft(4, '0');
-                                frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                                frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                                frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                                frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                                frame[8] = 0x80;
-                                frame[9] = 0x80;
-                                frame[10] = (byte)(0x80 | sendHex);
-
-                                frame[11] = 0x03;
-
-                                byte xorSum = 0;
-                                for (int i = 0; i <= 11; i++) xorSum ^= frame[i];
-                                frame[12] = (byte)(0x80 | (xorSum >> 4));
-                                frame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                                frame[14] = 0x0D;
-
-                                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
-                            }
-                            catch { }
-                        }
-                    }, token);
                 }
 
                 await tcpPromise;
