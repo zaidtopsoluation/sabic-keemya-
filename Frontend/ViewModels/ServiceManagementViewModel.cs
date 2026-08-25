@@ -55,6 +55,15 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty]
         private ObservableCollection<SirenDeviceDto> targetedSirens = new();
 
+        [ObservableProperty]
+        private bool isSelectAllChecked = false;
+
+        [ObservableProperty]
+        private bool isMultiSelectActive = false;
+
+        [ObservableProperty]
+        private ObservableCollection<SirenDeviceDto> selectedSirens = new();
+
         // ── Selected Siren Health Statuses ─────────────────────────────
         [ObservableProperty] private bool healthSirenOn = false;
         [ObservableProperty] private bool healthAcOn = false;
@@ -117,12 +126,15 @@ namespace Keemya.Frontend.ViewModels
             await LoadSirensFromDatabaseAsync();
             await LoadCommandCardsAsync();
 
-            // Select first siren by default
-            if (Sirens.Count > 0)
+            // Trigger background telemetry polling for all online sirens on open
+            _ = Task.Run(async () =>
             {
-                SelectedSiren = Sirens[0];
-                ClickSiren(SelectedSiren);
-            }
+                foreach (var siren in Sirens)
+                {
+                    await QuerySirenHealthAsync(siren);
+                    await Task.Delay(300);
+                }
+            });
         }
         private async Task LoadSirensFromDatabaseAsync()
         {
@@ -142,7 +154,7 @@ namespace Keemya.Frontend.ViewModels
                 using var rdr = await cmd.ExecuteReaderAsync();
                 while (await rdr.ReadAsync())
                 {
-                    list.Add(new SirenDeviceDto
+                    var dto = new SirenDeviceDto
                     {
                         Id = rdr.GetGuid(0),
                         Name = rdr.GetString(1),
@@ -155,7 +167,26 @@ namespace Keemya.Frontend.ViewModels
                         Redundant = rdr.GetBoolean(8),
                         GroupId = rdr.IsDBNull(9) ? null : rdr.GetGuid(9),
                         GroupName = rdr.IsDBNull(10) ? string.Empty : rdr.GetString(10)
-                    });
+                    };
+
+                    // Populate initial cached telemetry for each card
+                    var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(dto.Name);
+                    if (cache != null)
+                    {
+                        dto.DcVolts = cache.DcVoltage;
+                        dto.AcVolts = cache.AcVoltage;
+                        dto.CabTemp = cache.CabTemp;
+                        dto.AcPowerOn = cache.AcOn;
+                        dto.StrobeActive = cache.StrobeActive;
+                        dto.SupervisorMode = cache.SupervisorMode;
+                        dto.SystemArmed = cache.SystemArmed;
+                        dto.RotorActive = cache.RotorActive;
+                        dto.BiasDetected = cache.BiasDetected;
+                        dto.FullAlert = cache.FullAlert;
+                        dto.PartialAlert = cache.PartialAlert;
+                    }
+
+                    list.Add(dto);
                 }
 
                 _allSirens = list;
@@ -169,38 +200,20 @@ namespace Keemya.Frontend.ViewModels
         }
         private async Task LoadCommandCardsAsync()
         {
-            try
+            await Task.CompletedTask;
+            var list = new List<CommandConfigDto>
             {
-                var list = new List<CommandConfigDto>();
-                using var conn = new MySqlConnection(ConnStr);
-                await conn.OpenAsync();
-
-                const string sql = @"SELECT Id, Name, CommandType, CommandHex, Color, Duration
-                                     FROM CommandConfigs
-                                     WHERE IsSystemDefault = 0 AND IsEnabled = 1
-                                     ORDER BY SortOrder, Name";
-
-                using var cmd = new MySqlCommand(sql, conn);
-                using var rdr = await cmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
+                new CommandConfigDto
                 {
-                    list.Add(new CommandConfigDto
-                    {
-                        Id = rdr.GetGuid(0),
-                        Name = rdr.GetString(1),
-                        CommandType = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
-                        CommandHex = rdr.GetInt32(3),
-                        Color = rdr.IsDBNull(4) ? "Blue" : rdr.GetString(4),
-                        Duration = rdr.GetInt32(5)
-                    });
+                    Id = Guid.NewGuid(),
+                    Name = "SI Test",
+                    CommandType = "Diagnostic",
+                    CommandHex = 0x03,
+                    Color = "#3B82F6",
+                    Duration = 10
                 }
-
-                CommandCards = new ObservableCollection<CommandConfigDto>(list);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading commands in Service Management: {ex.Message}");
-            }
+            };
+            CommandCards = new ObservableCollection<CommandConfigDto>(list);
         }
         partial void OnSearchQueryChanged(string value)
         {
@@ -230,6 +243,70 @@ namespace Keemya.Frontend.ViewModels
             }
 
             FilteredSirens = new ObservableCollection<SirenDeviceDto>(filtered);
+        }
+
+        [RelayCommand]
+        private void ToggleSelectAll()
+        {
+            foreach (var s in FilteredSirens)
+            {
+                s.IsChecked = IsSelectAllChecked;
+            }
+            UpdateSelectedSirensCollection();
+        }
+
+        [RelayCommand]
+        private void ToggleSirenCheck(SirenDeviceDto? siren)
+        {
+            UpdateSelectedSirensCollection();
+        }
+
+        private void UpdateSelectedSirensCollection()
+        {
+            var checkedList = _allSirens.Where(x => x.IsChecked).ToList();
+            SelectedSirens = new ObservableCollection<SirenDeviceDto>(checkedList);
+
+            if (checkedList.Count > 1)
+            {
+                IsMultiSelectActive = true;
+            }
+            else if (checkedList.Count == 1)
+            {
+                IsMultiSelectActive = false;
+                SelectedSiren = checkedList[0];
+            }
+            else
+            {
+                IsMultiSelectActive = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task SiTestAllSelected()
+        {
+            var targets = SelectedSirens.Count > 0 ? SelectedSirens.ToList() : _allSirens;
+            SirenCommunicationService.Instance.Log($"=== Service Management: SI Test All Selected ({targets.Count} sirens) ===");
+
+            foreach (var s in targets)
+            {
+                await QuerySirenHealthAsync(s);
+                await Task.Delay(300);
+            }
+
+            try
+            {
+                string actor = Keemya.Frontend.Stores.Session.Username ?? "System";
+                var auditLogService = new Keemya.Frontend.Services.AuditLogService();
+                _ = auditLogService.LogAsync(actor, "DIAGNOSTIC", $"SI Test (Silent Telemetry Sync) executed for {targets.Count} sirens.", "Service Management");
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private async Task SiTestSingleSiren(SirenDeviceDto? siren)
+        {
+            if (siren == null) return;
+            await QuerySirenHealthAsync(siren);
         }
 
         // ── Interaction: Select Siren ────────────────────────────────────────
@@ -380,6 +457,26 @@ namespace Keemya.Frontend.ViewModels
             if (TargetedSirens.Count == 0) return;
 
             SirenCommunicationService.Instance.Log($"=== Service Dispatch: {card.Name} (0x{card.CommandHex:X2}) ===");
+
+            // SI Test / Diagnostic Sync: Only query status & telemetry without sounding any tones
+            if (card.CommandHex == 0x03 || card.CommandType == "Diagnostic" || card.Name.Contains("SI Test"))
+            {
+                var target = TargetedSirens.FirstOrDefault();
+                if (target != null)
+                {
+                    SirenCommunicationService.Instance.Log($"ℹ️ [Service Management] SI Test (Telemetry Status Sync Only) initiated for '{target.Name}'.");
+                    await QuerySirenHealthAsync(target);
+                }
+
+                try
+                {
+                    string actor = Keemya.Frontend.Stores.Session.Username ?? "System";
+                    var auditLogService = new Keemya.Frontend.Services.AuditLogService();
+                    _ = auditLogService.LogAsync(actor, "DIAGNOSTIC", $"SI Test (Silent Status Sync) executed for {target?.Name}.", "Service Management");
+                }
+                catch { }
+                return;
+            }
 
             if (_activeCommandCts != null)
             {
@@ -554,16 +651,33 @@ namespace Keemya.Frontend.ViewModels
         // ── Communication Event Decoders ─────────────────────────────────────
         private void OnInstantStatusReceived(string addressCode, byte instantStatus, byte dcVolts, byte cabTemp, byte outTemp)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null)
+                {
+                    siren.AcPowerOn = (instantStatus & 0x01) != 0;
+                    siren.DoorIntruded = (instantStatus & 0x02) != 0;
+                    siren.StrobeActive = (instantStatus & 0x04) != 0;
+                    siren.SupervisorMode = (instantStatus & 0x08) != 0;
+                    siren.FullAlert = (instantStatus & 0x20) != 0;
+                    siren.PartialAlert = (instantStatus & 0x40) != 0;
+                    siren.BiasDetected = (instantStatus & 0x80) == 0;
+
+                    if (dcVolts > 0)
+                    {
+                        double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
+                        if (parsedDc > 5.0) siren.DcVolts = parsedDc;
+                    }
+                    siren.AcVolts = siren.AcPowerOn ? 220.0 : 0.0;
+                    if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
+                }
+
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     HealthStatusByte = (int)instantStatus;
-
                     HealthAcOn = (instantStatus & 0x01) != 0;
                     HealthIntrusion = (instantStatus & 0x02) != 0;
                     HealthStrobeActive = (instantStatus & 0x04) != 0;
@@ -571,109 +685,132 @@ namespace Keemya.Frontend.ViewModels
                     HealthFullAlert = (instantStatus & 0x20) != 0;
                     HealthPartialAlert = (instantStatus & 0x40) != 0;
                     HealthBiasDetected = (instantStatus & 0x80) == 0;
-
                     if (dcVolts > 0)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
-                    
                     HealthAcVoltage = HealthAcOn ? 220.0 : 0.0;
                     HealthDynamicAc = HealthAcOn;
                     HealthSystemPowerUp = HealthAcOn || HealthDcVoltage >= 22.0;
-                    
-                    if (cabTemp > 100)
-                    {
-                        HealthTemperature = (double)(cabTemp - 100);
-                    }
-                });
-            }
+                    if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
+                }
+            });
         }
 
         private void OnActiveStatusReceived(string addressCode, byte activeCmd, byte acVolts, byte dcVolts, byte activeStatus, byte cabTemp, byte outTemp)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null)
+                {
+                    if (dcVolts > 0 && dcVolts != 128)
+                    {
+                        double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
+                        if (parsedDc > 5.0) siren.DcVolts = parsedDc;
+                    }
+                    if (acVolts > 0) siren.AcVolts = (double)acVolts;
+                    if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
+                    siren.FullAlert = (activeStatus & 0x01) != 0;
+                    siren.PartialAlert = (activeStatus & 0x02) != 0;
+                    siren.BiasDetected = (activeStatus & 0x04) != 0;
+                    siren.DoorIntruded = (activeStatus & 0x08) != 0;
+                    siren.StrobeActive = (activeStatus & 0x10) != 0;
+                    siren.SupervisorMode = (activeStatus & 0x40) != 0;
+                }
+
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     if (dcVolts > 0 && dcVolts != 128)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
-                    
                     if (acVolts > 0) HealthAcVoltage = (double)acVolts;
-
                     if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
-
                     HealthDynamicAc = HealthAcVoltage > 0;
                     HealthSystemPowerUp = HealthDynamicAc || HealthDcVoltage >= 22.0;
-
                     HealthFullAlert = (activeStatus & 0x01) != 0;
                     HealthPartialAlert = (activeStatus & 0x02) != 0;
                     HealthBiasDetected = (activeStatus & 0x04) != 0;
                     HealthIntrusion = (activeStatus & 0x08) != 0;
                     HealthStrobeActive = (activeStatus & 0x10) != 0;
                     HealthSupervisorMode = (activeStatus & 0x40) != 0;
-                });
-            }
+                }
+            });
         }
 
         private void OnStandardStatusReceived(string addressCode, byte statusByte, byte dcVolts, byte cabTemp, byte outTemp)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null)
+                {
+                    siren.SystemArmed = (statusByte & 0x20) != 0;
+                    siren.FullAlert = (statusByte & 0x01) != 0;
+                    siren.PartialAlert = (statusByte & 0x02) != 0;
+                    siren.RotorActive = (statusByte & 0x04) != 0;
+                    siren.AcPowerOn = (statusByte & 0x80) != 0;
+                    if (dcVolts > 0)
+                    {
+                        double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
+                        if (parsedDc > 5.0) siren.DcVolts = parsedDc;
+                    }
+                    if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
+                }
+
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     HealthSirenOn = (statusByte & 0x10) != 0;
                     HealthSystemArmed = (statusByte & 0x20) != 0;
-                    
                     HealthFullAlert = (statusByte & 0x01) != 0;
                     HealthPartialAlert = (statusByte & 0x02) != 0;
                     HealthRotorActive = (statusByte & 0x04) != 0;
                     HealthStoredAc = (statusByte & 0x08) != 0;
                     HealthAcOn = (statusByte & 0x80) != 0;
                     HealthDynamicAc = (statusByte & 0x80) != 0;
-
                     HealthSystemPowerUp = (statusByte & 0x40) != 0 || HealthAcOn || HealthDcVoltage >= 22.0;
-
                     if (dcVolts > 0)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
-                    if (cabTemp > 100)
-                    {
-                        HealthTemperature = (double)(cabTemp - 100);
-                    }
-                });
-            }
+                    if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
+                }
+            });
         }
 
         private void OnBatteryAcReceived(string addressCode, byte dcVolts, byte acVolts)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null)
+                {
+                    if (dcVolts > 0 && dcVolts != 128)
+                    {
+                        double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
+                        if (parsedDc > 5.0) siren.DcVolts = parsedDc;
+                    }
+                    int strippedAc = acVolts & 0x7F;
+                    siren.AcVolts = strippedAc > 0 ? (double)strippedAc : 220.0;
+                }
+
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     if (dcVolts > 0 && dcVolts != 128)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
-
                     if (HealthAcOn)
                     {
                         int strippedAc = acVolts & 0x7F;
@@ -685,53 +822,60 @@ namespace Keemya.Frontend.ViewModels
                     }
                     HealthDynamicAc = HealthAcVoltage > 0;
                     HealthSystemPowerUp = HealthAcOn || HealthDcVoltage >= 22.0;
-                });
-            }
+                }
+            });
         }
 
         private void OnBatteryTempReceived(string addressCode, byte dcVolts, byte cabTemp)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null)
+                {
+                    if (dcVolts > 0)
+                    {
+                        double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
+                        if (parsedDc > 5.0) siren.DcVolts = parsedDc;
+                    }
+                    if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
+                }
+
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     if (dcVolts > 0)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
-
-                    if (cabTemp > 100)
-                    {
-                        HealthTemperature = (double)(cabTemp - 100);
-                    }
+                    if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
                     HealthSystemPowerUp = HealthAcOn || HealthDcVoltage >= 22.0;
-                });
-            }
+                }
+            });
         }
 
         private void OnWeatherReceived(string addressCode, byte outTemp, byte windDir, byte windSpd, byte rain)
         {
-            // Ready for future weather bindings
         }
 
         private void OnComprehensiveTempReceived(string addressCode, byte cabTemp, byte outTemp, byte lowPeak, byte highPeak)
         {
-            if (SelectedSiren == null) return;
-            string targetAddr = (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0');
             string rcvAddr = addressCode.PadLeft(4, '0');
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
 
-            if (targetAddr == rcvAddr)
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                if (siren != null && cabTemp > 100)
+                {
+                    siren.CabTemp = (double)(cabTemp - 100);
+                }
+                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
                     HealthTemperature = cabTemp > 100 ? (double)(cabTemp - 100) : 0.0;
-                });
-            }
+                }
+            });
         }
 
         private byte[] BuildUnitFrame(SirenDeviceDto s, byte commandHex)
