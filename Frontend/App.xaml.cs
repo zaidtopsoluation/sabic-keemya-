@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using Keemya.Frontend.Stores;
 using Keemya.Frontend.ViewModels;
-
 namespace Keemya.Frontend
 {
     public partial class App : Application
