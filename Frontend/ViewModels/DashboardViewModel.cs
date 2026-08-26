@@ -148,7 +148,7 @@ namespace Keemya.Frontend.ViewModels
                     {
                         total++;
                         string status = reader.IsDBNull(0) ? "OFFLINE" : reader.GetString(0).ToUpper();
-                        if (status == "ONLINE") online++;
+                        if (status == "ONLINE" || status == "WARNING") online++;
                         if (status == "WARNING" || status == "DANGER") alarms++;
                     }
 
@@ -176,8 +176,10 @@ namespace Keemya.Frontend.ViewModels
 
             foreach (var s in cachedSirens)
             {
-                if (s.IsOnline) onlineCount++;
-                if (s.HasAlarm) alarmCount++;
+                if (s.IsOnline || s.IsSerialOnline || s.IsTcpOnline || s.LastKnownStatus == "ONLINE" || s.LastKnownStatus == "WARNING") 
+                    onlineCount++;
+                if (s.HasAlarm) 
+                    alarmCount++;
             }
 
             System.Windows.Application.Current?.Dispatcher?.Invoke(() =>

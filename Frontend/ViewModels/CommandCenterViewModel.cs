@@ -29,6 +29,13 @@ namespace Keemya.Frontend.ViewModels
         public string Subtitle     => $"{TotalSirens} siren{(TotalSirens == 1 ? "" : "s")} • {OnlineSirens} ONLINE";
         public string OnlineDot    => OnlineSirens > 0 ? "#10B981" : "#6B7280";
         public string ChevronKind  => IsExpanded ? "ChevronDown" : "ChevronRight";
+
+        public void RefreshProperties()
+        {
+            OnPropertyChanged(nameof(OnlineSirens));
+            OnPropertyChanged(nameof(Subtitle));
+            OnPropertyChanged(nameof(OnlineDot));
+        }
     }
 
     public partial class SirenRowItem : ObservableObject
@@ -37,7 +44,11 @@ namespace Keemya.Frontend.ViewModels
         public string  Name          { get; set; } = string.Empty;
         public string  AreaCode      { get; set; } = string.Empty;
         public string  AddressCode   { get; set; } = string.Empty;
-        public bool    IsOnline      { get; set; }
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusColor))]
+        private bool isOnline = false;
+
         public Guid?   GroupId       { get; set; }
         public string  Ip            { get; set; } = string.Empty;
         public bool    Redundant     { get; set; }
@@ -484,6 +495,9 @@ namespace Keemya.Frontend.ViewModels
                 Application.Current.Dispatcher.Invoke(() => MicrophoneVolume = vol);
             };
 
+            // Subscribe to real-time siren status changed events for live STATUS list updates
+            Keemya.Frontend.Services.SirenCommunicationService.Instance.SirenStatusChanged += OnSirenStatusChanged;
+
             _ = LoadAllDataAsync();
 
             // Initialize station status refresh timer (poll every 1 second for instant intercom synchronization)
@@ -499,6 +513,27 @@ namespace Keemya.Frontend.ViewModels
                 Keemya.Frontend.Services.AudioCommunicationService.Instance.StartListening();
             }
             catch {}
+        }
+
+        private void OnSirenStatusChanged(string sirenName, string status)
+        {
+            Application.Current?.Dispatcher?.Invoke(() =>
+            {
+                bool online = status == "ONLINE" || status == "WARNING";
+                var siren = _allSirens.FirstOrDefault(s => s.Name == sirenName);
+                if (siren != null)
+                {
+                    siren.IsOnline = online;
+                }
+
+                AvailableSirensCount = _allSirens.Count(s => s.IsOnline);
+                UngroupedOnline = _allSirens.Count(s => s.GroupId == null && s.IsOnline);
+
+                foreach (var z in ZoneItems)
+                {
+                    z.RefreshProperties();
+                }
+            });
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -532,17 +567,24 @@ namespace Keemya.Frontend.ViewModels
                     "SELECT Id, Name, AreaCode, AddressCode, Status, GroupId, Ip, Redundant FROM SirenDevices ORDER BY Name", conn))
                 using (var rdr = await cmd.ExecuteReaderAsync())
                     while (await rdr.ReadAsync())
+                    {
+                        string name = rdr.GetString(1);
+                        string status = rdr.IsDBNull(4) ? "OFFLINE" : rdr.GetString(4);
+                        var cache = Keemya.Frontend.Services.SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(name);
+                        bool isOnline = (cache != null && cache.IsOnline) || status == "ONLINE" || status == "WARNING";
+
                         sirens.Add(new SirenRowItem
                         {
                             Id          = rdr.GetGuid(0),
-                            Name        = rdr.GetString(1),
+                            Name        = name,
                             AreaCode    = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
                             AddressCode = rdr.IsDBNull(3) ? "" : rdr.GetString(3),
-                            IsOnline    = !rdr.IsDBNull(4) && (rdr.GetString(4) == "ONLINE" || rdr.GetString(4) == "WARNING"),
+                            IsOnline    = isOnline,
                             GroupId     = rdr.IsDBNull(5) ? (Guid?)null : rdr.GetGuid(5),
                             Ip          = rdr.IsDBNull(6) ? "" : rdr.GetString(6),
                             Redundant   = !rdr.IsDBNull(7) && rdr.GetBoolean(7)
                         });
+                    }
 
                 _allSirens = sirens;
 

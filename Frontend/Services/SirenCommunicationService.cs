@@ -339,6 +339,12 @@ namespace Keemya.Frontend.Services
         {
             if (AppConfig.StationName != "Admin ECC") return null;
 
+            if (_hasSuccessfulSerialComm)
+            {
+                Log("🔍 [Auto-Detect] Serial communication is active and healthy — skipping port scan.");
+                return _serialPortName;
+            }
+
             if (_isAutoDetecting)
             {
                 Log("🔍 [Auto-Detect] Port scanning is already in progress.");
@@ -911,7 +917,7 @@ namespace Keemya.Frontend.Services
                 // Trigger auto-detect asynchronously if the port failed to open or transmit,
                 // but respect the cooldown so a persistent fault doesn't repeatedly
                 // seize the serial lock and stall the rest of a broadcast.
-                if (TryBeginAutoDetectThrottle())
+                if (!_hasSuccessfulSerialComm && TryBeginAutoDetectThrottle())
                 {
                     _ = Task.Run(() => AutoDetectSerialPortAsync());
                 }
@@ -1396,15 +1402,17 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            if (!item.IsTcpOnline && !item.IsSerialOnline)
+            if (!item.IsOnline && !item.IsTcpOnline && !item.IsSerialOnline)
                 return "OFFLINE";
 
-            // If only one channel is online, classify status as WARNING (displays Yellow)
-            if ((item.IsTcpOnline && !item.IsSerialOnline) || (!item.IsTcpOnline && item.IsSerialOnline))
-                return "WARNING";
-
-            // If both are online, check if there is an active alarm. If so, return WARNING. Otherwise return ONLINE (displays Green).
+            // If there is an active hardware alarm or low battery, return WARNING
             if (item.HasAlarm || (item.DcVoltage > 0 && item.DcVoltage < 22.0))
+            {
+                return "WARNING";
+            }
+
+            // For dual-channel IP sirens with redundancy enabled, if one channel drops, return WARNING
+            if (!string.IsNullOrWhiteSpace(item.Ip) && item.IsSerialOnline != item.IsTcpOnline)
             {
                 return "WARNING";
             }
@@ -1878,10 +1886,13 @@ namespace Keemya.Frontend.Services
                                     bool tcpSuccess = await SendTcpCommandAsync(s.Ip, frame, true);
                                     cacheItem.IsTcpOnline = tcpSuccess;
 
-                                    if (!s.Redundant)
+                                    if (tcpSuccess)
                                     {
-                                        cacheItem.IsSerialOnline = false;
-                                        cacheItem.IsOnline = tcpSuccess;
+                                        TrackSuccess(s.Name, 0x00);
+                                    }
+                                    else
+                                    {
+                                        TrackFailure(s.Name);
                                     }
                                 }
                             }
@@ -1905,15 +1916,13 @@ namespace Keemya.Frontend.Services
                                     bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
                                     cacheItem.IsSerialOnline = serialSuccess;
 
-                                    if (string.IsNullOrWhiteSpace(s.Ip))
+                                    if (serialSuccess)
                                     {
-                                        cacheItem.IsTcpOnline = false;
-                                        cacheItem.IsOnline = serialSuccess;
+                                        TrackSuccess(s.Name, 0x00);
                                     }
                                     else
                                     {
-                                        // Redundant siren is overall online if either channel responds
-                                        cacheItem.IsOnline = cacheItem.IsTcpOnline || serialSuccess;
+                                        TrackFailure(s.Name);
                                     }
                                 }
                             }
@@ -2025,7 +2034,7 @@ namespace Keemya.Frontend.Services
                 bool addressMismatch = false;
                 for (int i = 1; i <= 7; i++)
                 {
-                    if (frame[i] != expectedFrame[i])
+                    if ((frame[i] & 0x0F) != (expectedFrame[i] & 0x0F))
                     {
                         addressMismatch = true;
                         break;
