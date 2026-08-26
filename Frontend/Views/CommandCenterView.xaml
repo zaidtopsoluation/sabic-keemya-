@@ -575,7 +575,7 @@
         <!-- ── ACTIVATION SEQUENCE POPUP OVERLAY (Z-Index Floating Window) ── -->
         <Grid Visibility="{Binding IsConfirmingCommand, Converter={StaticResource BooleanToVisibilityConverter}}"
               Grid.RowSpan="3" Grid.ColumnSpan="2" Panel.ZIndex="9999" Background="#33000000">
-            <Border Width="380" Height="485" Background="#5A5A5A" BorderBrush="White" BorderThickness="1" CornerRadius="4"
+            <Border Width="380" Height="535" Background="#5A5A5A" BorderBrush="White" BorderThickness="1" CornerRadius="4"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="25" ShadowDepth="4" Opacity="0.5"/>
@@ -605,6 +605,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
@@ -614,7 +615,7 @@
                                    FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
 
                         <!-- Confirm Activation Button -->
-                        <Button Grid.Row="1" Command="{Binding ExecuteActivateCommand}" Width="180" Height="90"
+                        <Button Grid.Row="1" Command="{Binding ExecuteActivateCommand}" Width="180" Height="85"
                                 Background="#E0E0E0" BorderThickness="0" Foreground="Black" materialDesign:ButtonAssist.CornerRadius="4"
                                 FontWeight="Bold" FontSize="15" Style="{StaticResource MaterialDesignFlatButton}">
                             <TextBlock Text="{Binding ConfirmButtonText}" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center"/>
@@ -627,8 +628,18 @@
                             <TextBlock Text="{Binding AbortButtonText}" VerticalAlignment="Center"/>
                         </Button>
 
+                        <!-- Auto-Cancel Duration Input Box (Width 180 matching Confirm & Abort buttons) -->
+                        <StackPanel Grid.Row="3" Width="180" HorizontalAlignment="Center" Margin="0,10,0,0" Visibility="{Binding SirenDetailsVisibility}">
+                            <TextBlock Text="Auto-cancel siren (seconds)" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,4"/>
+                            <Border Background="#E0E0E0" BorderThickness="0" CornerRadius="4" Height="28">
+                                <TextBox Text="{Binding AutoCancelInputText, UpdateSourceTrigger=PropertyChanged}" 
+                                         Background="Transparent" Foreground="Black" FontSize="12.5" FontWeight="Bold" 
+                                         BorderThickness="0" Padding="6,0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+
                         <!-- Activation Information Group Box -->
-                        <Border Grid.Row="3" BorderBrush="White" BorderThickness="1" CornerRadius="4" Margin="0,15,0,10" Padding="10"
+                        <Border Grid.Row="4" BorderBrush="White" BorderThickness="1" CornerRadius="4" Margin="0,10,0,10" Padding="10"
                                 Visibility="{Binding SirenDetailsVisibility}">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -659,7 +670,7 @@
                         </Border>
 
                         <!-- Hide Window Button -->
-                        <Button Grid.Row="4" Command="{Binding CancelActivateCommand}" HorizontalAlignment="Right" Width="90" Height="28"
+                        <Button Grid.Row="5" Command="{Binding CancelActivateCommand}" HorizontalAlignment="Right" Width="90" Height="28"
                                 Background="#2A75B3" BorderThickness="0" Foreground="White" materialDesign:ButtonAssist.CornerRadius="3"
                                 FontSize="11" FontWeight="SemiBold" Style="{StaticResource MaterialDesignFlatButton}">
                             <TextBlock Text="Hide Window" VerticalAlignment="Center"/>

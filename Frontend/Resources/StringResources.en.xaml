@@ -3,8 +3,7 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- Global App Resources -->
-    <sys:String x:Key="AppTitle">Keemya System</sys:String>
-    <sys:String x:Key="AppSubtitle">TopSolutions</sys:String>
+    <sys:String x:Key="AppTitle">TopSolutions</sys:String>
     <sys:String x:Key="BackToModules">Back to Modules</sys:String>
     <sys:String x:Key="Logout">Logout</sys:String>
     <sys:String x:Key="Save">Save</sys:String>

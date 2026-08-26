@@ -456,6 +456,9 @@ namespace Keemya.Frontend.ViewModels
         private string commandToConfirmName = string.Empty;
 
         [ObservableProperty]
+        private string autoCancelInputText = string.Empty;
+
+        [ObservableProperty]
         private bool isPublicAddressActive;
 
         [ObservableProperty]
@@ -1091,6 +1094,17 @@ namespace Keemya.Frontend.ViewModels
             var card = _commandToConfirm;
             
             if (card == null) return;
+
+            // Set duration based on user text input (if empty or invalid, default to 0 = Manual Stop)
+            if (!string.IsNullOrWhiteSpace(AutoCancelInputText) && 
+                int.TryParse(AutoCancelInputText.Trim(), out int seconds) && seconds > 0)
+            {
+                card.Duration = seconds;
+            }
+            else
+            {
+                card.Duration = 0; // Manual cancel if left blank or 0
+            }
 
             // Dismiss the confirmation overlay so running overlay is shown cleanly
             IsConfirmingCommand = false;

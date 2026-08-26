@@ -7,7 +7,7 @@
         xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="Emergency Management System" Height="768" Width="1366"
+        Title="TS Emergency Management System" Height="768" Width="1366"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         Style="{StaticResource CustomWindowStyle}"
@@ -32,11 +32,11 @@
             </Grid.ColumnDefinitions>
 
             <!-- Logo and Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Image Source="/Assets/logo.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,15,0" RenderOptions.BitmapScalingMode="HighQuality" />
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="/Assets/logo.png" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource AppTitle}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
-                    <TextBlock Text="{DynamicResource AppSubtitle}" FontSize="14" Foreground="{StaticResource TextSecondary}" />
+                    <TextBlock Text="{DynamicResource AppTitle}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource AppSubtitle}" FontSize="12.5" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,1,0,0" />
                 </StackPanel>
             </StackPanel>
 
