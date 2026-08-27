@@ -35,6 +35,9 @@ namespace Keemya.Frontend.Models
         private bool isChecked = false;
 
         [ObservableProperty]
+        private bool isSelected = false;
+
+        [ObservableProperty]
         private double dcVolts = 0.0;
 
         [ObservableProperty]

@@ -84,6 +84,13 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty] private double healthTemperature = 0.0;
         
         [ObservableProperty] private int? healthStatusByte;
+        [ObservableProperty] private string lastTestTimestamp = "N/A - Click SI Test";
+        [ObservableProperty] private bool isTestingInProgress = false;
+        [ObservableProperty] private bool hasSiTestData = false;    // True once any SI test response arrives
+
+        // Computed status flags for Whelen DEVICE STATUS view
+        [ObservableProperty] private bool healthActivity = false;   // Any active siren tone
+        [ObservableProperty] private bool healthLink = false;        // COM/TCP connection live
 
         // Command tracking
         [ObservableProperty]
@@ -126,15 +133,16 @@ namespace Keemya.Frontend.ViewModels
             await LoadSirensFromDatabaseAsync();
             await LoadCommandCardsAsync();
 
-            // Trigger background telemetry polling for all online sirens on open
-            _ = Task.Run(async () =>
+            // Select first siren by default without executing automatic background polling
+            if (Sirens.Count > 0 && SelectedSiren == null)
             {
-                foreach (var siren in Sirens)
+                SelectedSiren = Sirens[0];
+                var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(SelectedSiren.Name);
+                if (cache != null && cache.LastUpdated != DateTime.MinValue)
                 {
-                    await QuerySirenHealthAsync(siren);
-                    await Task.Delay(300);
+                    LastTestTimestamp = cache.LastUpdated.ToString("dd/MM/yy HH:mm:ss");
                 }
-            });
+            }
         }
         private async Task LoadSirensFromDatabaseAsync()
         {
@@ -358,17 +366,25 @@ namespace Keemya.Frontend.ViewModels
                 HealthIntrusion = false;
                 HealthBiasDetected = false;
                 HealthSystemPowerUp = false;
+                HealthActivity = false;
+                HealthLink = false;
+                HasSiTestData = false;
 
                 HealthDcVoltage = 0.0;
                 HealthAcVoltage = 0.0;
                 HealthTemperature = 0.0;
+                LastTestTimestamp = "N/A - Click SI Test";
+            }
+
+            foreach (var s in Sirens)
+            {
+                s.IsSelected = (s == siren);
             }
 
             // Set SelectedSiren last to trigger binding update with fully populated values
             SelectedSiren = siren;
-
-            // Trigger background C2030 status request query (15-byte protocol frame)
-            _ = Task.Run(() => QuerySirenHealthAsync(siren));
+            // NOTE: SI Test is ONLY triggered when user explicitly clicks the SI Test button.
+            //       Do NOT auto-query here — that would cause unwanted mechanical clicks on the siren.
         }
 
         private async Task QuerySirenHealthAsync(SirenDeviceDto s)
@@ -392,6 +408,11 @@ namespace Keemya.Frontend.ViewModels
             frame[6] = (byte)(0x80 | (addr[2] - '0'));
             frame[7] = (byte)(0x80 | (addr[3] - '0'));
 
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            {
+                IsTestingInProgress = true;
+            });
+
             _ = Task.Run(async () =>
             {
                 try
@@ -413,38 +434,59 @@ namespace Keemya.Frontend.ViewModels
                         return newFrame;
                     }
 
-                    // --- 1. Send 23H (Instant Status) ---
-                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23));
-                    if (!isOnline)
+                    // --- 1. Send 0FH (Silent Test) — Whelen diagnostic SI command
+                    // This causes a mechanical relay click on the siren and returns a Status response
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x0F), false);
+                    await Task.Delay(600);
+
+                    // --- 2. Send 1FH (Status Request) — Retrieves the Status byte
+                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x1F));
+
+                    // Mark siren online/offline based on whether we could communicate
+                    System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
                     {
-                        SirenCommunicationService.Instance.Log($"Service Diagnostics: {s.Name} is unreachable.");
-                        return;
-                    }
+                        var targetSiren = Sirens.FirstOrDefault(x => x.Name == s.Name);
+                        if (targetSiren != null)
+                        {
+                            if (isOnline)
+                            {
+                                targetSiren.IsSerialOnline = true;
+                                targetSiren.Status = string.IsNullOrEmpty(s.Ip) ? "ONLINE" : targetSiren.Status;
+                            }
+                        }
+                        // Link is confirmed true if transmit succeeded (response will update from event)
+                        if (isOnline) HealthLink = true;
+                    });
 
-                    await Task.Delay(200);
+                    await Task.Delay(500);
 
-                    // --- 2. Send 3FH (Active Status) ---
+                    // --- 3. Send 23H (Instant Status) — Get real-time status bits
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23), false);
+                    await Task.Delay(500);
+
+                    // --- 4. Send 3FH (Active Status) — Active command + voltages
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x3F), false);
-                    await Task.Delay(200);
+                    await Task.Delay(500);
 
-                    // --- 3. Send 1FH (Standard Status) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x1F), false);
-                    await Task.Delay(200);
-
-                    // --- 4. Send 21H (Battery / AC) ---
+                    // --- 5. Send 21H (Battery / AC voltage) ---
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x21), false);
-                    await Task.Delay(200);
+                    await Task.Delay(500);
 
-                    // --- 5. Send 22H (Battery / Temperature) ---
+                    // --- 6. Send 22H (Battery / Temperature) ---
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x22), false);
-                    await Task.Delay(200);
-
-                    // --- 6. Send 2AH (Weather Status) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x2A), false);
+                    await Task.Delay(500);
                 }
                 catch (Exception ex)
                 {
                     SirenCommunicationService.Instance.Log($"❌ [Service Diagnostics Query Error] {ex.Message}");
+                }
+                finally
+                {
+                    System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        IsTestingInProgress = false;
+                        LastTestTimestamp = DateTime.Now.ToString("dd/MM/yy HH:mm:ss");
+                    });
                 }
             });
         }
@@ -677,14 +719,24 @@ namespace Keemya.Frontend.ViewModels
 
                 if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
-                    HealthStatusByte = (int)instantStatus;
-                    HealthAcOn = (instantStatus & 0x01) != 0;
-                    HealthIntrusion = (instantStatus & 0x02) != 0;
-                    HealthStrobeActive = (instantStatus & 0x04) != 0;
-                    HealthSupervisorMode = (instantStatus & 0x08) != 0;
-                    HealthFullAlert = (instantStatus & 0x20) != 0;
-                    HealthPartialAlert = (instantStatus & 0x40) != 0;
-                    HealthBiasDetected = (instantStatus & 0x80) == 0;
+                    // ── 23H Instant Status byte bit mapping (from RS232 protocol doc) ──
+                    // Bit 0 = AC voltage:       1=AC volts on,          0=AC volts off
+                    // Bit 1 = Intrusion:        1=cabinet intrusion,    0=no intrusion
+                    // Bit 2 = Strobe Error:     1=strobe error,         0=no strobe error
+                    // Bit 3 = Supervisor Error: 1=error,                0=no error
+                    // Bit 4 = not used
+                    // Bit 5 = Full:             1=all amps/drivers pass, 0=1 or more fail
+                    // Bit 6 = Partial:          1=1 or more pass,       0=all amps/drivers fail
+                    // Bit 7 = Bias:             1=bias line good,       0=bias line failure
+                    HealthStatusByte  = (int)instantStatus;
+                    HealthAcOn        = (instantStatus & 0x01) != 0;   // AC voltage on
+                    HealthIntrusion   = (instantStatus & 0x02) != 0;   // true=intrusion detected (BAD)
+                    HealthStrobeActive= (instantStatus & 0x04) != 0;   // true=strobe error
+                    HealthSupervisorMode=(instantStatus & 0x08) != 0;  // true=supervisor error
+                    HealthFullAlert   = (instantStatus & 0x20) != 0;   // true=all drivers pass
+                    HealthPartialAlert = (instantStatus & 0x40) != 0;  // true=some drivers pass
+                    HealthBiasDetected = (instantStatus & 0x80) != 0;  // true=bias line GOOD
+
                     if (dcVolts > 0)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
@@ -692,8 +744,20 @@ namespace Keemya.Frontend.ViewModels
                     }
                     HealthAcVoltage = HealthAcOn ? 220.0 : 0.0;
                     HealthDynamicAc = HealthAcOn;
+                    // System Power Up = AC on OR DC voltage sufficient
                     HealthSystemPowerUp = HealthAcOn || HealthDcVoltage >= 22.0;
                     if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
+
+                    HealthActivity = HealthSirenOn;    // Activity = tone generator active
+                    HealthLink = true;
+                    HasSiTestData = true;
+
+                    // Mark the siren ONLINE since we received a valid response
+                    if (siren != null)
+                    {
+                        siren.IsSerialOnline = true;
+                        siren.Status = "ONLINE";
+                    }
                 }
             });
         }
@@ -767,21 +831,43 @@ namespace Keemya.Frontend.ViewModels
 
                 if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
                 {
-                    HealthSirenOn = (statusByte & 0x10) != 0;
-                    HealthSystemArmed = (statusByte & 0x20) != 0;
-                    HealthFullAlert = (statusByte & 0x01) != 0;
-                    HealthPartialAlert = (statusByte & 0x02) != 0;
-                    HealthRotorActive = (statusByte & 0x04) != 0;
-                    HealthStoredAc = (statusByte & 0x08) != 0;
-                    HealthAcOn = (statusByte & 0x80) != 0;
-                    HealthDynamicAc = (statusByte & 0x80) != 0;
-                    HealthSystemPowerUp = (statusByte & 0x40) != 0 || HealthAcOn || HealthDcVoltage >= 22.0;
+                    // ── 1FH Status byte bit mapping (from RS232 protocol doc) ──
+                    // Bit 0 = Full:          1=all amps/drivers pass,         0=1 or more fail
+                    // Bit 1 = Partial:       1=1 or more amps/drivers pass,   0=all fail
+                    // Bit 2 = Rotor:         1=rotor incremented,             0=rotor failure
+                    // Bit 3 = Stored AC:     1=AC voltage on during tone,     0=off during tone
+                    // Bit 4 = Siren On:      1=tone generator active,         0=inactive
+                    // Bit 5 = System Armed:  1=Instant Status active,         0=inactive
+                    // Bit 6 = System Power Up: 1=power up (AC on, DC good),  0=power down
+                    // Bit 7 = Dynamic AC:    1=AC volts on,                   0=AC volts off
+                    HealthFullAlert      = (statusByte & 0x01) != 0;  // All drivers pass
+                    HealthPartialAlert   = (statusByte & 0x02) != 0;  // Some drivers pass
+                    HealthRotorActive    = (statusByte & 0x04) != 0;  // Rotor OK
+                    HealthStoredAc       = (statusByte & 0x08) != 0;  // AC on during tone
+                    HealthSirenOn        = (statusByte & 0x10) != 0;  // Tone generator active
+                    HealthSystemArmed    = (statusByte & 0x20) != 0;  // System armed/active
+                    HealthSystemPowerUp  = (statusByte & 0x40) != 0;  // System power up
+                    HealthDynamicAc      = (statusByte & 0x80) != 0;  // AC volts on
+                    HealthAcOn           = HealthDynamicAc;
+
                     if (dcVolts > 0)
                     {
                         double parsedDc = Math.Round(dcVolts * (35.0 / 255.0), 1);
                         if (parsedDc > 5.0) HealthDcVoltage = parsedDc;
                     }
                     if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
+
+                    // Activity = tone generator active (Siren On bit)
+                    HealthActivity = HealthSirenOn;
+                    HealthLink = true;
+                    HasSiTestData = true;
+
+                    // Mark siren ONLINE — response received
+                    if (siren != null)
+                    {
+                        siren.IsSerialOnline = true;
+                        siren.Status = "ONLINE";
+                    }
                 }
             });
         }
