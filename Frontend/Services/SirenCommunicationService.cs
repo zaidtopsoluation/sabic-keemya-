@@ -1951,8 +1951,8 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Global Poller Error] {ex.Message}");
                     }
 
-                    // Poll every 10 seconds
-                    await Task.Delay(10000);
+                    // Poll every 30 seconds (standard C2030 hardware telemetry interval — prevents UART buffer overrun lockup)
+                    await Task.Delay(30000);
                 }
             });
         }
