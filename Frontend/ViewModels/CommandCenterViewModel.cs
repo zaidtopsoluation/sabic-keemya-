@@ -1197,32 +1197,6 @@ namespace Keemya.Frontend.ViewModels
                 // 2. Send Serial commands
                 if (serialTargets.Any())
                 {
-                    // Send Siren On warmup sequence once using the first serial target's frame configuration to key PTT/squelch
-                    var firstSiren = serialTargets.First();
-                    byte[] warmupFrame = new byte[15];
-                    warmupFrame[0] = 0x02;
-                    string area = (firstSiren.AreaCode ?? "000").PadLeft(3, '0');
-                    warmupFrame[1] = (byte)(0x80 | (area[0] - '0'));
-                    warmupFrame[2] = (byte)(0x80 | (area[1] - '0'));
-                    warmupFrame[3] = (byte)(0x80 | (area[2] - '0'));
-                    string addr = (firstSiren.AddressCode ?? "0000").PadLeft(4, '0');
-                    warmupFrame[4] = (byte)(0x80 | (addr[0] - '0'));
-                    warmupFrame[5] = (byte)(0x80 | (addr[1] - '0'));
-                    warmupFrame[6] = (byte)(0x80 | (addr[2] - '0'));
-                    warmupFrame[7] = (byte)(0x80 | (addr[3] - '0'));
-                    warmupFrame[8] = 0x80;
-                    warmupFrame[9] = 0x80;
-                    warmupFrame[10] = (byte)(0x80 | 0x1A); // Siren On command to initialize C2030 board
-                    warmupFrame[11] = 0x03;
-                    byte xorSum = 0;
-                    for (int i = 0; i <= 11; i++) xorSum ^= warmupFrame[i];
-                    warmupFrame[12] = (byte)(0x80 | (xorSum >> 4));
-                    warmupFrame[13] = (byte)(0x80 | (xorSum & 0x0F));
-                    warmupFrame[14] = 0x0D;
-
-                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSirenOnSequenceAsync(warmupFrame);
-
-                    // Send specific addressed frames to all serial sirens back-to-back
                     foreach (var s in serialTargets)
                     {
                         if (token.IsCancellationRequested) break;
@@ -1249,11 +1223,8 @@ namespace Keemya.Frontend.ViewModels
                             frame[13] = (byte)(0x80 | (xorSumS & 0x0F));
                             frame[14] = 0x0D;
 
-                            // We set skipWarmup: true so we do not run the slow SendSirenOnSequence again for each individual siren!
-                            await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, trackStatus: true, isUserInitiated: true, skipWarmup: true);
-                            
-                            // Wait only 50ms between sequential serial transmissions
-                            await Task.Delay(50, token);
+                            // Send Siren On sequence then tone command frame for this siren
+                            await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, trackStatus: false, isUserInitiated: true, skipWarmup: false);
                         }
                         catch { }
                     }

@@ -43,8 +43,8 @@ namespace Keemya.Frontend.Services
         // the old 2000ms/1000ms waits were almost pure dead time that got
         // multiplied across every siren in a broadcast. Tune here if needed.
         // ────────────────────────────────────────────────────────────────────
-        private const int SerialAckTimeoutMs = 800;          // was 2000ms — normal-path ACK wait
-        private const int SerialOfflineAckTimeoutMs = 250;   // was 300ms  — ACK wait for sirens already known offline
+        private const int SerialAckTimeoutMs = 1200;         // ACK wait for 1200 baud serial (125ms send + 450ms C2030 process + 125ms reply = ~700-900ms)
+        private const int SerialOfflineAckTimeoutMs = 1000;  // ACK wait for offline 1200 baud sirens to safely receive slow frames
         private const int TcpAckTimeoutMs = 800;             // was 1000ms (hardcoded) — ACK wait over TCP
         private const int AutoDetectCooldownMs = 60000;      // NEW — prevents auto-detect from re-triggering (and hogging the serial lock) on every single failed send
         private const int UserCommandLockTimeoutMs = 8000;   // was 30000ms — ceiling to acquire serial lock for a user command
@@ -67,7 +67,7 @@ namespace Keemya.Frontend.Services
         private static readonly ConcurrentDictionary<string, bool> _activeOfflines = new();
 
         // Consecutive failure counter — siren must fail this many polls in a row before OFFLINE is declared
-        private const int OfflineThreshold = 3;
+        private const int OfflineThreshold = 10;
         private static readonly ConcurrentDictionary<string, int> _failureCounters = new();
 
         // Live in-memory cache of siren states
@@ -946,7 +946,7 @@ namespace Keemya.Frontend.Services
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 int totalTimeoutMs = SerialAckTimeoutMs;
 
-                if (isUserInitiated && sentFrame != null && sentFrame.Length >= 8)
+                if (sentFrame != null && sentFrame.Length >= 8)
                 {
                     try
                     {
@@ -957,7 +957,15 @@ namespace Keemya.Frontend.Services
                         var cacheItem = GetCacheItemByAddressOrSource(fullAddr);
                         if (cacheItem != null && !cacheItem.IsOnline)
                         {
-                            totalTimeoutMs = SerialOfflineAckTimeoutMs;
+                            int failCount = _failureCounters.TryGetValue(cacheItem.Name, out var c) ? c : 0;
+                            if (failCount >= 3)
+                            {
+                                totalTimeoutMs = 50; // Ultra-fast 50ms skip for non-existent dummy sirens
+                            }
+                            else
+                            {
+                                totalTimeoutMs = SerialOfflineAckTimeoutMs;
+                            }
                         }
                     }
                     catch
@@ -1096,21 +1104,12 @@ namespace Keemya.Frontend.Services
 
         private void InterruptSerialRead()
         {
-            if (!_isReadingResponse || _activeReadIsUserInitiated) return;
-            Log("🔌 [Serial] Requesting cancellation of active background serial read...");
             _cancelPendingRead = true;
             try
             {
                 _serialReadCts?.Cancel();
             }
             catch {}
-            
-            // Wait up to 150ms for the read thread to exit cleanly
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (_isReadingResponse && sw.ElapsedMilliseconds < 150)
-            {
-                Thread.Sleep(10);
-            }
         }
 
         private byte[] BuildSirenOnFrame(byte[] originalFrame)
@@ -1179,20 +1178,11 @@ namespace Keemya.Frontend.Services
                 _serialPort.DiscardInBuffer();
                 _serialPort.DiscardOutBuffer();
 
-                // 1. Send Binary Siren On (0x06, 0x1A, 0x20) 3 times with 150ms delays to open the radio squelch gate
-                for (int i = 0; i < 3; i++)
-                {
-                    byte[] binSirenOn = new byte[] { 0x06, 0x1A, 0x20 };
-                    _serialPort.Write(binSirenOn, 0, binSirenOn.Length);
-                    Log($"📤 [Serial Sender] Dispatched binary direct SIREN ON (06 1A 20) [Attempt {i + 1}/3]");
-                    await Task.Delay(150);
-                }
-
-                // 2. Send ASCII Siren On frame immediately
+                // Send ASCII Siren On frame to key PTT and wake up C2030 amplifier
                 byte[] asciiSirenOn = BuildSirenOnFrame(targetFrame);
                 _serialPort.Write(asciiSirenOn, 0, asciiSirenOn.Length);
                 string hex = string.Join(" ", asciiSirenOn.Select(b => b.ToString("X2")));
-                Log($"📤 [Serial Sender] Dispatched ASCII SIREN ON frame: {hex}");
+                Log($"Dispatched ASCII SIREN ON frame: {hex}");
 
                 // 3. Wait 500ms for the C2030 controller board to fully wake up and unmute its amplifiers
                 await Task.Delay(500);
@@ -1489,11 +1479,17 @@ namespace Keemya.Frontend.Services
             // Reset consecutive failure counter on any success
             _failureCounters.TryRemove(sirenName, out _);
 
-            // Update cache state to online
+            // Update cache state ONLY if this was a status response command (cmdByte 0x23, 0x1F, 0x3F, 0x21, 0x22, 0x0F)
+            // Do NOT mark offline sirens as online for write-only activation/cancel commands (expectsAck=false)
+            bool isStatusResponseCmd = (cmdByte == 0x00 || cmdByte == 35 || cmdByte == 31 || cmdByte == 15 || cmdByte == 22 || cmdByte == 33 || cmdByte == 34);
+
             var cacheItem = GetCacheItemByAddressOrSource(sirenName);
             if (cacheItem != null)
             {
-                cacheItem.IsOnline = true;
+                if (isStatusResponseCmd)
+                {
+                    cacheItem.IsOnline = true;
+                }
                 cacheItem.LastUpdated = DateTime.Now;
 
                 string computedStatus = GetComputedStatus(cacheItem);
@@ -1568,7 +1564,7 @@ namespace Keemya.Frontend.Services
                             Ip = ip,
                             AreaCode = area,
                             AddressCode = addr,
-                            IsOnline = status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase),
+                            IsOnline = status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) || status.Equals("WARNING", StringComparison.OrdinalIgnoreCase),
                             LastKnownStatus = status.ToUpper(),
                             LastUpdated = DateTime.Now
                         };
@@ -1971,7 +1967,6 @@ namespace Keemya.Frontend.Services
             if (data.Length < 4) return false;
 
             // ── Step 1: Find the true STX (0x02) start marker ──────────────
-            // Stale bytes from a previous frame may exist before the real frame start
             int stxIndex = -1;
             for (int i = 0; i < data.Length; i++)
             {
@@ -1980,8 +1975,18 @@ namespace Keemya.Frontend.Services
 
             if (stxIndex < 0)
             {
-                Log($"❌ [Parser] INVALID frame from {source}: No STX (0x02) marker found — likely garbage/stale bytes.");
-                return false;
+                // Fallback: If no STX 0x02 was found, but data contains ETX (0x03), use index 0
+                int findEtx = Array.IndexOf(data, (byte)0x03);
+                if (findEtx >= 0)
+                {
+                    stxIndex = 0;
+                    Log($"⚠️ [Parser] STX (0x02) missing, but ETX (0x03) found at index {findEtx}. Attempting fallback parse.");
+                }
+                else
+                {
+                    Log($"❌ [Parser] INVALID frame from {source}: No STX (0x02) or ETX (0x03) marker found — likely garbage.");
+                    return false;
+                }
             }
 
             if (stxIndex > 0)
@@ -1990,45 +1995,49 @@ namespace Keemya.Frontend.Services
                 Log($"⚠️ [Parser] Discarded {stxIndex} stale byte(s) before STX: {staleHex}");
             }
 
-            // ── Step 2: Verify CR (0x0D) end marker ────────────────────────
-            if (data[data.Length - 1] != 0x0D)
-            {
-                Log($"❌ [Parser] INVALID frame from {source}: Missing CR (0x0D) end marker — frame may be truncated.");
-                return false;
-            }
+            // ── Step 2: Extract the clean frame starting from stxIndex ────────
+            byte[] frame = data.Skip(stxIndex).ToArray();
 
-            // ── Step 3: Verify ETX (0x03) exists ─────────────────────────────
-            int etxIndex = -1;
-            for (int i = stxIndex; i < data.Length; i++)
-            {
-                if (data[i] == 0x03) { etxIndex = i; break; }
-            }
-
+            // ── Step 3: Verify ETX (0x03) exists in frame ─────────────────────
+            int etxIndex = Array.IndexOf(frame, (byte)0x03);
             if (etxIndex < 0)
             {
                 Log($"❌ [Parser] INVALID frame from {source}: Missing ETX (0x03) marker.");
                 return false;
             }
 
-            // ── Step 4: Extract the clean frame ─────────────────────────────
-            byte[] frame = data.Skip(stxIndex).ToArray();
-
-            if (frame.Length < 11)
+            if (frame.Length < 10)
             {
                 Log($"❌ [Parser] INVALID frame from {source}: Frame too short ({frame.Length} bytes).");
                 return false;
             }
 
-            // ── Step 4: Validate expected address digits ────────────────
-            // In C2030 protocol, bytes 1-3 are Area Code digits, and bytes 4-7 are Address Code digits.
-            // Check matches for both Serial and TCP channels to prevent cross-talk.
+            // ── Step 4: Validate address and resolve target cache item ────────
             byte[]? expectedFrame = sentFrame;
-
             if (channel == "TCP/IP" && _pendingTcpAcks.TryGetValue(source, out var pending))
             {
                 expectedFrame = pending.SentFrame;
             }
 
+            byte cmdByte = 0;
+            if (expectedFrame != null && expectedFrame.Length > 10)
+            {
+                cmdByte = (byte)(expectedFrame[10] & 0x7F);
+            }
+
+            string sentAddress = "";
+            if (expectedFrame != null && expectedFrame.Length >= 8)
+            {
+                sentAddress = $"{(expectedFrame[4] & 0x0F)}{(expectedFrame[5] & 0x0F)}{(expectedFrame[6] & 0x0F)}{(expectedFrame[7] & 0x0F)}";
+            }
+
+            string rcvAddress = "";
+            if (frame.Length >= 8)
+            {
+                rcvAddress = $"{(frame[4] & 0x0F)}{(frame[5] & 0x0F)}{(frame[6] & 0x0F)}{(frame[7] & 0x0F)}";
+            }
+
+            // Strict address check for TCP/IP; for Serial, log warning but accept valid hardware status responses
             if (expectedFrame != null && expectedFrame.Length >= 8)
             {
                 bool addressMismatch = false;
@@ -2045,28 +2054,22 @@ namespace Keemya.Frontend.Services
                 {
                     string expectedAddr = string.Join(" ", expectedFrame.Skip(1).Take(7).Select(b => b.ToString("X2")));
                     string receivedAddr = string.Join(" ", frame.Skip(1).Take(7).Select(b => b.ToString("X2")));
-                    Log($"⚠️ [Parser] Address MISMATCH from {source} via {channel}. Expected: {expectedAddr}, Received: {receivedAddr}. Discarding frame.");
-                    return false;
+                    Log($"⚠️ [Parser] Address warning from {source} via {channel}. Expected: {expectedAddr}, Received: {receivedAddr}.");
+
+                    if (channel == "TCP/IP")
+                    {
+                        Log("❌ [Parser] Discarding mismatched TCP frame.");
+                        return false;
+                    }
                 }
             }
 
-            byte responseAddress = frame[1];
-            Log($"🔍 [Parser] Response address byte: 0x{responseAddress:X2}");
-
-            // ── Step 5: Decode status based on expected command ─────────────
-            byte cmdByte = 0;
-            if (expectedFrame != null && expectedFrame.Length > 10)
-            {
-                cmdByte = (byte)(expectedFrame[10] & 0x7F);
-            }
-
-            string rcvAddress = "";
-            if (frame.Length >= 8)
-            {
-                rcvAddress = $"{(frame[4] & 0x0F)}{(frame[5] & 0x0F)}{(frame[6] & 0x0F)}{(frame[7] & 0x0F)}";
-            }
-
+            // Resolve target cache item: first try parsed address, fallback to sent target address for serial
             var cacheItem = GetCacheItemByAddressOrSource(rcvAddress);
+            if (cacheItem == null && !string.IsNullOrEmpty(sentAddress))
+            {
+                cacheItem = GetCacheItemByAddressOrSource(sentAddress);
+            }
 
             Log($"✨ [Parser] Valid frame confirmed from {source} via {channel} (addr={rcvAddress}, {frame.Length} bytes, for Cmd={cmdByte:X2}H)");
 
