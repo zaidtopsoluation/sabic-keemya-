@@ -23,10 +23,18 @@ namespace Keemya.Frontend
             TaskScheduler.UnobservedTaskException += (s, ex) =>
             {
                 ex.SetObserved();
-                Current.Dispatcher.Invoke(() =>
+                var baseEx = ex.Exception.GetBaseException();
+                if (baseEx is TaskCanceledException || baseEx is OperationCanceledException)
+                {
+                    return; // Ignore canceled background task timeouts silently
+                }
+
+                Current?.Dispatcher?.Invoke(() =>
+                {
                     MessageBox.Show(
-                        $"Background Task Error:\n\n{ex.Exception.GetType().Name}\n{ex.Exception.Message}\n\n{ex.Exception.InnerException?.Message}",
-                        "Task Error", MessageBoxButton.OK, MessageBoxImage.Error));
+                        $"Background Task Error:\n\n{baseEx.GetType().Name}\n{baseEx.Message}",
+                        "Task Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             };
 
             // ── Startup ─────────────────────────────────────────────────────────

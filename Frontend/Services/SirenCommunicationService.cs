@@ -245,58 +245,135 @@ namespace Keemya.Frontend.Services
 
         public async Task<bool> SendTcpCommandAsync(string ip, byte[] frame, bool expectsAck = true)
         {
-            // Remove port if present in IP config (e.g. 192.168.1.50:5555 -> 192.168.1.50)
             string cleanIp = ip.Split(':')[0];
-
-            if (!_connectedClients.TryGetValue(cleanIp, out var client) || !client.Connected)
+            int targetPort = 5000;
+            if (ip.Contains(":") && int.TryParse(ip.Split(':')[1], out int parsedPort))
             {
-                Log($"⚠️ [TCP Sender] No active connection found for siren IP: {cleanIp}");
-                return false;
+                targetPort = parsedPort;
+            }
+
+            TcpClient? client = null;
+            bool isNewConnection = false;
+
+            if (_connectedClients.TryGetValue(cleanIp, out var existingClient) && existingClient.Connected)
+            {
+                client = existingClient;
+            }
+            else
+            {
+                try
+                {
+                    client = new TcpClient();
+                    using var connectCts = new CancellationTokenSource(2500);
+                    await client.ConnectAsync(cleanIp, targetPort, connectCts.Token);
+                    isNewConnection = true;
+                    Log($"🔌 [TCP Sender] Connected directly to TCP Server gateway {cleanIp}:{targetPort}");
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [TCP Sender] Could not connect to TCP Server gateway {cleanIp}:{targetPort} -> {ex.Message}");
+                    client?.Dispose();
+                    return false;
+                }
             }
 
             try
             {
-                // Register a pending ACK waiter with the expected sent frame (avoid race condition)
+                var stream = client.GetStream();
+
+                // Register pending ACK waiter
                 var ackTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _pendingTcpAcks[cleanIp] = (ackTcs, frame);
 
-                var stream = client.GetStream();
                 await stream.WriteAsync(frame, 0, frame.Length);
                 await stream.FlushAsync();
 
                 string hex = string.Join(" ", frame.Select(b => b.ToString("X2")));
-                Log($"📤 [TCP Sender] Sent frame to {cleanIp}: {hex}");
-                
+                Log($"📤 [TCP Sender] Sent frame to {cleanIp}:{targetPort}: {hex}");
+
                 if (!expectsAck)
                 {
                     _pendingTcpAcks.TryRemove(cleanIp, out _);
                     Log($"✅ [TCP Sender] Command does not require ACK. Fast-completing.");
+                    if (isNewConnection)
+                    {
+                        await Task.Delay(100);
+                        client.Close();
+                        client.Dispose();
+                    }
                     return true;
                 }
 
-                Log($"⏳ [TCP Sender] Waiting for ACK from {cleanIp} ({TcpAckTimeoutMs}ms timeout)...");
+                Log($"⏳ [TCP Sender] Waiting for ACK from {cleanIp}:{targetPort} ({TcpAckTimeoutMs}ms timeout)...");
 
-                // Wait for a valid siren response
-                bool ackReceived = await Task.WhenAny(ackTcs.Task, Task.Delay(TcpAckTimeoutMs)) == ackTcs.Task
-                                   && ackTcs.Task.Result;
-
-                _pendingTcpAcks.TryRemove(cleanIp, out _);
-
-                if (ackReceived)
+                // If this is a new outbound connection, read directly from network stream
+                if (isNewConnection)
                 {
-                    Log($"✅ [TCP Sender] ACK confirmed from {cleanIp} via TCP/IP.");
-                    return true;
+                    byte[] readBuffer = new byte[256];
+                    using var ackCts = new CancellationTokenSource();
+                    try
+                    {
+                        var readTask = stream.ReadAsync(readBuffer, 0, readBuffer.Length, ackCts.Token);
+                        var delayTask = Task.Delay(TcpAckTimeoutMs);
+                        if (await Task.WhenAny(readTask, delayTask) == readTask)
+                        {
+                            int bytesRead = await readTask;
+                            if (bytesRead > 0)
+                            {
+                                byte[] response = readBuffer.Take(bytesRead).ToArray();
+                                string rcvHex = string.Join(" ", response.Select(x => x.ToString("X2")));
+                                Log($"📥 [TCP Sender] Received ACK ({bytesRead} bytes) from {cleanIp}: {rcvHex}");
+                                bool valid = ProcessSirenResponse(cleanIp, response, "TCP/IP", frame);
+                                client.Close();
+                                client.Dispose();
+                                _pendingTcpAcks.TryRemove(cleanIp, out _);
+                                return valid;
+                            }
+                        }
+                        else
+                        {
+                            ackCts.Cancel();
+                            try { await readTask; } catch {}
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"⚠️ [TCP Sender] Stream read error from {cleanIp}: {ex.Message}");
+                    }
+
+                    _pendingTcpAcks.TryRemove(cleanIp, out _);
+                    client.Close();
+                    client.Dispose();
+                    Log($"⚠️ [TCP Sender] ACK timeout — siren at {cleanIp} did not reply.");
+                    return false;
                 }
                 else
                 {
-                    Log($"⚠️ [TCP Sender] ACK timeout — siren at {cleanIp} did not reply (wrong address or offline).");
-                    return false;
+                    // For inbound persistent server connections, wait via _pendingTcpAcks
+                    bool ackReceived = await Task.WhenAny(ackTcs.Task, Task.Delay(TcpAckTimeoutMs)) == ackTcs.Task && ackTcs.Task.Result;
+                    _pendingTcpAcks.TryRemove(cleanIp, out _);
+
+                    if (ackReceived)
+                    {
+                        Log($"✅ [TCP Sender] ACK confirmed from {cleanIp} via TCP/IP.");
+                        return true;
+                    }
+                    else
+                    {
+                        Log($"⚠️ [TCP Sender] ACK timeout — siren at {cleanIp} did not reply.");
+                        return false;
+                    }
                 }
             }
             catch (Exception ex)
             {
                 _pendingTcpAcks.TryRemove(cleanIp, out _);
-                Log($"❌ [TCP Sender] Failed to transmit over TCP to {cleanIp}: {ex.Message}");
+                Log($"❌ [TCP Sender] Failed to transmit over TCP to {cleanIp}:{targetPort}: {ex.Message}");
+                if (isNewConnection)
+                {
+                    client?.Close();
+                    client?.Dispose();
+                }
                 return false;
             }
         }
@@ -1268,7 +1345,29 @@ namespace Keemya.Frontend.Services
             if (hasIp && !redundant)
             {
                 Log($"ℹ️ [Redundant Transmit] Routing via TCP-only for {sirenName} (IP: {ipAddress}).");
+                if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                {
+                    Log($"🔊 [TCP Transmit] Tone command detected. Sending targeted Siren On (0x1A) frame over TCP...");
+                    byte[] sirenOnFrame = BuildSirenOnFrame(frame);
+                    _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
+                    await Task.Delay(250);
+
+                    Log($"🔊 [TCP Transmit] Sending wildcard Siren On (0x1A) frame over TCP...");
+                    byte[] wildcardOn = BuildWildcardFrame(0x1A);
+                    _ = await SendTcpCommandAsync(ipAddress, wildcardOn, expectsAck: false);
+                    await Task.Delay(250);
+                }
+
                 bool tcpSuccess = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
+
+                if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                {
+                    await Task.Delay(250);
+                    Log($"🔊 [TCP Transmit] Sending wildcard tone command (0x{cmdByte:X2}) frame over TCP...");
+                    byte[] wildcardTone = BuildWildcardFrame(cmdByte);
+                    _ = await SendTcpCommandAsync(ipAddress, wildcardTone, expectsAck: false);
+                }
+
                 if (tcpSuccess)
                 {
                     Log($"✅ [Redundant Transmit] TCP transmit successful for {sirenName}.");
@@ -1298,6 +1397,13 @@ namespace Keemya.Frontend.Services
                 {
                     try
                     {
+                        if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                        {
+                            Log($"🔊 [TCP Transmit] Parallel TCP: Sending targeted Siren On (0x1A) frame over TCP...");
+                            byte[] sirenOnFrame = BuildSirenOnFrame(frame);
+                            _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
+                            await Task.Delay(300);
+                        }
                         return await SendTcpCommandAsync(ipAddress, frame, expectsAck);
                     }
                     catch (Exception ex)
@@ -1901,35 +2007,39 @@ namespace Keemya.Frontend.Services
 
                         // 2. Poll Serial channels sequentially for Serial-only and Redundant sirens
                         var serialSirensList = sirens.Where(s => string.IsNullOrWhiteSpace(s.Ip) || s.Redundant).ToList();
-                        foreach (var s in serialSirensList)
+                        string[] availablePorts = SerialPort.GetPortNames();
+                        if (availablePorts.Length > 0 && serialSirensList.Count > 0)
                         {
-                            try
+                            foreach (var s in serialSirensList)
                             {
-                                var cacheItem = GetCacheItemByAddressOrSource(s.Name);
-                                if (cacheItem != null)
+                                try
                                 {
-                                    byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
-                                    bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
-                                    cacheItem.IsSerialOnline = serialSuccess;
+                                    var cacheItem = GetCacheItemByAddressOrSource(s.Name);
+                                    if (cacheItem != null)
+                                    {
+                                        byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
+                                        bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
+                                        cacheItem.IsSerialOnline = serialSuccess;
 
-                                    if (serialSuccess)
-                                    {
-                                        TrackSuccess(s.Name, 0x00);
-                                    }
-                                    else
-                                    {
-                                        TrackFailure(s.Name);
+                                        if (serialSuccess)
+                                        {
+                                            TrackSuccess(s.Name, 0x00);
+                                        }
+                                        else
+                                        {
+                                            TrackFailure(s.Name);
+                                        }
                                     }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                Log($"❌ [Serial Poller Error for {s.Name}] {ex.Message}");
-                            }
+                                catch (Exception ex)
+                                {
+                                    Log($"❌ [Serial Poller Error for {s.Name}] {ex.Message}");
+                                }
 
-                            // Enforce inter-device delay on serial port
-                            int delayMs = serialSirensList.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
-                            await Task.Delay(delayMs);
+                                // Enforce inter-device delay on serial port
+                                int delayMs = serialSirensList.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
+                                await Task.Delay(delayMs);
+                            }
                         }
 
                         await tcpPromise;
