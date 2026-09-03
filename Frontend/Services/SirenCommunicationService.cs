@@ -695,72 +695,47 @@ namespace Keemya.Frontend.Services
                     _serialPort.DiscardOutBuffer();
                 }
 
-                // 1. Send binary cancel packets over TCP to all IP devices
-                var ipSirens = _sirenCache.Values.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
-                foreach (var s in ipSirens)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            byte[] binClear = new byte[] { 0x06, 0x00, 0x06 };
-                            byte[] binSirenOff = new byte[] { 0x06, 0x1B, 0x21 };
-                            byte[] binTestClear = new byte[] { 0x06, 0x1E, 0x24 };
-
-                            for (int i = 0; i < 5; i++)
-                            {
-                                await SendTcpCommandAsync(s.Ip, binClear, expectsAck: false);
-                                await Task.Delay(50);
-                            }
-                            for (int i = 0; i < 3; i++)
-                            {
-                                await SendTcpCommandAsync(s.Ip, binSirenOff, expectsAck: false);
-                                await Task.Delay(50);
-                            }
-                            for (int i = 0; i < 3; i++)
-                            {
-                                await SendTcpCommandAsync(s.Ip, binTestClear, expectsAck: false);
-                                await Task.Delay(50);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"❌ [TCP Sender] Binary cancel error for {s.Name}: {ex.Message}");
-                        }
-                    });
-                }
-
-                // 2. Send Binary Clear (0x06, 0x00, 0x06) over Serial 5 times
+                // Send Binary Clear (0x06, 0x00, 0x06) over Serial COM port only
                 if (_serialPort != null && _serialPort.IsOpen)
                 {
-                    for (int i = 0; i < 5; i++)
+                    try
                     {
-                        byte[] binClear = new byte[] { 0x06, 0x00, 0x06 };
-                        _serialPort.Write(binClear, 0, binClear.Length);
-                        Log($"📤 [Serial Sender] Dispatched binary direct CLEAR (06 00 06) [Attempt {i + 1}/5]");
+                        _serialPort.RtsEnable = true;
+                        await Task.Delay(20);
+
+                        for (int i = 0; i < 5; i++)
+                        {
+                            byte[] binClear = new byte[] { 0x06, 0x00, 0x06 };
+                            _serialPort.Write(binClear, 0, binClear.Length);
+                            Log($"📤 [Serial Sender] Dispatched binary direct CLEAR (06 00 06) [Attempt {i + 1}/5]");
+                            await Task.Delay(100);
+                        }
+
                         await Task.Delay(150);
+
+                        // Send Binary Siren Off (0x06, 0x1B, 0x21) 3 times
+                        for (int i = 0; i < 3; i++)
+                        {
+                            byte[] binSirenOff = new byte[] { 0x06, 0x1B, 0x21 };
+                            _serialPort.Write(binSirenOff, 0, binSirenOff.Length);
+                            Log($"📤 [Serial Sender] Dispatched binary direct SIREN OFF (06 1B 21) [Attempt {i + 1}/3]");
+                            await Task.Delay(100);
+                        }
+
+                        await Task.Delay(150);
+
+                        // Send Binary Test Clear (0x06, 0x1E, 0x24) 3 times
+                        for (int i = 0; i < 3; i++)
+                        {
+                            byte[] binTestClear = new byte[] { 0x06, 0x1E, 0x24 };
+                            _serialPort.Write(binTestClear, 0, binTestClear.Length);
+                            Log($"📤 [Serial Sender] Dispatched binary direct TEST CLEAR (06 1E 24) [Attempt {i + 1}/3]");
+                            await Task.Delay(100);
+                        }
                     }
-
-                    await Task.Delay(200);
-
-                    // Send Binary Siren Off (0x06, 0x1B, 0x21) 3 times
-                    for (int i = 0; i < 3; i++)
+                    finally
                     {
-                        byte[] binSirenOff = new byte[] { 0x06, 0x1B, 0x21 };
-                        _serialPort.Write(binSirenOff, 0, binSirenOff.Length);
-                        Log($"📤 [Serial Sender] Dispatched binary direct SIREN OFF (06 1B 21) [Attempt {i + 1}/3]");
-                        await Task.Delay(150);
-                    }
-
-                    await Task.Delay(200);
-
-                    // Send Binary Test Clear (0x06, 0x1E, 0x24) 3 times
-                    for (int i = 0; i < 3; i++)
-                    {
-                        byte[] binTestClear = new byte[] { 0x06, 0x1E, 0x24 };
-                        _serialPort.Write(binTestClear, 0, binTestClear.Length);
-                        Log($"📤 [Serial Sender] Dispatched binary direct TEST CLEAR (06 1E 24) [Attempt {i + 1}/3]");
-                        await Task.Delay(150);
+                        _serialPort.RtsEnable = false;
                     }
                 }
             }
@@ -863,27 +838,24 @@ namespace Keemya.Frontend.Services
                         byte[] targeted00 = BuildUnitFrame(s.AreaCode, s.AddressCode, 0x00);
                         byte[] targeted1E = BuildUnitFrame(s.AreaCode, s.AddressCode, 0x1E);
 
-                        Log($"📤 [TCP Sender] Dispatched TARGETED SIREN OFF (0x1B) to {s.Name} ({s.Ip})...");
+                        // FAST BURST 1: Siren Off (0x1B) targeted + wildcard -> cuts audio power stage instantly
+                        Log($"📤 [TCP Sender] Dispatched FAST SIREN OFF (0x1B) to {s.Name} ({s.Ip})...");
                         await SendTcpCommandAsync(s.Ip, targeted1B, expectsAck: false);
-                        await Task.Delay(200);
-
-                        Log($"📤 [TCP Sender] Dispatched WILDCARD SIREN OFF (0x1B) to {s.Name} ({s.Ip})...");
+                        await Task.Delay(50);
                         await SendTcpCommandAsync(s.Ip, frame1B, expectsAck: false);
-                        await Task.Delay(850);
+                        await Task.Delay(150);
 
-                        Log($"📤 [TCP Sender] Dispatched TARGETED CLEAR (0x00) to {s.Name} ({s.Ip})...");
+                        // FAST BURST 2: Clear (0x00) targeted + wildcard -> clears event state
+                        Log($"📤 [TCP Sender] Dispatched FAST CLEAR (0x00) to {s.Name} ({s.Ip})...");
                         await SendTcpCommandAsync(s.Ip, targeted00, expectsAck: false);
-                        await Task.Delay(200);
-
-                        Log($"📤 [TCP Sender] Dispatched WILDCARD CLEAR (0x00) to {s.Name} ({s.Ip})...");
+                        await Task.Delay(50);
                         await SendTcpCommandAsync(s.Ip, frame00, expectsAck: false);
-                        await Task.Delay(850);
+                        await Task.Delay(150);
 
-                        Log($"📤 [TCP Sender] Dispatched TARGETED TEST CLEAR (0x1E) to {s.Name} ({s.Ip})...");
+                        // FAST BURST 3: Test Clear (0x1E) targeted + wildcard -> resets status LEDs
+                        Log($"📤 [TCP Sender] Dispatched FAST TEST CLEAR (0x1E) to {s.Name} ({s.Ip})...");
                         await SendTcpCommandAsync(s.Ip, targeted1E, expectsAck: false);
-                        await Task.Delay(200);
-
-                        Log($"📤 [TCP Sender] Dispatched WILDCARD TEST CLEAR (0x1E) to {s.Name} ({s.Ip})...");
+                        await Task.Delay(50);
                         await SendTcpCommandAsync(s.Ip, frame1E, expectsAck: false);
                     }
                     catch (Exception ex)
@@ -893,14 +865,14 @@ namespace Keemya.Frontend.Services
                 });
             }
 
-            // 2. Dispatch over Serial port (with 850ms inter-command delay per Whelen spec)
+            // 2. Dispatch over Serial port
             Log("📤 [Serial Sender] Dispatched global wildcard SIREN OFF (0x1B) command.");
             bool resOff = await SendSerialCommandAsync(frame1B, expectsAck: false, isUserInitiated: true);
-            await Task.Delay(850);
+            await Task.Delay(150);
 
             Log("📤 [Serial Sender] Dispatched global wildcard CLEAR Group 0 (0x00) command.");
             bool res1 = await SendSerialCommandAsync(frame00, expectsAck: false, isUserInitiated: true);
-            await Task.Delay(850);
+            await Task.Delay(150);
 
             Log("📤 [Serial Sender] Dispatched global wildcard TEST CLEAR (0x1E) command.");
             bool res4 = await SendSerialCommandAsync(frame1E, expectsAck: false, isUserInitiated: true);
@@ -1016,9 +988,21 @@ namespace Keemya.Frontend.Services
                 }
 
                 _lastSerialFrameSentTime = DateTime.Now;
+                try
+                {
+                    _serialPort.RtsEnable = true;
+                }
+                catch {}
+
                 _serialPort.Write(frame, 0, frame.Length);
                 string hex = string.Join(" ", frame.Select(b => b.ToString("X2")));
                 Log($"📤 [Serial Sender] Successfully sent frame: {hex}");
+
+                try
+                {
+                    _serialPort.RtsEnable = false;
+                }
+                catch {}
 
                 if (!expectsAck)
                 {

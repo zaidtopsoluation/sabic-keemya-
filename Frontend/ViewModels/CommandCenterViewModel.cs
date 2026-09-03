@@ -1310,36 +1310,37 @@ namespace Keemya.Frontend.ViewModels
         {
             Keemya.Frontend.Services.SirenCommunicationService.Instance.Log("=== MANUAL CANCEL (CLEAR ALL) INITIATED ===");
 
-            // 1. Build and send wildcard serial & TCP frames for all groups (including binary cancel packets)
-            await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendWildcardClearAsync();
+            // 1. Build and send wildcard serial & TCP frames for all groups concurrently
+            var wildcardTask = Keemya.Frontend.Services.SirenCommunicationService.Instance.SendWildcardClearAsync();
 
             // 2. Send TCP/IP commands to real sirens with IP addresses in parallel
             var realTcpSirens = _allSirens.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
             var tcpTasks = realTcpSirens.Select(async s =>
             {
                 await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1B));
-                await Task.Delay(850);
+                await Task.Delay(100);
                 await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00));
-                await Task.Delay(850);
+                await Task.Delay(100);
                 await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E));
             });
-            var tcpPromise = Task.WhenAll(tcpTasks);
 
             var serialTargets = _allSirens.Where(s => string.IsNullOrWhiteSpace(s.Ip))
                 .OrderByDescending(s => s.IsOnline)
                 .ToList();
             // Send specific frames to all serial targets
-            foreach (var s in serialTargets)
+            var serialTask = Task.Run(async () =>
             {
-                await Task.Delay(850);
-                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1B), trackStatus: false);
-                await Task.Delay(850);
-                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
-                await Task.Delay(850);
-                await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
-            }
+                foreach (var s in serialTargets)
+                {
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1B), trackStatus: false);
+                    await Task.Delay(100);
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
+                    await Task.Delay(100);
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
+                }
+            });
 
-            await tcpPromise;
+            await Task.WhenAll(wildcardTask, Task.WhenAll(tcpTasks), serialTask);
 
             // Log the action
             try

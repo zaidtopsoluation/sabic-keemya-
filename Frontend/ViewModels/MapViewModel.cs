@@ -658,22 +658,22 @@ namespace Keemya.Frontend.ViewModels
             {
                 SirenCommunicationService.Instance.Log("=== AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===");
                 
-                // Always send wildcard clear over TCP and Serial
-                await SirenCommunicationService.Instance.SendWildcardClearAsync();
+                // Dispatch wildcard clear and targeted cancel in parallel for instant execution
+                var wildcardTask = SirenCommunicationService.Instance.SendWildcardClearAsync();
 
-                var tasks = _activeTargets.Select(async s =>
+                var targetedTasks = _activeTargets.Select(async s =>
                 {
-                    // Send Siren Off (0x1B) first to kill tone generator
+                    // Send Siren Off (0x1B) first to kill tone generator instantly
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1B));
-                    await Task.Delay(850);
+                    await Task.Delay(100);
                     // Send Clear (0x00) to clear event in progress
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00));
-                    await Task.Delay(850);
+                    await Task.Delay(100);
                     // Send Test Clear (0x1E) to clear LEDs
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E));
                 });
 
-                await Task.WhenAll(tasks);
+                await Task.WhenAll(wildcardTask, Task.WhenAll(targetedTasks));
 
                 // Log the action
                 try
