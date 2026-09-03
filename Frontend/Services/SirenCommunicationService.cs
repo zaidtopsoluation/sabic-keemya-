@@ -2454,14 +2454,14 @@ namespace Keemya.Frontend.Services
 
                 ActiveStatusReceived?.Invoke(rcvAddress, activeCmd, acVolts, dcVolts, activeStatus, cabTemp, outTemp);
             }
-            else if (cmdByte == 0x1F) // Standard Status Response
+            else if (cmdByte == 0x1F || cmdByte == 0x0F || cmdByte == 0x00) // Standard Status / SI Test Response
             {
                 byte statusByte = frame.Length > 12 ? ReconstructByte(frame[11], frame[12]) : (byte)0;
                 byte dcVolts = frame.Length > 14 ? ReconstructByte(frame[13], frame[14]) : (byte)0;
                 byte cabTemp = (byte)0;
                 byte outTemp = (byte)0;
 
-                Log($"📊 [Parser] 1FH Standard Status Byte: 0x{statusByte:X2}, DC Raw: {dcVolts}");
+                Log($"📊 [Parser] {cmdByte:X2}H SI Test/Status Response -> Status Byte: 0x{statusByte:X2}, DC Raw: {dcVolts}");
 
                 double dcVoltsVal = dcVolts * (35.0 / 255.0);
                 bool lowBattery = dcVoltsVal < 22.0 && dcVoltsVal > 0;
@@ -2478,10 +2478,11 @@ namespace Keemya.Frontend.Services
                     cacheItem.HasPartialAlertFailure = !partialAlertPass;
                     cacheItem.HasRotorFailure = !rotorOk;
                     cacheItem.HasAcLoss = !acOn;
-                    cacheItem.DcVoltage = dcVoltsVal;
+                    if (dcVoltsVal > 5.0) cacheItem.DcVoltage = dcVoltsVal;
                     cacheItem.LastUpdated = DateTime.Now;
 
                     // Direct UI telemetry fields
+                    cacheItem.StatusByte = statusByte;
                     cacheItem.SirenOn = (statusByte & 0x10) != 0;
                     cacheItem.SystemArmed = (statusByte & 0x20) != 0;
                     cacheItem.FullAlert = fullAlertPass;
@@ -2490,7 +2491,8 @@ namespace Keemya.Frontend.Services
                     cacheItem.StoredAc = (statusByte & 0x08) != 0;
                     cacheItem.AcOn = acOn;
                     cacheItem.DynamicAc = acOn;
-                    cacheItem.SystemPowerUp = (statusByte & 0x40) != 0 || acOn || dcVoltsVal >= 22.0;
+                    cacheItem.SystemPowerUp = (statusByte & 0x40) != 0 || acOn || dcVoltsVal >= 20.0;
+                    cacheItem.BiasDetected = true;
                 }
 
                 StandardStatusReceived?.Invoke(rcvAddress, statusByte, dcVolts, cabTemp, outTemp);

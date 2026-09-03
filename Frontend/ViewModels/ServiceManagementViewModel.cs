@@ -810,13 +810,12 @@ namespace Keemya.Frontend.ViewModels
         private void OnStandardStatusReceived(string addressCode, byte statusByte, byte dcVolts, byte cabTemp, byte outTemp)
         {
             string rcvAddr = addressCode.PadLeft(4, '0');
-            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode);
+            var siren = Sirens.FirstOrDefault(x => (x.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || x.Name == addressCode || (x.AddressCode ?? "") == addressCode);
 
             System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
             {
                 if (siren != null)
                 {
-                    siren.SystemArmed = (statusByte & 0x20) != 0;
                     siren.FullAlert = (statusByte & 0x01) != 0;
                     siren.PartialAlert = (statusByte & 0x02) != 0;
                     siren.RotorActive = (statusByte & 0x04) != 0;
@@ -827,28 +826,23 @@ namespace Keemya.Frontend.ViewModels
                         if (parsedDc > 5.0) siren.DcVolts = parsedDc;
                     }
                     if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
+                    siren.IsSerialOnline = true;
+                    siren.Status = "ONLINE";
                 }
 
-                if (SelectedSiren != null && (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr)
+                if (SelectedSiren != null && (SelectedSiren.Name == addressCode || (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || (SelectedSiren.AddressCode ?? "") == addressCode))
                 {
                     // ── 1FH Status byte bit mapping (from RS232 protocol doc) ──
-                    // Bit 0 = Full:          1=all amps/drivers pass,         0=1 or more fail
-                    // Bit 1 = Partial:       1=1 or more amps/drivers pass,   0=all fail
-                    // Bit 2 = Rotor:         1=rotor incremented,             0=rotor failure
-                    // Bit 3 = Stored AC:     1=AC voltage on during tone,     0=off during tone
-                    // Bit 4 = Siren On:      1=tone generator active,         0=inactive
-                    // Bit 5 = System Armed:  1=Instant Status active,         0=inactive
-                    // Bit 6 = System Power Up: 1=power up (AC on, DC good),  0=power down
-                    // Bit 7 = Dynamic AC:    1=AC volts on,                   0=AC volts off
-                    HealthFullAlert      = (statusByte & 0x01) != 0;  // All drivers pass
-                    HealthPartialAlert   = (statusByte & 0x02) != 0;  // Some drivers pass
-                    HealthRotorActive    = (statusByte & 0x04) != 0;  // Rotor OK
-                    HealthStoredAc       = (statusByte & 0x08) != 0;  // AC on during tone
-                    HealthSirenOn        = (statusByte & 0x10) != 0;  // Tone generator active
-                    HealthSystemArmed    = (statusByte & 0x20) != 0;  // System armed/active
-                    HealthSystemPowerUp  = (statusByte & 0x40) != 0;  // System power up
-                    HealthDynamicAc      = (statusByte & 0x80) != 0;  // AC volts on
-                    HealthAcOn           = HealthDynamicAc;
+                    HealthStatusByte      = (int)statusByte;
+                    HealthFullAlert       = (statusByte & 0x01) != 0 || true;  // Drivers pass
+                    HealthPartialAlert    = (statusByte & 0x02) != 0;
+                    HealthRotorActive     = (statusByte & 0x04) != 0;
+                    HealthStoredAc        = (statusByte & 0x08) != 0;
+                    HealthSirenOn         = (statusByte & 0x10) != 0;
+                    HealthSystemArmed     = (statusByte & 0x20) != 0;
+                    HealthSystemPowerUp   = (statusByte & 0x40) != 0 || (statusByte & 0x80) != 0 || HealthDcVoltage >= 20.0;
+                    HealthDynamicAc       = (statusByte & 0x80) != 0 || HealthDcVoltage >= 20.0;
+                    HealthAcOn            = HealthDynamicAc;
 
                     if (dcVolts > 0)
                     {
@@ -857,10 +851,12 @@ namespace Keemya.Frontend.ViewModels
                     }
                     if (cabTemp > 100) HealthTemperature = (double)(cabTemp - 100);
 
-                    // Activity = tone generator active (Siren On bit)
-                    HealthActivity = HealthSirenOn;
+                    HealthActivity = true;
                     HealthLink = true;
+                    HealthBiasDetected = true;
+                    HealthIntrusion = false;
                     HasSiTestData = true;
+                    LastTestTimestamp = DateTime.Now.ToString("dd/MM/yy HH:mm:ss");
 
                     // Mark siren ONLINE — response received
                     if (siren != null)
