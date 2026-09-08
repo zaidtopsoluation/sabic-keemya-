@@ -956,6 +956,9 @@ namespace Keemya.Frontend.ViewModels
             // Stop any active Audio Loopback simulation
             Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
 
+            // Cancel any in-flight tone activation dispatches immediately
+            Keemya.Frontend.Services.SirenCommunicationService.Instance.CancelActiveActivations();
+
             // Immediately send the CLEAR command in the background ONLY to active targets
             _ = Task.Run(async () => 
             {
@@ -1148,6 +1151,8 @@ namespace Keemya.Frontend.ViewModels
             _activeCommandCts = new System.Threading.CancellationTokenSource();
             var token = _activeCommandCts.Token;
 
+            int sequenceId = Keemya.Frontend.Services.SirenCommunicationService.Instance.BeginToneActivation();
+
             Keemya.Frontend.Services.SirenCommunicationService.Instance.Log($"=== Manual Trigger Initiated: {card.Name} (0x{card.CommandHex:X2}) ===");
             
             // Execute transmission in the background to avoid freezing the UI
@@ -1190,7 +1195,7 @@ namespace Keemya.Frontend.ViewModels
                     frame[13] = (byte)(0x80 | (xorSum & 0x0F));
                     frame[14] = 0x0D;
 
-                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, sequenceId: sequenceId);
                 });
                 var tcpPromise = Task.WhenAll(tcpTasks);
 
@@ -1224,7 +1229,7 @@ namespace Keemya.Frontend.ViewModels
                             frame[14] = 0x0D;
 
                             // Send Siren On sequence then tone command frame for this siren
-                            await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, trackStatus: false, isUserInitiated: true, skipWarmup: false);
+                            await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, trackStatus: false, isUserInitiated: true, skipWarmup: false, sequenceId: sequenceId);
                         }
                         catch { }
                     }

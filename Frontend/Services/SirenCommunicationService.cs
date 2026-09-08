@@ -787,6 +787,8 @@ namespace Keemya.Frontend.Services
 
         public async Task<bool> SendWildcardClearAsync()
         {
+            CancelActiveActivations();
+
             if (AppConfig.StationName != "Admin ECC")
             {
                 Log("📥 [Remote Station] Relaying wildcard clear to Admin ECC...");
@@ -1246,6 +1248,28 @@ namespace Keemya.Frontend.Services
             catch {}
         }
 
+        private volatile int _commandSequenceId = 0;
+
+        public int BeginToneActivation()
+        {
+            int newSeq = Interlocked.Increment(ref _commandSequenceId);
+            Log($"🎵 [Siren Service] Starting new tone activation sequence #{newSeq}");
+            return newSeq;
+        }
+
+        public void CancelActiveActivations()
+        {
+            Interlocked.Increment(ref _commandSequenceId);
+            InterruptSerialRead();
+            Log("🛑 [Siren Service] All in-flight tone activations cancelled immediately.");
+        }
+
+        public bool IsSequenceCancelled(int sequenceId)
+        {
+            if (sequenceId <= 0) return false;
+            return sequenceId != _commandSequenceId;
+        }
+
         private byte[] BuildSirenOnFrame(byte[] originalFrame)
         {
             return BuildFrameWithCommand(originalFrame, 0x1A);
@@ -1372,7 +1396,7 @@ namespace Keemya.Frontend.Services
         // ────────────────────────────────────────────────────────────────────
         // Redundancy Operations (Auto-Failover Logic)
         // ────────────────────────────────────────────────────────────────────
-        public async Task<bool> ExecuteTransmitAsync(string sirenName, string ipAddress, bool redundant, byte[] frame, bool trackStatus = true, bool isUserInitiated = true, bool skipWarmup = false)
+        public async Task<bool> ExecuteTransmitAsync(string sirenName, string ipAddress, bool redundant, byte[] frame, bool trackStatus = true, bool isUserInitiated = true, bool skipWarmup = false, int sequenceId = 0)
         {
             if (AppConfig.StationName != "Admin ECC")
             {
@@ -1416,6 +1440,11 @@ namespace Keemya.Frontend.Services
             // If it is an activation command for a tone or digital voice (not cancel, status, or strobe commands)
             bool isToneActivation = (cmdByte >= 0x01 && cmdByte <= 0x08) || (cmdByte >= 0x31 && cmdByte <= 0x41) || cmdByte == 0x1A;
 
+            if (isToneActivation && sequenceId <= 0 && isUserInitiated)
+            {
+                sequenceId = BeginToneActivation();
+            }
+
             // Only query and diagnostic status commands return status responses (expects ACK).
             // Tone and setup commands (Wail, Attack, Alert, PA, Siren On/Off) are write-only activations.
             bool expectsAck = (cmdByte == 35 || cmdByte == 31 || cmdByte == 15 || cmdByte == 22 || cmdByte == 33 || cmdByte == 34);
@@ -1439,10 +1468,22 @@ namespace Keemya.Frontend.Services
                 Log($"ℹ️ [Redundant Transmit] Routing via TCP-only for {sirenName} (IP: {ipAddress}).");
                 if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
                 {
+                    if (IsSequenceCancelled(sequenceId))
+                    {
+                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before start for {sirenName}. Aborting.");
+                        return false;
+                    }
+
                     Log($"🔊 [TCP Transmit] Tone command detected. Sending targeted Siren On (0x1A) frame over TCP...");
                     byte[] sirenOnFrame = BuildSirenOnFrame(frame);
                     _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
                     await Task.Delay(250);
+
+                    if (IsSequenceCancelled(sequenceId))
+                    {
+                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled during Siren On for {sirenName}. Aborting.");
+                        return false;
+                    }
 
                     Log($"🔊 [TCP Transmit] Sending wildcard Siren On (0x1A) frame over TCP...");
                     byte[] wildcardOn = BuildWildcardFrame(0x1A);
@@ -1450,11 +1491,23 @@ namespace Keemya.Frontend.Services
                     await Task.Delay(250);
                 }
 
+                if (isToneActivation && IsSequenceCancelled(sequenceId))
+                {
+                    Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before main frame for {sirenName}. Aborting.");
+                    return false;
+                }
+
                 bool tcpSuccess = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
 
                 if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
                 {
                     await Task.Delay(250);
+                    if (IsSequenceCancelled(sequenceId))
+                    {
+                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before wildcard tone frame for {sirenName}. Aborting.");
+                        return false;
+                    }
+
                     Log($"🔊 [TCP Transmit] Sending wildcard tone command (0x{cmdByte:X2}) frame over TCP...");
                     byte[] wildcardTone = BuildWildcardFrame(cmdByte);
                     _ = await SendTcpCommandAsync(ipAddress, wildcardTone, expectsAck: false);

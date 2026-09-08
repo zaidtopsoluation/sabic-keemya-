@@ -653,6 +653,9 @@ namespace Keemya.Frontend.ViewModels
             // Stop any active Audio Loopback simulation
             Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
 
+            // Cancel any in-flight tone activation dispatches immediately
+            SirenCommunicationService.Instance.CancelActiveActivations();
+
             // Immediately send the CLEAR command in the background ONLY to active targets
             _ = Task.Run(async () => 
             {
@@ -722,6 +725,8 @@ namespace Keemya.Frontend.ViewModels
                 .OrderByDescending(s => s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING")
                 .ToList();
 
+            int sequenceId = SirenCommunicationService.Instance.BeginToneActivation();
+
             var tasks = sortedTargets.Select(async s =>
             {
                 if (token.IsCancellationRequested) return;
@@ -757,7 +762,7 @@ namespace Keemya.Frontend.ViewModels
                 frame[13] = (byte)(0x80 | (xorSum & 0x0F));
                 frame[14] = 0x0D;
 
-                await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame);
+                await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, frame, sequenceId: sequenceId);
             });
 
             await Task.WhenAll(tasks);
