@@ -451,8 +451,8 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Action Check Button -->
-                    <Button Content="Check option" Command="{Binding CheckOptionCommand}" Background="#801D38" Foreground="White" BorderThickness="0" Height="40" Margin="0,5,0,15" FontSize="13" FontWeight="Bold" Style="{StaticResource FlatTouchButtonStyle}"/>
+                    <!-- Action Pre-Recorded Message Activation Button -->
+                    <Button Content="Pre-Recorded Message" Command="{Binding CheckOptionCommand}" Background="#801D38" Foreground="White" BorderThickness="0" Height="40" Margin="0,5,0,15" FontSize="14" FontWeight="Bold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Style="{StaticResource FlatTouchButtonStyle}"/>
 
                     <!-- Preview Selection Summary -->
                     <TextBlock Text="{Binding SelectedSummaryText}" Foreground="#D1D5DB" FontSize="12.5" TextWrapping="Wrap"/>

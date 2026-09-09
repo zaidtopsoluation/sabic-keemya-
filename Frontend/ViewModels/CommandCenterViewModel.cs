@@ -1467,29 +1467,47 @@ namespace Keemya.Frontend.ViewModels
         {
             if (string.IsNullOrEmpty(name)) return null;
             string assetsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Audio");
-            
+            if (!System.IO.Directory.Exists(assetsDir)) return null;
+
             // Check for .mp3 first
             string mp3Path = System.IO.Path.Combine(assetsDir, name + ".mp3");
             if (System.IO.File.Exists(mp3Path)) return mp3Path;
-            
+
             // Check for .wav
             string wavPath = System.IO.Path.Combine(assetsDir, name + ".wav");
             if (System.IO.File.Exists(wavPath)) return wavPath;
 
-            // Try case-insensitive search in directory
+            // Try case-insensitive and normalized alias matching in directory
             try
             {
-                if (System.IO.Directory.Exists(assetsDir))
-                {
-                    var files = System.IO.Directory.GetFiles(assetsDir, "*.*");
-                    var match = files.FirstOrDefault(f => 
-                        string.Equals(System.IO.Path.GetFileNameWithoutExtension(f), name, StringComparison.OrdinalIgnoreCase));
-                    if (match != null) return match;
-                }
+                var files = System.IO.Directory.GetFiles(assetsDir, "*.*");
+                var match = files.FirstOrDefault(f => 
+                    string.Equals(System.IO.Path.GetFileNameWithoutExtension(f), name, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+
+                string normName = NormalizeAudioKey(name);
+                match = files.FirstOrDefault(f => 
+                    string.Equals(NormalizeAudioKey(System.IO.Path.GetFileNameWithoutExtension(f)), normName, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
             }
             catch { }
 
             return null;
+        }
+
+        private string NormalizeAudioKey(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+            string result = input.Trim().ToLower();
+            result = result.Replace("near to", "near")
+                          .Replace("front of", "in front of")
+                          .Replace("front polymer", "in front of polymer")
+                          .Replace(".", "");
+            
+            if (result.StartsWith("all employee")) return "allemployeesproceedtonearestbuilding";
+            if (result.StartsWith("all building marshal")) return "allbuildingmarshalsarerequestedtoshutdown";
+
+            return System.Text.RegularExpressions.Regex.Replace(result, @"[^\w]", "");
         }
 
         // ── Navigation ───────────────────────────────────────────────────────
