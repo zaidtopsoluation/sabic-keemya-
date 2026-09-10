@@ -78,13 +78,15 @@ namespace Keemya.Frontend.Models
         {
             get
             {
-                if (Status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) || (IsTcpOnline && IsSerialOnline))
-                    return "#10B981"; // Green (Both channels online / status ONLINE)
-                if (Status.Equals("WARNING", StringComparison.OrdinalIgnoreCase) || IsTcpOnline || IsSerialOnline)
-                    return "#F59E0B"; // Yellow (One channel online / status WARNING)
+                if (Status.Equals("OFFLINE", StringComparison.OrdinalIgnoreCase))
+                    return "#EF4444";     // Red (Offline)
                 if (Status.Equals("MAINTENANCE", StringComparison.OrdinalIgnoreCase))
-                    return "#3B82F6"; // Blue (Maintenance)
-                return "#EF4444";     // Red (Offline)
+                    return "#3B82F6";     // Blue (Maintenance)
+                if (Status.Equals("WARNING", StringComparison.OrdinalIgnoreCase))
+                    return "#F59E0B";     // Yellow (Warning)
+                if (Status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase))
+                    return "#10B981";     // Green (Online)
+                return "#EF4444";         // Red default
             }
         }
 

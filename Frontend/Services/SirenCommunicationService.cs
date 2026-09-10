@@ -67,7 +67,7 @@ namespace Keemya.Frontend.Services
         private static readonly ConcurrentDictionary<string, bool> _activeOfflines = new();
 
         // Consecutive failure counter — siren must fail this many polls in a row before OFFLINE is declared
-        private const int OfflineThreshold = 10;
+        private const int OfflineThreshold = 2;
         private static readonly ConcurrentDictionary<string, int> _failureCounters = new();
 
         // Live in-memory cache of siren states
@@ -1657,7 +1657,15 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            if (!item.IsOnline && !item.IsTcpOnline && !item.IsSerialOnline)
+            if (!item.IsOnline)
+                return "OFFLINE";
+
+            // Single-path IP sirens (Redundant = false): status depends directly on TCP channel
+            if (!string.IsNullOrWhiteSpace(item.Ip) && !item.Redundant && !item.IsTcpOnline)
+                return "OFFLINE";
+
+            // Single-path Serial sirens (Redundant = false): status depends directly on Serial channel
+            if (string.IsNullOrWhiteSpace(item.Ip) && !item.Redundant && !item.IsSerialOnline)
                 return "OFFLINE";
 
             // If there is an active hardware alarm or low battery, return WARNING
@@ -1667,7 +1675,7 @@ namespace Keemya.Frontend.Services
             }
 
             // For dual-channel IP sirens with redundancy enabled, if one channel drops, return WARNING
-            if (!string.IsNullOrWhiteSpace(item.Ip) && item.IsSerialOnline != item.IsTcpOnline)
+            if (!string.IsNullOrWhiteSpace(item.Ip) && item.Redundant && (item.IsSerialOnline != item.IsTcpOnline))
             {
                 return "WARNING";
             }
@@ -1796,6 +1804,8 @@ namespace Keemya.Frontend.Services
             if (cacheItem != null)
             {
                 cacheItem.IsOnline = false;
+                cacheItem.IsTcpOnline = false;
+                cacheItem.IsSerialOnline = false;
                 cacheItem.LastUpdated = DateTime.Now;
             }
 
@@ -1827,6 +1837,7 @@ namespace Keemya.Frontend.Services
                         {
                             Name = name,
                             Ip = ip,
+                            Redundant = redundant,
                             AreaCode = area,
                             AddressCode = addr,
                             IsOnline = status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) || status.Equals("WARNING", StringComparison.OrdinalIgnoreCase),
@@ -2114,15 +2125,16 @@ namespace Keemya.Frontend.Services
                             }
                         }
 
-                        // Ensure all sirens from DB exist in cache
+                        // Ensure all sirens from DB exist in cache and update Redundant property
                         foreach (var s in sirens)
                         {
                             if (!_sirenCache.TryGetValue(s.Name, out var cacheItem))
                             {
-                                _sirenCache[s.Name] = new SirenStatusCacheItem
+                                cacheItem = new SirenStatusCacheItem
                                 {
                                     Name = s.Name,
                                     Ip = s.Ip,
+                                    Redundant = s.Redundant,
                                     AreaCode = s.AreaCode,
                                     AddressCode = s.AddressCode,
                                     IsOnline = false,
@@ -2131,6 +2143,12 @@ namespace Keemya.Frontend.Services
                                     LastKnownStatus = "OFFLINE",
                                     LastUpdated = DateTime.Now
                                 };
+                                _sirenCache[s.Name] = cacheItem;
+                            }
+                            else
+                            {
+                                cacheItem.Redundant = s.Redundant;
+                                cacheItem.Ip = s.Ip;
                             }
                         }
 
@@ -2220,8 +2238,8 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Global Poller Error] {ex.Message}");
                     }
 
-                    // Poll every 30 seconds (standard C2030 hardware telemetry interval — prevents UART buffer overrun lockup)
-                    await Task.Delay(30000);
+                    // Poll every 10 seconds for real-time offline status feedback on map
+                    await Task.Delay(10000);
                 }
             });
         }
@@ -2806,6 +2824,7 @@ namespace Keemya.Frontend.Services
     {
         public string Name { get; set; } = string.Empty;
         public string Ip { get; set; } = string.Empty;
+        public bool Redundant { get; set; } = false;
         public string AreaCode { get; set; } = "000";
         public string AddressCode { get; set; } = "0000";
         public bool IsOnline { get; set; } = false;
