@@ -10377,3 +10377,869 @@
 [09:45:17.687] ⏳ [Serial Sender] Skipping auto-detect retrigger (cooldown active) — avoids stalling the serial lock for other sirens.
 [09:45:17.688] ⚠️ [Status] 'UO Cooling Tower Siren' consecutive failure count: 2/10
 [09:45:17.688] ⏳ [Status] 'UO Cooling Tower Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:05:49.720] Communication Service Initialized.
+[10:05:49.725] ⚡ [TCP Server] Netty Replica Listening on Port 5555...
+[10:05:49.751] ⚙️ [Serial Config] Loaded: COM7 @ 9600 baud for workstation Admin ECC
+[10:05:49.773] 🗄️ Cache populated with 10 sirens from the database.
+[10:05:57.287] ❌ [TCP Sender] Could not connect to TCP Server gateway 192.168.1.100:5000 -> The operation was canceled.
+[10:05:57.292] ⚠️ [Status] 'HB Finishing Siren' consecutive failure count: 1/10
+[10:05:57.293] ⏳ [Status] 'HB Finishing Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:06:29.807] ❌ [TCP Sender] Could not connect to TCP Server gateway 192.168.1.100:5000 -> The operation was canceled.
+[10:06:29.809] ⚠️ [Status] 'HB Finishing Siren' consecutive failure count: 2/10
+[10:06:29.810] ⏳ [Status] 'HB Finishing Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:07:02.331] ❌ [TCP Sender] Could not connect to TCP Server gateway 192.168.1.100:5000 -> The operation was canceled.
+[10:07:02.333] ⚠️ [Status] 'HB Finishing Siren' consecutive failure count: 3/10
+[10:07:02.336] ⏳ [Status] 'HB Finishing Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:07:34.850] ❌ [TCP Sender] Could not connect to TCP Server gateway 192.168.1.100:5000 -> The operation was canceled.
+[10:07:34.851] ⚠️ [Status] 'HB Finishing Siren' consecutive failure count: 4/10
+[10:07:34.854] ⏳ [Status] 'HB Finishing Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:08:07.387] ❌ [TCP Sender] Could not connect to TCP Server gateway 192.168.1.100:5000 -> The operation was canceled.
+[10:08:07.390] ⚠️ [Status] 'HB Finishing Siren' consecutive failure count: 5/10
+[10:08:07.394] ⏳ [Status] 'HB Finishing Siren' not yet at threshold — waiting for more failures before declaring OFFLINE.
+[10:08:28.416] 🔌 [TCP Server] Siren Device connected from IP: 192.168.1.100
+[10:08:37.408] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:08:37.408] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:08:37.812] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:08:37.813] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (16 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:08:37.816] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:08:37.818] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:08:37.822] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:09:07.841] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:09:07.843] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:09:08.242] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:09:08.243] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:09:08.246] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:09:08.250] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:09:08.253] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:09:08.255] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:09:26.781] === Map Dispatch: FIRE ALARM (0x02) ===
+[10:09:26.784] 🎵 [Siren Service] Starting new tone activation sequence #1
+[10:09:26.787] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:09:26.788] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:09:26.788] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:09:26.791] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:09:26.792] 🔊 [TCP Transmit] Parallel TCP: Sending targeted Siren On (0x1A) frame over TCP...
+[10:09:26.797] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9A 03 81 8B 0D
+[10:09:26.802] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:26.803] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:09:26.811] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:26.815] 🔍 [Auto-Detect] Starting automatic serial port detection...
+[10:09:26.817] ❌ [Auto-Detect] No active COM ports found on this machine.
+[10:09:27.112] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 82 03 80 83 0D
+[10:09:27.113] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:27.117] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:09:27.207] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 80 86 03 82 8F 0D
+[10:09:27.208] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 80 86 03
+[10:09:27.215] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:09:27.218] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=00H)
+[10:09:27.222] 📊 [Parser] 00H SI Test/Status Response -> Status Byte: 0xFC, DC Raw: 6
+[10:09:38.262] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:09:38.266] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:09:38.673] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 82 03 81 87 0D
+[10:09:38.675] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 82 8F 0D 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 82 03
+[10:09:38.685] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 82 8F 0D
+[10:09:38.695] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:09:38.702] 📊 [Parser] 23H Instant Status -> StatusByte: 0x87, DC Raw: 194, CabTemp Raw: 0, OutTemp Raw: 0
+[10:09:38.717] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:09:41.607] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:09:41.611] === AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===
+[10:09:41.619] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:09:41.622] ❌ [Cancel Sender] Error sending binary cancel packets: Could not find file 'COM7'.
+[10:09:41.627] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:09:41.630] ℹ️ [Redundant Transmit] Command 1BH does not return status bytes. Fast-acking.
+[10:09:41.635] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:09:41.641] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x1B) over TCP...
+[10:09:41.643] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:41.649] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9B 03 81 85 0D
+[10:09:41.651] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:41.855] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9B 03 81 8A 0D
+[10:09:41.858] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:41.859] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:09:41.934] 📤 [Serial Sender] Dispatched global wildcard SIREN OFF (0x1B) command.
+[10:09:41.934] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:41.935] 📤 [TCP Sender] Dispatched FAST SIREN OFF (0x1B) to HB Finishing Siren (192.168.1.100)...
+[10:09:41.936] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9B 03 81 8A 0D
+[10:09:41.939] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:41.965] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:09:41.966] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:09:41.970] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:09:41.972] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:41.975] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:09:41.978] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:41.996] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9B 03 81 85 0D
+[10:09:41.998] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.090] 📤 [Serial Sender] Dispatched global wildcard CLEAR Group 0 (0x00) command.
+[10:09:42.093] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:42.153] 📤 [TCP Sender] Dispatched FAST CLEAR (0x00) to HB Finishing Siren (192.168.1.100)...
+[10:09:42.154] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:09:42.158] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.184] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:09:42.185] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.191] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:09:42.215] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:09:42.217] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.248] 📤 [Serial Sender] Dispatched global wildcard TEST CLEAR (0x1E) command.
+[10:09:42.249] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:09:42.310] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:09:42.311] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:09:42.314] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:09:42.315] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x1E) over TCP...
+[10:09:42.317] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:09:42.321] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.373] 📤 [TCP Sender] Dispatched FAST TEST CLEAR (0x1E) to HB Finishing Siren (192.168.1.100)...
+[10:09:42.375] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:09:42.380] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.436] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:09:42.437] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.529] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:09:42.531] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:09:42.534] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:10:08.733] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:10:08.736] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:10:09.149] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 86 03 81 83 0D
+[10:10:09.151] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 87 0D 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 86 03
+[10:10:09.154] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 87 0D
+[10:10:09.160] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:10:09.163] 📊 [Parser] 23H Instant Status -> StatusByte: 0x87, DC Raw: 198, CabTemp Raw: 0, OutTemp Raw: 0
+[10:10:09.165] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:10:39.178] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:10:39.179] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:10:39.579] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:10:39.581] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 83 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:10:39.585] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 83 0D
+[10:10:39.589] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:10:39.595] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:10:39.601] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:11:09.616] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:11:09.618] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:11:10.009] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:11:10.012] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:11:10.016] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:11:10.018] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:11:10.020] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:11:10.023] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:11:40.039] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:11:40.043] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:11:40.440] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:11:40.443] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:11:40.448] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:11:40.455] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:11:40.457] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:11:40.463] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:12:10.471] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:12:10.475] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:12:10.868] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:12:10.870] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:12:10.872] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:12:10.875] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:12:10.880] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:12:10.884] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:12:40.894] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:12:40.896] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:12:41.300] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:12:41.301] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:12:41.302] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:12:41.303] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:12:41.306] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:12:41.310] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:13:11.318] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:13:11.319] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:13:11.728] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:13:11.730] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:13:11.732] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:13:11.734] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:13:11.735] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:13:11.737] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:13:41.747] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:13:41.749] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:13:42.158] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 86 03 81 8B 0D
+[10:13:42.161] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 86 03
+[10:13:42.169] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:13:42.190] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:13:42.201] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 198, CabTemp Raw: 0, OutTemp Raw: 0
+[10:13:42.206] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:14:12.216] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:14:12.218] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:14:12.618] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 86 03 81 8B 0D
+[10:14:12.619] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 8B 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 86 03
+[10:14:12.620] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 8B 0D
+[10:14:12.622] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:14:12.624] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 198, CabTemp Raw: 0, OutTemp Raw: 0
+[10:14:12.632] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:14:42.649] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:14:42.651] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:14:43.048] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:14:43.050] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 8B 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:14:43.055] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 8B 0D
+[10:14:43.058] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:14:43.062] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:14:43.068] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:15:13.084] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:15:13.087] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:15:13.477] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:15:13.480] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:15:13.489] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:15:13.495] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:15:13.502] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:15:13.508] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:15:43.526] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:15:43.530] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:15:43.938] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:15:43.940] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:15:43.946] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:15:43.950] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:15:43.986] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:15:43.990] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:16:14.000] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:16:14.002] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:16:14.400] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:16:14.401] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:16:14.438] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:16:14.440] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:16:14.441] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:16:14.444] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:16:44.453] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:16:44.454] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:16:44.858] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:16:44.861] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:16:44.867] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:16:44.872] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:16:44.874] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:16:44.879] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:17:14.890] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:17:14.893] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:17:15.288] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:17:15.289] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:17:15.291] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:17:15.294] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:17:15.299] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:17:15.304] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:17:45.321] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:17:45.325] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:17:45.718] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:17:45.720] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:17:45.723] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:17:45.726] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:17:45.731] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:17:45.738] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:18:15.748] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:18:15.750] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:18:16.149] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:18:16.152] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:18:16.155] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:18:16.157] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:18:16.160] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:18:16.170] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:18:46.185] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:18:46.186] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:18:46.577] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:18:46.579] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:18:46.585] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:18:46.589] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:18:46.592] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:18:46.596] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:19:16.607] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:19:16.609] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:19:17.009] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:19:17.011] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:19:17.016] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:19:17.020] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:19:17.022] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:19:17.027] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:19:47.046] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:19:47.048] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:19:47.437] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:19:47.440] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:19:47.445] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:19:47.449] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:19:47.455] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:19:47.460] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:20:17.465] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:20:17.467] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:20:17.866] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:20:17.868] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:20:17.873] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:20:17.875] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:20:17.877] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:20:17.879] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:20:47.893] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:20:47.895] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:20:48.295] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:20:48.297] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:20:48.303] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:20:48.307] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:20:48.310] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:20:48.316] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:21:18.332] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:21:18.335] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:21:18.727] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 82 03 81 8F 0D
+[10:21:18.728] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 82 03
+[10:21:18.731] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:21:18.735] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:21:18.738] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 194, CabTemp Raw: 0, OutTemp Raw: 0
+[10:21:18.740] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:21:48.759] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:21:48.761] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:21:49.156] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:21:49.158] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 8F 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:21:49.162] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 8F 0D
+[10:21:49.166] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:21:49.170] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:21:49.174] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:22:19.179] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:22:19.180] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:22:19.587] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:22:19.590] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:22:19.594] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:22:19.596] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:22:19.598] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:22:19.602] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:22:49.608] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:22:49.610] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:22:50.015] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 82 03 81 8F 0D
+[10:22:50.018] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 82 03
+[10:22:50.022] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:22:50.027] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:22:50.034] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 194, CabTemp Raw: 0, OutTemp Raw: 0
+[10:22:50.040] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:25:00.934] Communication Service Initialized.
+[10:25:00.940] ⚡ [TCP Server] Netty Replica Listening on Port 5555...
+[10:25:00.973] ⚙️ [Serial Config] Loaded: COM7 @ 9600 baud for workstation Admin ECC
+[10:25:01.000] 🗄️ Cache populated with 10 sirens from the database.
+[10:25:04.935] 🔌 [TCP Server] Siren Device connected from IP: 192.168.1.100
+[10:25:06.008] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:25:06.008] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:25:06.406] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:25:06.408] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (16 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:25:06.413] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:25:06.414] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:25:06.419] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:25:26.216] === Map Dispatch: FIRE ALARM (0x02) ===
+[10:25:26.218] 🎵 [Siren Service] Starting new tone activation sequence #1
+[10:25:26.225] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:26.226] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:25:26.226] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:26.228] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:25:26.229] 🔊 [TCP Transmit] Parallel TCP: Sending targeted Siren On (0x1A) frame over TCP...
+[10:25:26.234] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9A 03 81 8B 0D
+[10:25:26.243] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:25:26.247] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:26.253] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:26.258] 🔍 [Auto-Detect] Starting automatic serial port detection...
+[10:25:26.262] ❌ [Auto-Detect] No active COM ports found on this machine.
+[10:25:26.553] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 82 03 80 83 0D
+[10:25:26.555] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:26.560] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:26.640] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 86 83 03 82 8C 0D
+[10:25:26.643] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 86 83 03
+[10:25:26.654] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:25:26.664] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=00H)
+[10:25:26.671] 📊 [Parser] 00H SI Test/Status Response -> Status Byte: 0xFC, DC Raw: 99
+[10:25:36.425] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:25:36.429] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:25:36.837] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 86 03 81 83 0D
+[10:25:36.838] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 82 8C 0D 02 81 82 83 84 85 86 87 80 B4 A3 88 87 8C 86 03
+[10:25:36.842] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 82 8C 0D
+[10:25:36.844] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:25:36.847] 📊 [Parser] 23H Instant Status -> StatusByte: 0x87, DC Raw: 198, CabTemp Raw: 0, OutTemp Raw: 0
+[10:25:36.850] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:25:38.348] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:25:38.354] === AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===
+[10:25:38.362] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:38.364] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:25:38.370] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:38.376] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x00) over TCP...
+[10:25:38.378] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:38.381] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:25:38.387] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:38.600] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:25:38.601] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:38.603] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:39.566] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:39.568] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:25:39.573] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:39.579] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:39.580] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 90 03 81 81 0D
+[10:25:39.583] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:39.585] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:40.544] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:40.545] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:25:40.546] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:40.547] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:40.547] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 B0 03 83 81 0D
+[10:25:40.548] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:40.552] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:41.514] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:41.516] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:25:41.519] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:41.523] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:41.527] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:25:41.529] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:41.733] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:25:41.735] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:41.740] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:45.540] === Map Dispatch: GAS ALARM (0x01) ===
+[10:25:45.542] 🎵 [Siren Service] Starting new tone activation sequence #3
+[10:25:45.544] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:45.546] ℹ️ [Redundant Transmit] Command 01H does not return status bytes. Fast-acking.
+[10:25:45.546] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:45.547] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:25:45.552] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9A 03 81 8B 0D
+[10:25:45.560] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:45.561] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:45.867] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 81 03 80 80 0D
+[10:25:45.868] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:45.872] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:25:45.950] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 86 8F 03 82 80 0D
+[10:25:45.951] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 83 0D 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 86 8F 03
+[10:25:45.954] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 83 0D
+[10:25:45.959] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=00H)
+[10:25:45.965] 📊 [Parser] 00H SI Test/Status Response -> Status Byte: 0xFC, DC Raw: 111
+[10:25:58.887] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:25:58.888] === AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===
+[10:25:58.894] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:25:58.895] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:25:58.896] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:25:58.899] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:25:58.899] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x00) over TCP...
+[10:25:58.901] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:25:58.903] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:59.112] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:25:59.113] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:25:59.115] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:00.078] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:00.080] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:26:00.084] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:00.089] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:00.095] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:00.097] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:01.054] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:01.057] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:26:01.066] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:01.079] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:01.079] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 B0 03 83 81 0D
+[10:26:01.082] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:01.089] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:02.049] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:02.051] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:26:02.052] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:02.055] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:02.055] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x1E) over TCP...
+[10:26:02.062] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:26:02.065] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:02.268] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:26:02.272] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:02.280] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:06.853] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:26:06.855] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:26:07.253] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:26:07.254] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 82 80 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:26:07.254] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 82 80 0D
+[10:26:07.255] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:26:07.255] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:26:07.256] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:26:37.269] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:26:37.270] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:26:37.683] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:26:37.683] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:26:37.684] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:26:37.686] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:26:37.688] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:26:37.689] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:26:45.796] === Map Dispatch: ATTENTION (0x03) ===
+[10:26:45.798] 🎵 [Siren Service] Starting new tone activation sequence #5
+[10:26:45.800] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:45.800] ℹ️ [Redundant Transmit] Command 03H does not return status bytes. Fast-acking.
+[10:26:45.801] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:45.802] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:26:45.814] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:26:45.814] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9A 03 81 8B 0D
+[10:26:45.817] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:45.818] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:45.821] 🔍 [Auto-Detect] Starting automatic serial port detection...
+[10:26:45.830] ❌ [Auto-Detect] No active COM ports found on this machine.
+[10:26:46.132] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 83 03 80 82 0D
+[10:26:46.133] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:46.136] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:46.213] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 8C 82 03 82 87 0D
+[10:26:46.215] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 8C 82 03
+[10:26:46.220] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:26:46.226] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=00H)
+[10:26:46.233] 📊 [Parser] 00H SI Test/Status Response -> Status Byte: 0xFC, DC Raw: 194
+[10:26:57.811] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:26:57.813] === AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===
+[10:26:57.817] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:57.818] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:26:57.820] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:57.823] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:57.837] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:26:57.842] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:58.062] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:26:58.064] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:58.067] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:26:59.026] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:26:59.028] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:26:59.031] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:26:59.034] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:26:59.034] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 90 03 81 81 0D
+[10:26:59.036] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:26:59.044] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:00.009] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:00.011] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:00.017] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:00.020] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:00.023] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:00.033] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:00.992] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:00.994] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:00.999] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:01.004] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:01.012] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:27:01.017] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:01.226] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:27:01.229] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:01.233] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:07.696] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:27:07.699] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:27:08.094] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 83 03 81 8E 0D
+[10:27:08.096] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 82 87 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 83 03
+[10:27:08.098] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 82 87 0D
+[10:27:08.101] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:27:08.103] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 195, CabTemp Raw: 0, OutTemp Raw: 0
+[10:27:08.111] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:27:12.717] [VoIP] Started listening for incoming intercom voice packets...
+[10:27:14.443] 🎵 [Siren Service] Starting new tone activation sequence #7
+[10:27:14.444] === Manual Trigger Initiated: Attack (0x02) ===
+[10:27:14.453] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:14.454] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.456] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:14.458] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.460] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.460] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.463] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:14.463] ℹ️ [Redundant Transmit] Routing via Serial-only for CB Siren.
+[10:27:14.463] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.466] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.468] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.472] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.474] ❌ [Redundant Transmit] Serial transmit failed for CB Siren.
+[10:27:14.476] 🚀 [Redundant Transmit] Activating target: EPDM Siren
+[10:27:14.478] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.480] ℹ️ [Redundant Transmit] Routing via Serial-only for EPDM Siren.
+[10:27:14.483] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.485] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.487] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.489] ❌ [Redundant Transmit] Serial transmit failed for EPDM Siren.
+[10:27:14.495] 🚀 [Redundant Transmit] Activating target: Finishing siren
+[10:27:14.498] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.500] ℹ️ [Redundant Transmit] Routing via Serial-only for Finishing siren.
+[10:27:14.503] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.505] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.507] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.509] ❌ [Redundant Transmit] Serial transmit failed for Finishing siren.
+[10:27:14.512] 🚀 [Redundant Transmit] Activating target: HB Poly Siren
+[10:27:14.514] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.517] ℹ️ [Redundant Transmit] Routing via Serial-only for HB Poly Siren.
+[10:27:14.519] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.521] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.523] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.526] ❌ [Redundant Transmit] Serial transmit failed for HB Poly Siren.
+[10:27:14.528] 🚀 [Redundant Transmit] Activating target: KOP Siren
+[10:27:14.530] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.534] ℹ️ [Redundant Transmit] Routing via Serial-only for KOP Siren.
+[10:27:14.535] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.537] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.539] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.541] ❌ [Redundant Transmit] Serial transmit failed for KOP Siren.
+[10:27:14.544] 🚀 [Redundant Transmit] Activating target: LDPE Siren
+[10:27:14.545] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.547] ℹ️ [Redundant Transmit] Routing via Serial-only for LDPE Siren.
+[10:27:14.549] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.551] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.553] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.555] ❌ [Redundant Transmit] Serial transmit failed for LDPE Siren.
+[10:27:14.555] 🚀 [Redundant Transmit] Activating target: UO Area Siren
+[10:27:14.558] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.560] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Area Siren.
+[10:27:14.562] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.564] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.568] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.570] ❌ [Redundant Transmit] Serial transmit failed for UO Area Siren.
+[10:27:14.572] 🚀 [Redundant Transmit] Activating target: UO Cooling Tower Siren
+[10:27:14.574] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.577] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Cooling Tower Siren.
+[10:27:14.579] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.581] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.583] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.586] ❌ [Redundant Transmit] Serial transmit failed for UO Cooling Tower Siren.
+[10:27:14.588] 🚀 [Redundant Transmit] Activating target: UO Flare Siren
+[10:27:14.589] ℹ️ [Redundant Transmit] Command 02H does not return status bytes. Fast-acking.
+[10:27:14.592] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Flare Siren.
+[10:27:14.594] 🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...
+[10:27:14.596] ❌ [Serial Sender] Error sending Siren On sequence: Could not find file 'COM7'.
+[10:27:14.599] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:14.602] ❌ [Redundant Transmit] Serial transmit failed for UO Flare Siren.
+[10:27:14.765] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 82 03 80 83 0D
+[10:27:14.766] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:14.769] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:14.871] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 8C 82 03 82 87 0D
+[10:27:14.873] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 8E 0D 02 81 82 83 84 85 86 87 80 B4 9F 8F 8C 8C 82 03
+[10:27:14.879] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 8E 0D
+[10:27:14.881] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=00H)
+[10:27:14.884] 📊 [Parser] 00H SI Test/Status Response -> Status Byte: 0xFC, DC Raw: 194
+[10:27:21.576] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:27:21.583] === AUTOMATIC/MANUAL CANCEL INITIATED ===
+[10:27:21.585] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:21.586] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:21.590] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:21.593] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x00) over TCP...
+[10:27:21.593] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:21.595] 🛑 [Siren Service] All in-flight tone activations cancelled immediately.
+[10:27:21.595] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:27:21.597] ❌ [Cancel Sender] Error sending binary cancel packets: Could not find file 'COM7'.
+[10:27:21.601] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:21.805] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:27:21.807] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:21.813] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:21.902] 📤 [Serial Sender] Dispatched global wildcard SIREN OFF (0x1B) command.
+[10:27:21.904] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:21.910] 📤 [TCP Sender] Dispatched FAST SIREN OFF (0x1B) to HB Finishing Siren (192.168.1.100)...
+[10:27:21.912] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9B 03 81 8A 0D
+[10:27:21.916] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:21.968] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9B 03 81 85 0D
+[10:27:21.969] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.058] 📤 [Serial Sender] Dispatched global wildcard CLEAR Group 0 (0x00) command.
+[10:27:22.060] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:22.124] 📤 [TCP Sender] Dispatched FAST CLEAR (0x00) to HB Finishing Siren (192.168.1.100)...
+[10:27:22.126] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 80 03 80 81 0D
+[10:27:22.130] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.184] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 80 03 80 8E 0D
+[10:27:22.185] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.216] 📤 [Serial Sender] Dispatched global wildcard TEST CLEAR (0x1E) command.
+[10:27:22.216] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:22.340] 📤 [TCP Sender] Dispatched FAST TEST CLEAR (0x1E) to HB Finishing Siren (192.168.1.100)...
+[10:27:22.343] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:27:22.351] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.405] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:27:22.407] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.766] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:22.769] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:22.774] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:22.779] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:22.781] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:22.783] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:23.168] 🚀 [Redundant Transmit] Activating target: CB Siren
+[10:27:23.169] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:23.173] ℹ️ [Redundant Transmit] Routing via Serial-only for CB Siren.
+[10:27:23.177] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:23.181] ❌ [Redundant Transmit] Serial transmit failed for CB Siren.
+[10:27:23.748] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:23.750] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:23.756] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:23.760] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:23.760] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 B0 03 83 81 0D
+[10:27:23.764] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:23.766] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:24.138] 🚀 [Redundant Transmit] Activating target: CB Siren
+[10:27:24.140] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:24.144] ℹ️ [Redundant Transmit] Routing via Serial-only for CB Siren.
+[10:27:24.146] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:24.147] ❌ [Redundant Transmit] Serial transmit failed for CB Siren.
+[10:27:24.716] 🚀 [Redundant Transmit] Activating target: HB Finishing Siren
+[10:27:24.718] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:24.723] ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for HB Finishing Siren.
+[10:27:24.727] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:24.727] 🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x1E) over TCP...
+[10:27:24.731] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 8F 8F 8F 8F 8F 8F 8F 80 80 9E 03 81 80 0D
+[10:27:24.733] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:24.935] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 9E 03 81 8F 0D
+[10:27:24.937] ✅ [TCP Sender] Command does not require ACK. Fast-completing.
+[10:27:24.945] ✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for HB Finishing Siren.
+[10:27:25.099] 🚀 [Redundant Transmit] Activating target: CB Siren
+[10:27:25.100] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:25.103] ℹ️ [Redundant Transmit] Routing via Serial-only for CB Siren.
+[10:27:25.106] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:25.108] ❌ [Redundant Transmit] Serial transmit failed for CB Siren.
+[10:27:26.061] 🚀 [Redundant Transmit] Activating target: CB Siren
+[10:27:26.061] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:26.061] ℹ️ [Redundant Transmit] Routing via Serial-only for CB Siren.
+[10:27:26.062] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:26.062] ❌ [Redundant Transmit] Serial transmit failed for CB Siren.
+[10:27:27.025] 🚀 [Redundant Transmit] Activating target: EPDM Siren
+[10:27:27.026] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:27.026] ℹ️ [Redundant Transmit] Routing via Serial-only for EPDM Siren.
+[10:27:27.026] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:27.026] ❌ [Redundant Transmit] Serial transmit failed for EPDM Siren.
+[10:27:27.992] 🚀 [Redundant Transmit] Activating target: EPDM Siren
+[10:27:27.993] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:27.993] ℹ️ [Redundant Transmit] Routing via Serial-only for EPDM Siren.
+[10:27:27.994] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:27.994] ❌ [Redundant Transmit] Serial transmit failed for EPDM Siren.
+[10:27:28.957] 🚀 [Redundant Transmit] Activating target: EPDM Siren
+[10:27:28.958] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:28.958] ℹ️ [Redundant Transmit] Routing via Serial-only for EPDM Siren.
+[10:27:28.959] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:28.961] ❌ [Redundant Transmit] Serial transmit failed for EPDM Siren.
+[10:27:29.924] 🚀 [Redundant Transmit] Activating target: EPDM Siren
+[10:27:29.926] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:29.927] ℹ️ [Redundant Transmit] Routing via Serial-only for EPDM Siren.
+[10:27:29.928] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:29.929] ❌ [Redundant Transmit] Serial transmit failed for EPDM Siren.
+[10:27:30.895] 🚀 [Redundant Transmit] Activating target: Finishing siren
+[10:27:30.896] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:30.898] ℹ️ [Redundant Transmit] Routing via Serial-only for Finishing siren.
+[10:27:30.898] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:30.899] ❌ [Redundant Transmit] Serial transmit failed for Finishing siren.
+[10:27:31.861] 🚀 [Redundant Transmit] Activating target: Finishing siren
+[10:27:31.861] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:31.862] ℹ️ [Redundant Transmit] Routing via Serial-only for Finishing siren.
+[10:27:31.863] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:31.863] ❌ [Redundant Transmit] Serial transmit failed for Finishing siren.
+[10:27:32.829] 🚀 [Redundant Transmit] Activating target: Finishing siren
+[10:27:32.830] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:32.830] ℹ️ [Redundant Transmit] Routing via Serial-only for Finishing siren.
+[10:27:32.832] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:32.832] ❌ [Redundant Transmit] Serial transmit failed for Finishing siren.
+[10:27:33.791] 🚀 [Redundant Transmit] Activating target: Finishing siren
+[10:27:33.794] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:33.798] ℹ️ [Redundant Transmit] Routing via Serial-only for Finishing siren.
+[10:27:33.802] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:33.805] ❌ [Redundant Transmit] Serial transmit failed for Finishing siren.
+[10:27:34.769] 🚀 [Redundant Transmit] Activating target: HB Poly Siren
+[10:27:34.770] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:34.771] ℹ️ [Redundant Transmit] Routing via Serial-only for HB Poly Siren.
+[10:27:34.773] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:34.774] ❌ [Redundant Transmit] Serial transmit failed for HB Poly Siren.
+[10:27:35.733] 🚀 [Redundant Transmit] Activating target: HB Poly Siren
+[10:27:35.734] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:35.735] ℹ️ [Redundant Transmit] Routing via Serial-only for HB Poly Siren.
+[10:27:35.739] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:35.744] ❌ [Redundant Transmit] Serial transmit failed for HB Poly Siren.
+[10:27:36.697] 🚀 [Redundant Transmit] Activating target: HB Poly Siren
+[10:27:36.700] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:36.704] ℹ️ [Redundant Transmit] Routing via Serial-only for HB Poly Siren.
+[10:27:36.707] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:36.711] ❌ [Redundant Transmit] Serial transmit failed for HB Poly Siren.
+[10:27:37.674] 🚀 [Redundant Transmit] Activating target: HB Poly Siren
+[10:27:37.678] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:37.684] ℹ️ [Redundant Transmit] Routing via Serial-only for HB Poly Siren.
+[10:27:37.693] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:37.701] ❌ [Redundant Transmit] Serial transmit failed for HB Poly Siren.
+[10:27:38.127] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:27:38.128] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:27:38.534] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:27:38.534] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 82 87 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:27:38.536] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 82 87 0D
+[10:27:38.542] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:27:38.550] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:27:38.556] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.
+[10:27:38.669] 🚀 [Redundant Transmit] Activating target: KOP Siren
+[10:27:38.671] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:38.676] ℹ️ [Redundant Transmit] Routing via Serial-only for KOP Siren.
+[10:27:38.682] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:38.691] ❌ [Redundant Transmit] Serial transmit failed for KOP Siren.
+[10:27:39.665] 🚀 [Redundant Transmit] Activating target: KOP Siren
+[10:27:39.665] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:39.666] ℹ️ [Redundant Transmit] Routing via Serial-only for KOP Siren.
+[10:27:39.668] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:39.669] ❌ [Redundant Transmit] Serial transmit failed for KOP Siren.
+[10:27:40.629] 🚀 [Redundant Transmit] Activating target: KOP Siren
+[10:27:40.630] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:40.631] ℹ️ [Redundant Transmit] Routing via Serial-only for KOP Siren.
+[10:27:40.633] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:40.635] ❌ [Redundant Transmit] Serial transmit failed for KOP Siren.
+[10:27:41.593] 🚀 [Redundant Transmit] Activating target: KOP Siren
+[10:27:41.594] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:41.595] ℹ️ [Redundant Transmit] Routing via Serial-only for KOP Siren.
+[10:27:41.597] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:41.598] ❌ [Redundant Transmit] Serial transmit failed for KOP Siren.
+[10:27:42.557] 🚀 [Redundant Transmit] Activating target: LDPE Siren
+[10:27:42.559] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:42.563] ℹ️ [Redundant Transmit] Routing via Serial-only for LDPE Siren.
+[10:27:42.567] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:42.569] ❌ [Redundant Transmit] Serial transmit failed for LDPE Siren.
+[10:27:43.528] 🚀 [Redundant Transmit] Activating target: LDPE Siren
+[10:27:43.530] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:43.532] ℹ️ [Redundant Transmit] Routing via Serial-only for LDPE Siren.
+[10:27:43.535] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:43.538] ❌ [Redundant Transmit] Serial transmit failed for LDPE Siren.
+[10:27:44.495] 🚀 [Redundant Transmit] Activating target: LDPE Siren
+[10:27:44.496] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:44.497] ℹ️ [Redundant Transmit] Routing via Serial-only for LDPE Siren.
+[10:27:44.498] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:44.499] ❌ [Redundant Transmit] Serial transmit failed for LDPE Siren.
+[10:27:45.461] 🚀 [Redundant Transmit] Activating target: LDPE Siren
+[10:27:45.462] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:45.464] ℹ️ [Redundant Transmit] Routing via Serial-only for LDPE Siren.
+[10:27:45.466] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:45.468] ❌ [Redundant Transmit] Serial transmit failed for LDPE Siren.
+[10:27:46.427] 🚀 [Redundant Transmit] Activating target: UO Area Siren
+[10:27:46.428] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:46.429] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Area Siren.
+[10:27:46.430] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:46.431] ❌ [Redundant Transmit] Serial transmit failed for UO Area Siren.
+[10:27:46.431] 🔍 [Auto-Detect] Starting automatic serial port detection...
+[10:27:46.439] ❌ [Auto-Detect] No active COM ports found on this machine.
+[10:27:47.393] 🚀 [Redundant Transmit] Activating target: UO Area Siren
+[10:27:47.395] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:47.399] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Area Siren.
+[10:27:47.403] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:47.405] ❌ [Redundant Transmit] Serial transmit failed for UO Area Siren.
+[10:27:48.358] 🚀 [Redundant Transmit] Activating target: UO Area Siren
+[10:27:48.361] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:48.364] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Area Siren.
+[10:27:48.368] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:48.371] ❌ [Redundant Transmit] Serial transmit failed for UO Area Siren.
+[10:27:49.338] 🚀 [Redundant Transmit] Activating target: UO Area Siren
+[10:27:49.341] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:49.344] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Area Siren.
+[10:27:49.348] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:49.350] ❌ [Redundant Transmit] Serial transmit failed for UO Area Siren.
+[10:27:50.302] 🚀 [Redundant Transmit] Activating target: UO Cooling Tower Siren
+[10:27:50.303] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:50.306] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Cooling Tower Siren.
+[10:27:50.309] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:50.311] ❌ [Redundant Transmit] Serial transmit failed for UO Cooling Tower Siren.
+[10:27:51.267] 🚀 [Redundant Transmit] Activating target: UO Cooling Tower Siren
+[10:27:51.269] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:51.274] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Cooling Tower Siren.
+[10:27:51.277] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:51.281] ❌ [Redundant Transmit] Serial transmit failed for UO Cooling Tower Siren.
+[10:27:52.234] 🚀 [Redundant Transmit] Activating target: UO Cooling Tower Siren
+[10:27:52.236] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:52.239] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Cooling Tower Siren.
+[10:27:52.241] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:52.244] ❌ [Redundant Transmit] Serial transmit failed for UO Cooling Tower Siren.
+[10:27:53.205] 🚀 [Redundant Transmit] Activating target: UO Cooling Tower Siren
+[10:27:53.208] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:53.212] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Cooling Tower Siren.
+[10:27:53.215] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:53.218] ❌ [Redundant Transmit] Serial transmit failed for UO Cooling Tower Siren.
+[10:27:54.184] 🚀 [Redundant Transmit] Activating target: UO Flare Siren
+[10:27:54.187] ℹ️ [Redundant Transmit] Command 00H does not return status bytes. Fast-acking.
+[10:27:54.190] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Flare Siren.
+[10:27:54.193] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:54.194] ❌ [Redundant Transmit] Serial transmit failed for UO Flare Siren.
+[10:27:55.149] 🚀 [Redundant Transmit] Activating target: UO Flare Siren
+[10:27:55.151] ℹ️ [Redundant Transmit] Command 10H does not return status bytes. Fast-acking.
+[10:27:55.155] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Flare Siren.
+[10:27:55.158] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:55.160] ❌ [Redundant Transmit] Serial transmit failed for UO Flare Siren.
+[10:27:56.127] 🚀 [Redundant Transmit] Activating target: UO Flare Siren
+[10:27:56.129] ℹ️ [Redundant Transmit] Command 30H does not return status bytes. Fast-acking.
+[10:27:56.133] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Flare Siren.
+[10:27:56.136] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:56.138] ❌ [Redundant Transmit] Serial transmit failed for UO Flare Siren.
+[10:27:57.093] 🚀 [Redundant Transmit] Activating target: UO Flare Siren
+[10:27:57.094] ℹ️ [Redundant Transmit] Command 1EH does not return status bytes. Fast-acking.
+[10:27:57.095] ℹ️ [Redundant Transmit] Routing via Serial-only for UO Flare Siren.
+[10:27:57.096] ❌ [Serial Sender] Port COM7 is unavailable or locked: Could not find file 'COM7'.
+[10:27:57.097] ❌ [Redundant Transmit] Serial transmit failed for UO Flare Siren.
+[10:28:08.573] 📤 [TCP Sender] Sent frame to 192.168.1.100:5000: 02 81 82 83 84 85 86 87 80 80 A3 03 82 82 0D
+[10:28:08.575] ⏳ [TCP Sender] Waiting for ACK from 192.168.1.100:5000 (800ms timeout)...
+[10:28:08.993] 📥 [TCP Server] Chunk from 192.168.1.100 (19 bytes): 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03 81 89 0D
+[10:28:08.995] 📦 [TCP Server] Complete frame assembled from 192.168.1.100 (19 bytes): 81 89 0D 02 81 82 83 84 85 86 87 80 B4 A3 80 87 8C 84 03
+[10:28:08.998] ⚠️ [Parser] Discarded 3 stale byte(s) before STX: 81 89 0D
+[10:28:09.001] ✨ [Parser] Valid frame confirmed from 192.168.1.100 via TCP/IP (addr=4567, 16 bytes, for Cmd=23H)
+[10:28:09.004] 📊 [Parser] 23H Instant Status -> StatusByte: 0x07, DC Raw: 196, CabTemp Raw: 0, OutTemp Raw: 0
+[10:28:09.010] ✅ [TCP Sender] ACK confirmed from 192.168.1.100 via TCP/IP.

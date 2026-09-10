@@ -617,19 +617,11 @@ namespace Keemya.Frontend.ViewModels
         }
 
         [RelayCommand]
-        private async Task Stop()
+        private void Stop()
         {
             StatusMessage = "Dispatching STOP command...";
-            var card = CommandCards.FirstOrDefault(c => c.Name.ToLower().Contains("stop") || c.Name.ToLower().Contains("cancel"));
-            if (card != null) 
-            {
-                await ActivateCommand(card);
-                StatusMessage = "All siren actions stopped.";
-            }
-            else
-            {
-                StatusMessage = "Stop command config not found.";
-            }
+            StopRunningCommand();
+            StatusMessage = "All siren actions stopped.";
         }
 
         [RelayCommand]
@@ -656,27 +648,50 @@ namespace Keemya.Frontend.ViewModels
             // Cancel any in-flight tone activation dispatches immediately
             SirenCommunicationService.Instance.CancelActiveActivations();
 
-            // Immediately send the CLEAR command in the background ONLY to active targets
+            // Immediately send the CLEAR command in the background (exact CommandCenterViewModel parity)
             _ = Task.Run(async () => 
             {
                 SirenCommunicationService.Instance.Log("=== AUTOMATIC/MANUAL CANCEL INITIATED (MAP) ===");
                 
-                // Dispatch wildcard clear and targeted cancel in parallel for instant execution
-                var wildcardTask = SirenCommunicationService.Instance.SendWildcardClearAsync();
+                var targetList = (_activeTargets != null && _activeTargets.Count > 0) ? _activeTargets : Sirens.ToList();
 
-                var targetedTasks = _activeTargets.Select(async s =>
+                var serialTargets = targetList.Where(s => string.IsNullOrWhiteSpace(s.Ip))
+                    .OrderByDescending(s => s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING")
+                    .ToList();
+                var tcpTargets = targetList.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
+
+                // Send TCP commands in parallel
+                var tcpTasks = tcpTargets.Select(async s =>
                 {
-                    // Send Siren Off (0x1B) first to kill tone generator instantly
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1B));
-                    await Task.Delay(100);
-                    // Send Clear (0x00) to clear event in progress
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00));
-                    await Task.Delay(100);
-                    // Send Test Clear (0x1E) to clear LEDs
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10));
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30));
+                    await Task.Delay(950);
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E));
                 });
+                var tcpPromise = Task.WhenAll(tcpTasks);
 
-                await Task.WhenAll(wildcardTask, Task.WhenAll(targetedTasks));
+                if (serialTargets.Count > 0)
+                {
+                    await SirenCommunicationService.Instance.SendWildcardClearAsync();
+                }
+
+                // Send specific frames to all serial targets with mandatory 950ms hardware delay
+                foreach (var s in serialTargets)
+                {
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
+                    await Task.Delay(950);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
+                }
+
+                await tcpPromise;
 
                 // Log the action
                 try
@@ -685,7 +700,7 @@ namespace Keemya.Frontend.ViewModels
                     {
                         string actor = Keemya.Frontend.Stores.Session.Username ?? "System";
                         var auditLogService = new Keemya.Frontend.Services.AuditLogService();
-                        _ = auditLogService.LogAsync(actor, "CLEARED", $"Cancel instruction dispatched to {_activeTargets.Count} active sirens.", "Map");
+                        _ = auditLogService.LogAsync(actor, "CLEARED", $"Cancel instruction dispatched to {targetList.Count} active sirens.", "Map");
                     });
                 }
                 catch { }
@@ -705,7 +720,15 @@ namespace Keemya.Frontend.ViewModels
             }
 
             if (card == null) return;
-            if (TargetedSirens.Count == 0) return;
+
+            if (card.CommandHex == 0)
+            {
+                StopRunningCommand();
+                return;
+            }
+
+            var targetsToActivate = TargetedSirens.Count > 0 ? TargetedSirens.ToList() : Sirens.ToList();
+            if (targetsToActivate.Count == 0) return;
 
             SirenCommunicationService.Instance.Log($"=== Map Dispatch: {card.Name} (0x{card.CommandHex:X2}) ===");
 
