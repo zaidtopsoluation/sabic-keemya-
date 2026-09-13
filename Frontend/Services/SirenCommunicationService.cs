@@ -261,10 +261,13 @@ namespace Keemya.Frontend.Services
             }
             else
             {
+                _connectedClients.TryRemove(cleanIp, out var staleClient);
+                try { staleClient?.Close(); staleClient?.Dispose(); } catch {}
+
                 try
                 {
                     client = new TcpClient();
-                    using var connectCts = new CancellationTokenSource(2500);
+                    using var connectCts = new CancellationTokenSource(1500);
                     await client.ConnectAsync(cleanIp, targetPort, connectCts.Token);
                     isNewConnection = true;
                     Log($"🔌 [TCP Sender] Connected directly to TCP Server gateway {cleanIp}:{targetPort}");
@@ -360,7 +363,11 @@ namespace Keemya.Frontend.Services
                     }
                     else
                     {
-                        Log($"⚠️ [TCP Sender] ACK timeout — siren at {cleanIp} did not reply.");
+                        Log($"⚠️ [TCP Sender] ACK timeout on persistent connection for {cleanIp} — purging connection for fast recovery.");
+                        if (_connectedClients.TryRemove(cleanIp, out var deadClient))
+                        {
+                            try { deadClient.Close(); deadClient.Dispose(); } catch {}
+                        }
                         return false;
                     }
                 }
@@ -369,6 +376,10 @@ namespace Keemya.Frontend.Services
             {
                 _pendingTcpAcks.TryRemove(cleanIp, out _);
                 Log($"❌ [TCP Sender] Failed to transmit over TCP to {cleanIp}:{targetPort}: {ex.Message}");
+                if (_connectedClients.TryRemove(cleanIp, out var deadClient))
+                {
+                    try { deadClient.Close(); deadClient.Dispose(); } catch {}
+                }
                 if (isNewConnection)
                 {
                     client?.Close();
