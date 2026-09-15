@@ -1668,7 +1668,7 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            if (!item.IsOnline)
+            if (!item.IsOnline || (!item.IsTcpOnline && !item.IsSerialOnline))
                 return "OFFLINE";
 
             // Single-path IP sirens (Redundant = false): status depends directly on TCP channel
