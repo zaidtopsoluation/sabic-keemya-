@@ -2249,8 +2249,8 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Global Poller Error] {ex.Message}");
                     }
 
-                    // Poll every 10 seconds for real-time offline status feedback on map
-                    await Task.Delay(10000);
+                    // Poll every 10 minutes for background siren health status feedback (prevents COM port lock contention)
+                    await Task.Delay(TimeSpan.FromMinutes(10));
                 }
             });
         }
