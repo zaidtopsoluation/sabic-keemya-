@@ -430,6 +430,15 @@ namespace Keemya.Frontend.Services
             }
         }
 
+        public void SetSerialPortConfig(string portName, int baudRate = 9600)
+        {
+            if (string.IsNullOrWhiteSpace(portName)) return;
+            _serialPortName = portName;
+            _serialBaudRate = baudRate;
+            Log($"⚙️ [Serial Config] Serial port manually configured to: {_serialPortName} @ {_serialBaudRate} baud");
+            _ = Task.Run(() => SaveSerialPortConfigAsync(portName, baudRate));
+        }
+
         public async Task<string?> AutoDetectSerialPortAsync()
         {
             if (AppConfig.StationName != "Admin ECC") return null;
@@ -513,7 +522,11 @@ namespace Keemya.Frontend.Services
                 Log($"⚠️ [Auto-Detect] Database query failed: {ex.Message}");
             }
 
-            string[] availablePorts = SerialPort.GetPortNames();
+            string[] availablePorts = SerialPort.GetPortNames()
+                .OrderByDescending(p => p.Equals(_serialPortName, StringComparison.OrdinalIgnoreCase))
+                .ThenBy(p => p)
+                .ToArray();
+
             if (availablePorts.Length == 0)
             {
                 Log("❌ [Auto-Detect] No active COM ports found on this machine.");
@@ -521,7 +534,7 @@ namespace Keemya.Frontend.Services
                 return null;
             }
 
-            Log($"🔍 [Auto-Detect] Found {availablePorts.Length} port(s): {string.Join(", ", availablePorts)}");
+            Log($"🔍 [Auto-Detect] Found {availablePorts.Length} port(s) (prioritizing {_serialPortName}): {string.Join(", ", availablePorts)}");
 
             // Acquire lock to avoid conflict with normal transmission
             if (!await _serialLock.WaitAsync(10000))
@@ -1048,34 +1061,15 @@ namespace Keemya.Frontend.Services
                 // Wait for the siren's ACK reply and return whether it was valid
                 // This is key for redundancy: TCP failover only triggers if siren truly didn't reply
                 bool ackReceived = await ReadSerialResponseAsync(_serialPort, frame, isUserInitiated);
-
-                if (!ackReceived && !_hasSuccessfulSerialComm)
+                if (ackReceived)
                 {
-                    if (TryBeginAutoDetectThrottle())
-                    {
-                        Log("⚠️ [Serial Sender] No successful serial communication has occurred yet. Triggering auto-detection...");
-                        _ = Task.Run(() => AutoDetectSerialPortAsync());
-                    }
-                    else
-                    {
-                        Log("⏳ [Serial Sender] Skipping auto-detect retrigger (cooldown active) — avoids stalling the serial lock for other sirens.");
-                    }
+                    _hasSuccessfulSerialComm = true;
                 }
-
                 return ackReceived;
             }
             catch (Exception ex)
             {
                 Log($"❌ [Serial Sender] Port {_serialPortName} is unavailable or locked: {ex.Message}");
-
-                // Trigger auto-detect asynchronously if the port failed to open or transmit,
-                // but respect the cooldown so a persistent fault doesn't repeatedly
-                // seize the serial lock and stall the rest of a broadcast.
-                if (!_hasSuccessfulSerialComm && TryBeginAutoDetectThrottle())
-                {
-                    _ = Task.Run(() => AutoDetectSerialPortAsync());
-                }
-
                 return false;
             }
             finally
@@ -1453,148 +1447,129 @@ namespace Keemya.Frontend.Services
             bool hasIp = !string.IsNullOrWhiteSpace(ipAddress);
 
             // Determine transmission path
-            // 1. TCP-only (has IP and not redundant)
-            if (hasIp && !redundant)
+            if (hasIp)
             {
-                Log($"ℹ️ [Redundant Transmit] Routing via TCP-only for {sirenName} (IP: {ipAddress}).");
-                if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                Log($"ℹ️ [Redundant Transmit] Launching PARALLEL dual-path (TCP + Serial) for {sirenName} (IP: {ipAddress})...");
+
+                // 1. Launch TCP dispatch task
+                var tcpTask = Task.Run(async () =>
                 {
-                    if (IsSequenceCancelled(sequenceId))
+                    bool tcpOk = false;
+                    try
                     {
-                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before start for {sirenName}. Aborting.");
-                        return false;
+                        if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                        {
+                            if (IsSequenceCancelled(sequenceId))
+                            {
+                                Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before start for {sirenName}. Aborting.");
+                                return false;
+                            }
+
+                            Log($"🔊 [TCP Transmit] Tone command detected. Sending targeted Siren On (0x1A) frame over TCP...");
+                            byte[] sirenOnFrame = BuildSirenOnFrame(frame);
+                            _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
+                            await Task.Delay(250);
+
+                            if (IsSequenceCancelled(sequenceId))
+                            {
+                                Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled during Siren On for {sirenName}. Aborting.");
+                                return false;
+                            }
+
+                            Log($"🔊 [TCP Transmit] Sending wildcard Siren On (0x1A) frame over TCP...");
+                            byte[] wildcardOn = BuildWildcardFrame(0x1A);
+                            _ = await SendTcpCommandAsync(ipAddress, wildcardOn, expectsAck: false);
+                            await Task.Delay(250);
+                        }
+
+                        if (isToneActivation && IsSequenceCancelled(sequenceId))
+                        {
+                            Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before main frame for {sirenName}. Aborting.");
+                            return false;
+                        }
+
+                        tcpOk = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
+
+                        if (tcpOk)
+                        {
+                            if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
+                            {
+                                await Task.Delay(250);
+                                if (!IsSequenceCancelled(sequenceId))
+                                {
+                                    Log($"🔊 [TCP Transmit] Sending wildcard tone command (0x{cmdByte:X2}) frame over TCP...");
+                                    byte[] wildcardTone = BuildWildcardFrame(cmdByte);
+                                    _ = await SendTcpCommandAsync(ipAddress, wildcardTone, expectsAck: false);
+                                }
+                            }
+                            else if (!isToneActivation && (cmdByte == 0x00 || cmdByte == 0x1B || cmdByte == 0x1E))
+                            {
+                                await Task.Delay(250);
+                                Log($"🔊 [TCP Transmit] Sending wildcard cancel command (0x{cmdByte:X2}) frame over TCP...");
+                                byte[] wildcardCancel = BuildWildcardFrame(cmdByte);
+                                _ = await SendTcpCommandAsync(ipAddress, wildcardCancel, expectsAck: false);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Redundant Transmit] TCP transmit error for {sirenName}: {ex.Message}");
                     }
 
-                    Log($"🔊 [TCP Transmit] Tone command detected. Sending targeted Siren On (0x1A) frame over TCP...");
-                    byte[] sirenOnFrame = BuildSirenOnFrame(frame);
-                    _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
-                    await Task.Delay(250);
+                    var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+                    if (cacheItem != null) cacheItem.IsTcpOnline = tcpOk;
+                    return tcpOk;
+                });
 
-                    if (IsSequenceCancelled(sequenceId))
+                // 2. Launch Serial dispatch task concurrently
+                var serialTask = Task.Run(async () =>
+                {
+                    bool serialOk = false;
+                    try
                     {
-                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled during Siren On for {sirenName}. Aborting.");
-                        return false;
+                        if (isToneActivation && isUserInitiated && !skipWarmup)
+                        {
+                            if (IsSequenceCancelled(sequenceId))
+                            {
+                                Log($"🛑 [Serial Transmit] Sequence #{sequenceId} cancelled before start for {sirenName}. Aborting.");
+                                return false;
+                            }
+                            Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
+                            await SendSirenOnSequenceAsync(frame);
+                        }
+
+                        if (isToneActivation && IsSequenceCancelled(sequenceId))
+                        {
+                            Log($"🛑 [Serial Transmit] Sequence #{sequenceId} cancelled before main frame for {sirenName}. Aborting.");
+                            return false;
+                        }
+
+                        serialOk = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Redundant Transmit] Serial transmit error for {sirenName}: {ex.Message}");
                     }
 
-                    Log($"🔊 [TCP Transmit] Sending wildcard Siren On (0x1A) frame over TCP...");
-                    byte[] wildcardOn = BuildWildcardFrame(0x1A);
-                    _ = await SendTcpCommandAsync(ipAddress, wildcardOn, expectsAck: false);
-                    await Task.Delay(250);
-                }
+                    var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+                    if (cacheItem != null) cacheItem.IsSerialOnline = serialOk;
+                    return serialOk;
+                });
 
-                if (isToneActivation && IsSequenceCancelled(sequenceId))
+                await Task.WhenAll(tcpTask, serialTask);
+
+                bool finalTcpOk = await tcpTask;
+                bool finalSerialOk = await serialTask;
+
+                bool overallSuccess = finalTcpOk || finalSerialOk;
+
+                if (overallSuccess)
                 {
-                    Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before main frame for {sirenName}. Aborting.");
-                    return false;
-                }
-
-                bool tcpSuccess = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
-
-                if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
-                {
-                    await Task.Delay(250);
-                    if (IsSequenceCancelled(sequenceId))
-                    {
-                        Log($"🛑 [TCP Transmit] Sequence #{sequenceId} cancelled before wildcard tone frame for {sirenName}. Aborting.");
-                        return false;
-                    }
-
-                    Log($"🔊 [TCP Transmit] Sending wildcard tone command (0x{cmdByte:X2}) frame over TCP...");
-                    byte[] wildcardTone = BuildWildcardFrame(cmdByte);
-                    _ = await SendTcpCommandAsync(ipAddress, wildcardTone, expectsAck: false);
-                }
-                else if (!isToneActivation && (cmdByte == 0x00 || cmdByte == 0x1B || cmdByte == 0x1E))
-                {
-                    await Task.Delay(250);
-                    Log($"🔊 [TCP Transmit] Sending wildcard cancel command (0x{cmdByte:X2}) frame over TCP...");
-                    byte[] wildcardCancel = BuildWildcardFrame(cmdByte);
-                    _ = await SendTcpCommandAsync(ipAddress, wildcardCancel, expectsAck: false);
-                }
-
-                if (tcpSuccess)
-                {
-                    Log($"✅ [Redundant Transmit] TCP transmit successful for {sirenName}.");
+                    Log($"✅ [Redundant Transmit] Dual-path transmit succeeded for {sirenName} (TCP: {finalTcpOk}, Serial: {finalSerialOk}).");
                     if (trackStatus)
                     {
                         TrackSuccess(sirenName, cmdByte);
                     }
-                    return true;
-                }
-                else
-                {
-                    Log($"❌ [Redundant Transmit] TCP transmit failed for {sirenName}.");
-                    if (trackStatus)
-                    {
-                        TrackFailure(sirenName);
-                    }
-                    return false;
-                }
-            }
-
-            // 2. Redundant (Try TCP first if IP is assigned, fallback to Serial if TCP fails)
-            if (redundant && hasIp)
-            {
-                Log($"ℹ️ [Redundant Transmit] Routing via TCP/IP for {sirenName}.");
-                
-                bool tcpOk = false;
-                try
-                {
-                    if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
-                    {
-                        Log($"🔊 [TCP Transmit] Sending targeted Siren On (0x1A) frame over TCP...");
-                        byte[] sirenOnFrame = BuildSirenOnFrame(frame);
-                        _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
-                        await Task.Delay(300);
-                    }
-                    else if (!isToneActivation && (cmdByte == 0x00 || cmdByte == 0x1B || cmdByte == 0x1E))
-                    {
-                        Log($"🔊 [TCP Transmit] Sending wildcard cancel frame (0x{cmdByte:X2}) over TCP...");
-                        byte[] wildcardCancel = BuildWildcardFrame(cmdByte);
-                        _ = await SendTcpCommandAsync(ipAddress, wildcardCancel, expectsAck: false);
-                        await Task.Delay(200);
-                    }
-                    tcpOk = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
-                }
-                catch (Exception ex)
-                {
-                    Log($"❌ [Redundant Transmit] TCP transmit error for {sirenName}: {ex.Message}");
-                }
-
-                if (tcpOk)
-                {
-                    Log($"✅ [Redundant Transmit] TCP transmit succeeded for {sirenName}.");
-                    if (trackStatus)
-                    {
-                        TrackSuccess(sirenName, cmdByte);
-                    }
-                    return true;
-                }
-
-                // If TCP failed, evaluate Serial backup path
-                Log($"⚠️ [Redundant Transmit] TCP path did not succeed for {sirenName}. Checking Serial backup...");
-                bool serialOk = false;
-                try
-                {
-                    if (isToneActivation && isUserInitiated && !skipWarmup)
-                    {
-                        Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
-                        await SendSirenOnSequenceAsync(frame);
-                    }
-                    serialOk = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
-                }
-                catch (Exception ex)
-                {
-                    Log($"❌ [Redundant Transmit] Serial backup transmit error for {sirenName}: {ex.Message}");
-                }
-
-                if (serialOk)
-                {
-                    Log($"✅ [Redundant Transmit] Serial backup transmit succeeded for {sirenName}.");
-                    if (trackStatus)
-                    {
-                        TrackSuccess(sirenName, cmdByte);
-                    }
-                    return true;
                 }
                 else
                 {
@@ -1603,11 +1578,12 @@ namespace Keemya.Frontend.Services
                     {
                         TrackFailure(sirenName);
                     }
-                    return false;
                 }
+
+                return overallSuccess;
             }
 
-            // 3. Serial-only (No IP assigned)
+            // Serial-only (No IP assigned)
             Log($"ℹ️ [Redundant Transmit] Routing via Serial-only for {sirenName}.");
             if (isToneActivation && isUserInitiated && !skipWarmup)
             {
@@ -1616,9 +1592,11 @@ namespace Keemya.Frontend.Services
             }
             
             bool serialSuccess = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
+            var serialOnlyCache = GetCacheItemByAddressOrSource(sirenName);
             if (serialSuccess)
             {
                 Log($"✅ [Redundant Transmit] Serial transmit successful for {sirenName}.");
+                if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = true;
                 if (trackStatus)
                 {
                     TrackSuccess(sirenName, cmdByte);
@@ -1628,6 +1606,7 @@ namespace Keemya.Frontend.Services
             else
             {
                 Log($"❌ [Redundant Transmit] Serial transmit failed for {sirenName}.");
+                if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = false;
                 if (trackStatus)
                 {
                     TrackFailure(sirenName);
@@ -2197,9 +2176,7 @@ namespace Keemya.Frontend.Services
 
                     try
                     {
-                        var serialSirens = _sirenCache.Values
-                            .Where(s => string.IsNullOrWhiteSpace(s.Ip) || s.Redundant)
-                            .ToList();
+                        var serialSirens = _sirenCache.Values.ToList();
 
                         string[] availablePorts = SerialPort.GetPortNames();
                         if (availablePorts.Length > 0 && serialSirens.Count > 0)
@@ -2388,6 +2365,14 @@ namespace Keemya.Frontend.Services
                 if (cacheItem != null)
                 {
                     cacheItem.IsOnline = true;
+                    if (channel == "Serial")
+                    {
+                        cacheItem.IsSerialOnline = true;
+                    }
+                    else if (channel == "TCP/IP")
+                    {
+                        cacheItem.IsTcpOnline = true;
+                    }
                     cacheItem.HasIntrusion = intrusion;
                     cacheItem.HasAcLoss = !acOn;
                     cacheItem.HasLowBattery = lowBattery;
