@@ -137,6 +137,13 @@ namespace Keemya.Frontend.Services
         // that hold the serial lock and stall every other command behind them.
         private bool TryBeginAutoDetectThrottle()
         {
+            // If no COM ports exist on this machine, do NOT trigger auto-detect port scan
+            string[] availablePorts = SerialPort.GetPortNames();
+            if (availablePorts == null || availablePorts.Length == 0)
+            {
+                return false;
+            }
+
             var now = DateTime.Now;
             if ((now - _lastAutoDetectAttempt).TotalMilliseconds < AutoDetectCooldownMs)
             {
@@ -1091,34 +1098,7 @@ namespace Keemya.Frontend.Services
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                int totalTimeoutMs = SerialAckTimeoutMs;
-
-                if (sentFrame != null && sentFrame.Length >= 8)
-                {
-                    try
-                    {
-                        string area = $"{(sentFrame[1] & 0x7F)}{(sentFrame[2] & 0x7F)}{(sentFrame[3] & 0x7F)}";
-                        string addr = $"{(sentFrame[4] & 0x7F)}{(sentFrame[5] & 0x7F)}{(sentFrame[6] & 0x7F)}{(sentFrame[7] & 0x7F)}";
-                        string fullAddr = $"{area}{addr}";
-
-                        var cacheItem = GetCacheItemByAddressOrSource(fullAddr);
-                        if (cacheItem != null && !cacheItem.IsOnline)
-                        {
-                            int failCount = _failureCounters.TryGetValue(cacheItem.Name, out var c) ? c : 0;
-                            if (failCount >= 3)
-                            {
-                                totalTimeoutMs = 50; // Ultra-fast 50ms skip for non-existent dummy sirens
-                            }
-                            else
-                            {
-                                totalTimeoutMs = SerialOfflineAckTimeoutMs;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }
+                int totalTimeoutMs = 2000; // Full 2000ms read timeout for serial responses
 
                 using var timeoutCts = new CancellationTokenSource(totalTimeoutMs);
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _serialReadCts.Token);
@@ -1551,75 +1531,65 @@ namespace Keemya.Frontend.Services
                 }
             }
 
-            // 2. Redundant (Try TCP and Serial concurrently)
+            // 2. Redundant (Try TCP first if IP is assigned, fallback to Serial if TCP fails)
             if (redundant && hasIp)
             {
-                Log($"ℹ️ [Redundant Transmit] Routing via BOTH TCP/IP and Serial in parallel for {sirenName}.");
+                Log($"ℹ️ [Redundant Transmit] Routing via TCP/IP for {sirenName}.");
                 
-                var tcpTask = Task.Run(async () =>
+                bool tcpOk = false;
+                try
                 {
-                    try
+                    if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
                     {
-                        if (isToneActivation && isUserInitiated && !skipWarmup && cmdByte != 0x1A)
-                        {
-                            Log($"🔊 [TCP Transmit] Parallel TCP: Sending targeted Siren On (0x1A) frame over TCP...");
-                            byte[] sirenOnFrame = BuildSirenOnFrame(frame);
-                            _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
-                            await Task.Delay(300);
-                        }
-                        else if (!isToneActivation && (cmdByte == 0x00 || cmdByte == 0x1B || cmdByte == 0x1E))
-                        {
-                            Log($"🔊 [TCP Transmit] Parallel TCP: Sending wildcard cancel frame (0x{cmdByte:X2}) over TCP...");
-                            byte[] wildcardCancel = BuildWildcardFrame(cmdByte);
-                            _ = await SendTcpCommandAsync(ipAddress, wildcardCancel, expectsAck: false);
-                            await Task.Delay(200);
-                        }
-                        return await SendTcpCommandAsync(ipAddress, frame, expectsAck);
+                        Log($"🔊 [TCP Transmit] Sending targeted Siren On (0x1A) frame over TCP...");
+                        byte[] sirenOnFrame = BuildSirenOnFrame(frame);
+                        _ = await SendTcpCommandAsync(ipAddress, sirenOnFrame, expectsAck: false);
+                        await Task.Delay(300);
                     }
-                    catch (Exception ex)
+                    else if (!isToneActivation && (cmdByte == 0x00 || cmdByte == 0x1B || cmdByte == 0x1E))
                     {
-                        Log($"❌ [Redundant Transmit] TCP concurrent transmit error for {sirenName}: {ex.Message}");
-                        return false;
+                        Log($"🔊 [TCP Transmit] Sending wildcard cancel frame (0x{cmdByte:X2}) over TCP...");
+                        byte[] wildcardCancel = BuildWildcardFrame(cmdByte);
+                        _ = await SendTcpCommandAsync(ipAddress, wildcardCancel, expectsAck: false);
+                        await Task.Delay(200);
                     }
-                });
+                    tcpOk = await SendTcpCommandAsync(ipAddress, frame, expectsAck);
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Redundant Transmit] TCP transmit error for {sirenName}: {ex.Message}");
+                }
 
-                var serialTask = Task.Run(async () =>
+                if (tcpOk)
                 {
-                    try
-                    {
-                        if (isToneActivation && isUserInitiated && !skipWarmup)
-                        {
-                            Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
-                            await SendSirenOnSequenceAsync(frame);
-                        }
-                        return await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"❌ [Redundant Transmit] Serial concurrent transmit error for {sirenName}: {ex.Message}");
-                        return false;
-                    }
-                });
-
-                // Wait up to 500ms for TCP to complete since it is usually instant
-                var completedTask = await Task.WhenAny(tcpTask, Task.Delay(500));
-                if (completedTask == tcpTask && await tcpTask)
-                {
-                    Log($"✅ [Redundant Transmit] Parallel TCP dispatch succeeded instantly for {sirenName}.");
+                    Log($"✅ [Redundant Transmit] TCP transmit succeeded for {sirenName}.");
                     if (trackStatus)
                     {
                         TrackSuccess(sirenName, cmdByte);
                     }
                     return true;
                 }
-                
-                Log($"⚠️ [Redundant Transmit] TCP did not succeed instantly. Waiting for either TCP or Serial backup to complete...");
-                bool tcpOk = await tcpTask;
-                bool serialOk = await serialTask;
 
-                if (tcpOk || serialOk)
+                // If TCP failed, evaluate Serial backup path
+                Log($"⚠️ [Redundant Transmit] TCP path did not succeed for {sirenName}. Checking Serial backup...");
+                bool serialOk = false;
+                try
                 {
-                    Log($"✅ [Redundant Transmit] Dual path completed: TCP={tcpOk}, Serial={serialOk} for {sirenName}.");
+                    if (isToneActivation && isUserInitiated && !skipWarmup)
+                    {
+                        Log($"🔊 [Redundant Transmit] Serial path: Tone command detected. Waking up PTT/Amplifier first...");
+                        await SendSirenOnSequenceAsync(frame);
+                    }
+                    serialOk = await SendSerialCommandAsync(frame, expectsAck, isUserInitiated);
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Redundant Transmit] Serial backup transmit error for {sirenName}: {ex.Message}");
+                }
+
+                if (serialOk)
+                {
+                    Log($"✅ [Redundant Transmit] Serial backup transmit succeeded for {sirenName}.");
                     if (trackStatus)
                     {
                         TrackSuccess(sirenName, cmdByte);
@@ -1668,30 +1638,30 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            if (!item.IsOnline || (!item.IsTcpOnline && !item.IsSerialOnline))
+            // If neither channel is connected -> OFFLINE (Solid RED)
+            if (!item.IsTcpOnline && !item.IsSerialOnline)
                 return "OFFLINE";
 
-            // Single-path IP sirens (Redundant = false): status depends directly on TCP channel
-            if (!string.IsNullOrWhiteSpace(item.Ip) && !item.Redundant && !item.IsTcpOnline)
-                return "OFFLINE";
-
-            // Single-path Serial sirens (Redundant = false): status depends directly on Serial channel
-            if (string.IsNullOrWhiteSpace(item.Ip) && !item.Redundant && !item.IsSerialOnline)
-                return "OFFLINE";
-
-            // If there is an active hardware alarm or low battery, return WARNING
+            // If active hardware alarm or low battery -> WARNING (Solid YELLOW)
             if (item.HasAlarm || (item.DcVoltage > 0 && item.DcVoltage < 22.0))
             {
                 return "WARNING";
             }
 
-            // For dual-channel IP sirens with redundancy enabled, if one channel drops, return WARNING
-            if (!string.IsNullOrWhiteSpace(item.Ip) && item.Redundant && (item.IsSerialOnline != item.IsTcpOnline))
+            // Single-path Serial-only siren (no IP configured): status depends on Serial channel
+            if (string.IsNullOrWhiteSpace(item.Ip))
             {
-                return "WARNING";
+                return item.IsSerialOnline ? "ONLINE" : "OFFLINE";
             }
 
-            return "ONLINE";
+            // Dual-path sirens: Solid GREEN ONLY when BOTH TCP and Serial are connected
+            if (item.IsTcpOnline && item.IsSerialOnline)
+            {
+                return "ONLINE";
+            }
+
+            // If only ONE channel is connected (TCP-only or Serial-only) -> Solid YELLOW
+            return "WARNING";
         }
 
         private async Task SyncSirenStatusToDbAndNotifyAsync(string sirenName, string statusStr)
@@ -2053,16 +2023,15 @@ namespace Keemya.Frontend.Services
 
         private void InitializePolling()
         {
+            // 1. TCP Polling Loop (Fast 15-second interval for real-time Ethernet status)
             Task.Run(async () =>
             {
-                // Wait briefly for startup logs and serial configurations to load
-                await Task.Delay(5000);
+                await Task.Delay(3000); // Startup delay
 
                 while (true)
                 {
                     if (AppConfig.StationName != "Admin ECC")
                     {
-                        // Remote workstation: just load status from DB and update local cache
                         try
                         {
                             var list = new List<(string Name, string Status)>();
@@ -2074,10 +2043,7 @@ namespace Keemya.Frontend.Services
                                 using var reader = await command.ExecuteReaderAsync();
                                 while (await reader.ReadAsync())
                                 {
-                                    list.Add((
-                                        reader.GetString(0),
-                                        reader.GetString(1)
-                                    ));
+                                    list.Add((reader.GetString(0), reader.GetString(1)));
                                 }
                             }
 
@@ -2092,8 +2058,6 @@ namespace Keemya.Frontend.Services
                                     cacheItem.IsSerialOnline = isOnline;
                                     cacheItem.LastKnownStatus = item.Status;
                                     cacheItem.LastUpdated = DateTime.Now;
-
-                                    // Raise local event to refresh UI
                                     SirenStatusChanged?.Invoke(item.Name, item.Status);
                                 }
                             }
@@ -2109,7 +2073,6 @@ namespace Keemya.Frontend.Services
 
                     if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5))
                     {
-                        Log("⏳ [Global Poller] User command in progress. Suspending background polling briefly...");
                         await Task.Delay(2000);
                         continue;
                     }
@@ -2117,7 +2080,6 @@ namespace Keemya.Frontend.Services
                     try
                     {
                         var sirens = new List<(string Name, string Ip, bool Redundant, string AreaCode, string AddressCode)>();
-                        
                         using (var connection = new MySqlConnection(AppConfig.ConnectionString))
                         {
                             await connection.OpenAsync();
@@ -2136,7 +2098,6 @@ namespace Keemya.Frontend.Services
                             }
                         }
 
-                        // Ensure all sirens from DB exist in cache and update Redundant property
                         foreach (var s in sirens)
                         {
                             if (!_sirenCache.TryGetValue(s.Name, out var cacheItem))
@@ -2163,7 +2124,7 @@ namespace Keemya.Frontend.Services
                             }
                         }
 
-                        // 1. Poll TCP channels in parallel for all IP-enabled sirens
+                        // Poll TCP channels in parallel for all IP-enabled sirens
                         var tcpSirens = sirens.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
                         var tcpTasks = tcpSirens.Select(async s =>
                         {
@@ -2191,49 +2152,10 @@ namespace Keemya.Frontend.Services
                                 Log($"❌ [TCP Poller Error for {s.Name}] {ex.Message}");
                             }
                         });
-                        var tcpPromise = Task.WhenAll(tcpTasks);
+                        await Task.WhenAll(tcpTasks);
 
-                        // 2. Poll Serial channels sequentially for Serial-only and Redundant sirens
-                        var serialSirensList = sirens.Where(s => string.IsNullOrWhiteSpace(s.Ip) || s.Redundant).ToList();
-                        string[] availablePorts = SerialPort.GetPortNames();
-                        if (availablePorts.Length > 0 && serialSirensList.Count > 0)
-                        {
-                            foreach (var s in serialSirensList)
-                            {
-                                try
-                                {
-                                    var cacheItem = GetCacheItemByAddressOrSource(s.Name);
-                                    if (cacheItem != null)
-                                    {
-                                        byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
-                                        bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
-                                        cacheItem.IsSerialOnline = serialSuccess;
-
-                                        if (serialSuccess)
-                                        {
-                                            TrackSuccess(s.Name, 0x00);
-                                        }
-                                        else
-                                        {
-                                            TrackFailure(s.Name);
-                                        }
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log($"❌ [Serial Poller Error for {s.Name}] {ex.Message}");
-                                }
-
-                                // Enforce inter-device delay on serial port
-                                int delayMs = serialSirensList.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
-                                await Task.Delay(delayMs);
-                            }
-                        }
-
-                        await tcpPromise;
-
-                        // 3. Compute overall status and sync to database for all sirens
-                        foreach (var s in sirens)
+                        // Sync computed status for IP sirens
+                        foreach (var s in tcpSirens)
                         {
                             var cacheItem = GetCacheItemByAddressOrSource(s.Name);
                             if (cacheItem != null)
@@ -2246,11 +2168,84 @@ namespace Keemya.Frontend.Services
                     }
                     catch (Exception ex)
                     {
-                        Log($"❌ [Global Poller Error] {ex.Message}");
+                        Log($"❌ [TCP Poller Loop Error] {ex.Message}");
                     }
 
-                    // Poll every 10 minutes for background siren health status feedback (prevents COM port lock contention)
-                    await Task.Delay(TimeSpan.FromMinutes(10));
+                    // Poll TCP every 15 seconds for fast Ethernet status response
+                    await Task.Delay(TimeSpan.FromSeconds(15));
+                }
+            });
+
+            // 2. Serial Polling Loop (3-minute interval for background COM port health check)
+            Task.Run(async () =>
+            {
+                await Task.Delay(8000); // Startup delay
+
+                while (true)
+                {
+                    if (AppConfig.StationName != "Admin ECC")
+                    {
+                        await Task.Delay(30000);
+                        continue;
+                    }
+
+                    if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5))
+                    {
+                        await Task.Delay(3000);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var serialSirens = _sirenCache.Values
+                            .Where(s => string.IsNullOrWhiteSpace(s.Ip) || s.Redundant)
+                            .ToList();
+
+                        string[] availablePorts = SerialPort.GetPortNames();
+                        if (availablePorts.Length > 0 && serialSirens.Count > 0)
+                        {
+                            foreach (var s in serialSirens)
+                            {
+                                try
+                                {
+                                    byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
+                                    bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
+                                    s.IsSerialOnline = serialSuccess;
+
+                                    if (serialSuccess)
+                                    {
+                                        TrackSuccess(s.Name, 0x00);
+                                    }
+                                    else
+                                    {
+                                        TrackFailure(s.Name);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log($"❌ [Serial Poller Error for {s.Name}] {ex.Message}");
+                                }
+
+                                int delayMs = serialSirens.Count > 5 ? SerialPollInterDeviceDelayMs_Many : SerialPollInterDeviceDelayMs_Few;
+                                await Task.Delay(delayMs);
+                            }
+
+                            // Sync computed status after serial poll cycle
+                            foreach (var s in serialSirens)
+                            {
+                                s.LastUpdated = DateTime.Now;
+                                string computedStatus = GetComputedStatus(s);
+                                _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"❌ [Serial Poller Loop Error] {ex.Message}");
+                    }
+
+                    // Poll Serial every 3 minutes to avoid COM port contention
+                    await Task.Delay(TimeSpan.FromMinutes(3));
                 }
             });
         }

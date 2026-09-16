@@ -1413,11 +1413,17 @@
         }
 
         // Visually toggle selection state
+        let activeShowMode = 'status';
+
         function selectSiren(id, preserveTelemetry, showMode) {
             selectedSirenId = id;
             selectedSirenIds = id ? [id] : [];
             selectedZoneTargetNames = null;
             selectedZoneCount = 0;
+            
+            if (showMode) {
+                activeShowMode = showMode;
+            }
             
             applyRoleBasedPermissions();
             
@@ -1442,7 +1448,7 @@
                     map.panTo([siren.lat, siren.lng]);
                 }
 
-                // 3. Load Diagnostics Column (Parallel columns)
+                // 3. Load Diagnostics Column
                 document.getElementById('diag-name').innerText = siren.name;
                 document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
                 
@@ -1459,29 +1465,25 @@
                 statusPill.innerText = siren.status;
                 statusPill.style.color = getStatusColor(siren.status);
 
-                // 4. Slide out right widescreen drawer dynamically based on showMode
+                // 4. Slide out right widescreen drawer based on activeShowMode
                 var sidebarDrawer = document.getElementById('sidebar-drawer');
                 var diagnosticsCol = document.getElementById('diagnostics-column');
                 var activationsCol = document.getElementById('activations-column');
 
-                if (showMode === 'map') {
-                    // Show only activations column
+                if (activeShowMode === 'map') {
+                    // Show only activations column for map clicks
                     if (diagnosticsCol) diagnosticsCol.style.display = 'none';
                     if (activationsCol) activationsCol.style.display = 'block';
                     sidebarDrawer.classList.add('single-column-mode');
-                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
-                } else if (showMode === 'status') {
-                    // Show only diagnostics column
+                    var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
+                    if (titleElem) titleElem.innerText = "Siren Activation";
+                } else {
+                    // Show only status/diagnostics column for right sidebar list clicks
                     if (diagnosticsCol) diagnosticsCol.style.display = 'block';
                     if (activationsCol) activationsCol.style.display = 'none';
                     sidebarDrawer.classList.add('single-column-mode');
-                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
-                } else {
-                    // Default/Both columns
-                    if (diagnosticsCol) diagnosticsCol.style.display = 'block';
-                    if (activationsCol) activationsCol.style.display = 'block';
-                    sidebarDrawer.classList.remove('single-column-mode');
-                    document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
+                    var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
+                    if (titleElem) titleElem.innerText = "Siren Status";
                 }
                 
                 document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;

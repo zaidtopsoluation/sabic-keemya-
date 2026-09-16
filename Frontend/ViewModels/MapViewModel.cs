@@ -409,10 +409,18 @@ namespace Keemya.Frontend.ViewModels
             // Set SelectedSiren last to trigger WebView2 update with fully populated values
             SelectedSiren = siren;
 
-            IsDiagnosticsOpen = true;
+            if (LastSirenClickSource == "status")
+            {
+                IsDiagnosticsOpen = true;
+                SidebarTitle = "Siren Status";
+            }
+            else
+            {
+                IsDiagnosticsOpen = false;
+                SidebarTitle = "Siren Activation";
+            }
 
             // Show sidebar
-            SidebarTitle = "Siren Activation";
             SidebarSubtitle = "Selected: " + siren.Name;
             TargetLabel = "Selected: " + siren.Name;
             IsSidebarOpen = true;
@@ -648,6 +656,9 @@ namespace Keemya.Frontend.ViewModels
             // Cancel any in-flight tone activation dispatches immediately
             SirenCommunicationService.Instance.CancelActiveActivations();
 
+            // Immediately close drawer / clear selection on stop command
+            ClearSelection();
+
             // Immediately send the CLEAR command in the background (exact CommandCenterViewModel parity)
             _ = Task.Run(async () => 
             {
@@ -660,16 +671,16 @@ namespace Keemya.Frontend.ViewModels
                     .ToList();
                 var tcpTargets = targetList.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
 
-                // Send TCP commands in parallel
+                // Send TCP commands in parallel (trackStatus: false so cancel frames never trigger false OFFLINE status)
                 var tcpTasks = tcpTargets.Select(async s =>
                 {
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00));
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
                     await Task.Delay(950);
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10));
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
                     await Task.Delay(950);
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30));
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
                     await Task.Delay(950);
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E));
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
                 });
                 var tcpPromise = Task.WhenAll(tcpTasks);
 
@@ -906,38 +917,38 @@ namespace Keemya.Frontend.ViewModels
                     }
 
                     // --- 1. Send 23H (Instant Status) ---
-                    // We use 23H as the primary online check because it's universally supported by all C2030 hardware
-                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23));
+                    // We query telemetry with trackStatus: false so reading health never alters physical status or triggers false OFFLINE
+                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23), trackStatus: false);
                     
-                    if (!isOnline)
+                    if (!isOnline && s.Status == "OFFLINE")
                     {
-                        // Abort the rest of the queries if the siren is offline to prevent UI hang
+                        // Abort rest of telemetry queries if the siren is known offline
                         ToastRequested?.Invoke(false, "Siren unreachable or offline.");
                         return;
                     }
                     
-                    // Siren is online, show success toast and continue
+                    // Siren telemetry requested successfully
                     ToastRequested?.Invoke(true, "Telemetry synced successfully.");
                     await Task.Delay(200);
 
                     // --- 2. Send 3FH (Active Status) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x3F), false);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x3F), trackStatus: false);
                     await Task.Delay(200);
 
                     // --- 3. Send 1FH (Standard Status) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x1F), false);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x1F), trackStatus: false);
                     await Task.Delay(200);
 
                     // --- 4. Send 21H (Battery / AC) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x21), false);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x21), trackStatus: false);
                     await Task.Delay(200);
 
                     // --- 5. Send 22H (Battery / Temperature) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x22), false);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x22), trackStatus: false);
                     await Task.Delay(200);
 
                     // --- 6. Send 2AH (Weather Status) ---
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x2A), false);
+                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x2A), trackStatus: false);
                 }
                 catch (Exception ex)
                 {

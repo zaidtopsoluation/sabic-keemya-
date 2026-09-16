@@ -74,11 +74,8 @@ namespace Keemya.Frontend.Views
                 if (_viewModel?.SelectedSiren != null)
                 {
                     string idStr = _viewModel.SelectedSiren.Id.ToString();
-                    string source = _viewModel.LastSirenClickSource;
-                    if (source == "status")
-                    {
-                        await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}', false, '{source}')");
-                    }
+                    string source = string.IsNullOrWhiteSpace(_viewModel.LastSirenClickSource) ? "status" : _viewModel.LastSirenClickSource;
+                    await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}', false, '{source}')");
 
                     var data = new
                     {
