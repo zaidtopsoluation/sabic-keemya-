@@ -1563,21 +1563,19 @@ namespace Keemya.Frontend.Services
 
                 bool overallSuccess = finalTcpOk || finalSerialOk;
 
+                if (finalTcpOk) TrackTcpSuccess(sirenName);
+                else TrackTcpFailure(sirenName);
+
+                if (finalSerialOk) TrackSerialSuccess(sirenName);
+                else TrackSerialFailure(sirenName);
+
                 if (overallSuccess)
                 {
                     Log($"✅ [Redundant Transmit] Dual-path transmit succeeded for {sirenName} (TCP: {finalTcpOk}, Serial: {finalSerialOk}).");
-                    if (trackStatus)
-                    {
-                        TrackSuccess(sirenName, cmdByte);
-                    }
                 }
                 else
                 {
                     Log($"❌ [Redundant Transmit] BOTH TCP and Serial paths failed for {sirenName}.");
-                    if (trackStatus)
-                    {
-                        TrackFailure(sirenName);
-                    }
                 }
 
                 return overallSuccess;
@@ -1599,7 +1597,7 @@ namespace Keemya.Frontend.Services
                 if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = true;
                 if (trackStatus)
                 {
-                    TrackSuccess(sirenName, cmdByte);
+                    TrackSerialSuccess(sirenName);
                 }
                 return true;
             }
@@ -1609,7 +1607,7 @@ namespace Keemya.Frontend.Services
                 if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = false;
                 if (trackStatus)
                 {
-                    TrackFailure(sirenName);
+                    TrackSerialFailure(sirenName);
                 }
                 return false;
             }
@@ -1707,13 +1705,78 @@ namespace Keemya.Frontend.Services
             }
         }
 
+        private static readonly ConcurrentDictionary<string, int> _tcpFailureCounters = new();
+        private static readonly ConcurrentDictionary<string, int> _serialFailureCounters = new();
+
+        private void TrackTcpSuccess(string sirenName)
+        {
+            _tcpFailureCounters.TryRemove(sirenName, out _);
+            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+            if (cacheItem != null)
+            {
+                cacheItem.IsTcpOnline = true;
+                cacheItem.IsOnline = true;
+                cacheItem.LastUpdated = DateTime.Now;
+                string computedStatus = GetComputedStatus(cacheItem);
+                _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
+            }
+        }
+
+        private void TrackTcpFailure(string sirenName)
+        {
+            int newCount = _tcpFailureCounters.AddOrUpdate(sirenName, 1, (_, old) => old + 1);
+            Log($"⚠️ [TCP Status] '{sirenName}' TCP failure count: {newCount}/{OfflineThreshold}");
+
+            if (newCount < OfflineThreshold) return;
+
+            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+            if (cacheItem != null)
+            {
+                cacheItem.IsTcpOnline = false;
+                cacheItem.LastUpdated = DateTime.Now;
+                string computedStatus = GetComputedStatus(cacheItem);
+                _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
+            }
+        }
+
+        private void TrackSerialSuccess(string sirenName)
+        {
+            _serialFailureCounters.TryRemove(sirenName, out _);
+            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+            if (cacheItem != null)
+            {
+                cacheItem.IsSerialOnline = true;
+                cacheItem.IsOnline = true;
+                cacheItem.LastUpdated = DateTime.Now;
+                string computedStatus = GetComputedStatus(cacheItem);
+                _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
+            }
+        }
+
+        private void TrackSerialFailure(string sirenName)
+        {
+            int newCount = _serialFailureCounters.AddOrUpdate(sirenName, 1, (_, old) => old + 1);
+            Log($"⚠️ [Serial Status] '{sirenName}' Serial failure count: {newCount}/{OfflineThreshold}");
+
+            if (newCount < OfflineThreshold) return;
+
+            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+            if (cacheItem != null)
+            {
+                cacheItem.IsSerialOnline = false;
+                cacheItem.LastUpdated = DateTime.Now;
+                string computedStatus = GetComputedStatus(cacheItem);
+                _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
+            }
+        }
+
         private void TrackSuccess(string sirenName, byte cmdByte)
         {
-            // Reset consecutive failure counter on any success
+            // Reset failure counters on any success
             _failureCounters.TryRemove(sirenName, out _);
+            _tcpFailureCounters.TryRemove(sirenName, out _);
+            _serialFailureCounters.TryRemove(sirenName, out _);
 
-            // Update cache state ONLY if this was a status response command (cmdByte 0x23, 0x1F, 0x3F, 0x21, 0x22, 0x0F)
-            // Do NOT mark offline sirens as online for write-only activation/cancel commands (expectsAck=false)
             bool isStatusResponseCmd = (cmdByte == 0x00 || cmdByte == 35 || cmdByte == 31 || cmdByte == 15 || cmdByte == 22 || cmdByte == 33 || cmdByte == 34);
 
             var cacheItem = GetCacheItemByAddressOrSource(sirenName);
@@ -1729,7 +1792,6 @@ namespace Keemya.Frontend.Services
                 _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
             }
 
-            // If it is an emergency command (like Wail 0x01, Attack 0x02, SI Test 0x03, Stop 0x1E)
             if (cmdByte == 0x01 || cmdByte == 0x02 || cmdByte == 0x03 || cmdByte == 0x05 || cmdByte == 0x06 || cmdByte == 0x07 || cmdByte == 0x08 || cmdByte == 0x1E)
             {
                 string cmdName = cmdByte switch
@@ -1748,18 +1810,14 @@ namespace Keemya.Frontend.Services
 
         private void TrackFailure(string sirenName)
         {
-            // Increment consecutive failure counter
             int newCount = _failureCounters.AddOrUpdate(sirenName, 1, (_, old) => old + 1);
             Log($"⚠️ [Status] '{sirenName}' consecutive failure count: {newCount}/{OfflineThreshold}");
 
-            // Only declare OFFLINE after OfflineThreshold consecutive failures
             if (newCount < OfflineThreshold)
             {
-                Log($"⏳ [Status] '{sirenName}' not yet at threshold — waiting for more failures before declaring OFFLINE.");
                 return;
             }
 
-            // Update cache state to offline
             var cacheItem = GetCacheItemByAddressOrSource(sirenName);
             if (cacheItem != null)
             {
@@ -2118,11 +2176,11 @@ namespace Keemya.Frontend.Services
 
                                     if (tcpSuccess)
                                     {
-                                        TrackSuccess(s.Name, 0x00);
+                                        TrackTcpSuccess(s.Name);
                                     }
                                     else
                                     {
-                                        TrackFailure(s.Name);
+                                        TrackTcpFailure(s.Name);
                                     }
                                 }
                             }
@@ -2155,7 +2213,7 @@ namespace Keemya.Frontend.Services
                 }
             });
 
-            // 2. Serial Polling Loop (3-minute interval for background COM port health check)
+            // 2. Serial Polling Loop (25-second interval for background COM port health check)
             Task.Run(async () =>
             {
                 await Task.Delay(8000); // Startup delay
@@ -2191,11 +2249,11 @@ namespace Keemya.Frontend.Services
 
                                     if (serialSuccess)
                                     {
-                                        TrackSuccess(s.Name, 0x00);
+                                        TrackSerialSuccess(s.Name);
                                     }
                                     else
                                     {
-                                        TrackFailure(s.Name);
+                                        TrackSerialFailure(s.Name);
                                     }
                                 }
                                 catch (Exception ex)
@@ -2221,8 +2279,8 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Serial Poller Loop Error] {ex.Message}");
                     }
 
-                    // Poll Serial every 3 minutes to avoid COM port contention
-                    await Task.Delay(TimeSpan.FromMinutes(3));
+                    // Poll Serial every 25 seconds for fast, responsive COM port status tracking
+                    await Task.Delay(TimeSpan.FromSeconds(25));
                 }
             });
         }
