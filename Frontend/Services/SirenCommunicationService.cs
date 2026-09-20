@@ -1517,7 +1517,7 @@ namespace Keemya.Frontend.Services
                     }
 
                     var cacheItem = GetCacheItemByAddressOrSource(sirenName);
-                    if (cacheItem != null) cacheItem.IsTcpOnline = tcpOk;
+                    if (expectsAck && cacheItem != null) cacheItem.IsTcpOnline = tcpOk;
                     return tcpOk;
                 });
 
@@ -1552,7 +1552,7 @@ namespace Keemya.Frontend.Services
                     }
 
                     var cacheItem = GetCacheItemByAddressOrSource(sirenName);
-                    if (cacheItem != null) cacheItem.IsSerialOnline = serialOk;
+                    if (expectsAck && cacheItem != null) cacheItem.IsSerialOnline = serialOk;
                     return serialOk;
                 });
 
@@ -1563,11 +1563,14 @@ namespace Keemya.Frontend.Services
 
                 bool overallSuccess = finalTcpOk || finalSerialOk;
 
-                if (finalTcpOk) TrackTcpSuccess(sirenName);
-                else TrackTcpFailure(sirenName);
+                if (expectsAck && trackStatus)
+                {
+                    if (finalTcpOk) TrackTcpSuccess(sirenName);
+                    else TrackTcpFailure(sirenName);
 
-                if (finalSerialOk) TrackSerialSuccess(sirenName);
-                else TrackSerialFailure(sirenName);
+                    if (finalSerialOk) TrackSerialSuccess(sirenName);
+                    else TrackSerialFailure(sirenName);
+                }
 
                 if (overallSuccess)
                 {
@@ -1594,9 +1597,9 @@ namespace Keemya.Frontend.Services
             if (serialSuccess)
             {
                 Log($"✅ [Redundant Transmit] Serial transmit successful for {sirenName}.");
-                if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = true;
-                if (trackStatus)
+                if (expectsAck && trackStatus)
                 {
+                    if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = true;
                     TrackSerialSuccess(sirenName);
                 }
                 return true;
@@ -1604,9 +1607,9 @@ namespace Keemya.Frontend.Services
             else
             {
                 Log($"❌ [Redundant Transmit] Serial transmit failed for {sirenName}.");
-                if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = false;
-                if (trackStatus)
+                if (expectsAck && trackStatus)
                 {
+                    if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = false;
                     TrackSerialFailure(sirenName);
                 }
                 return false;
@@ -1625,20 +1628,8 @@ namespace Keemya.Frontend.Services
                 return "WARNING";
             }
 
-            // Single-path Serial-only siren (no IP configured): status depends on Serial channel
-            if (string.IsNullOrWhiteSpace(item.Ip))
-            {
-                return item.IsSerialOnline ? "ONLINE" : "OFFLINE";
-            }
-
-            // Dual-path sirens: Solid GREEN ONLY when BOTH TCP and Serial are connected
-            if (item.IsTcpOnline && item.IsSerialOnline)
-            {
-                return "ONLINE";
-            }
-
-            // If only ONE channel is connected (TCP-only or Serial-only) -> Solid YELLOW
-            return "WARNING";
+            // If either communication path (Serial or TCP) is online and no active hardware alarm -> ONLINE (Solid GREEN)
+            return "ONLINE";
         }
 
         private async Task SyncSirenStatusToDbAndNotifyAsync(string sirenName, string statusStr)
@@ -1851,6 +1842,7 @@ namespace Keemya.Frontend.Services
                         string addr = reader.IsDBNull(4) ? "0000" : reader.GetString(4);
                         string status = reader.IsDBNull(5) ? "OFFLINE" : reader.GetString(5);
 
+                        bool isOnlineOrWarning = status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) || status.Equals("WARNING", StringComparison.OrdinalIgnoreCase);
                         var item = new SirenStatusCacheItem
                         {
                             Name = name,
@@ -1858,7 +1850,9 @@ namespace Keemya.Frontend.Services
                             Redundant = redundant,
                             AreaCode = area,
                             AddressCode = addr,
-                            IsOnline = status.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) || status.Equals("WARNING", StringComparison.OrdinalIgnoreCase),
+                            IsOnline = isOnlineOrWarning,
+                            IsSerialOnline = isOnlineOrWarning,
+                            IsTcpOnline = isOnlineOrWarning && !string.IsNullOrWhiteSpace(ip),
                             LastKnownStatus = status.ToUpper(),
                             LastUpdated = DateTime.Now
                         };
@@ -2241,19 +2235,30 @@ namespace Keemya.Frontend.Services
                         {
                             foreach (var s in serialSirens)
                             {
+                                if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5))
+                                {
+                                    Log("⏳ [Serial Poller] User command in progress. Suspending background polling briefly...");
+                                    await Task.Delay(2000);
+                                    break;
+                                }
+
                                 try
                                 {
                                     byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
                                     bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
-                                    s.IsSerialOnline = serialSuccess;
 
                                     if (serialSuccess)
                                     {
+                                        s.IsSerialOnline = true;
                                         TrackSerialSuccess(s.Name);
                                     }
                                     else
                                     {
-                                        TrackSerialFailure(s.Name);
+                                        // Only track failure if not interrupted by a user command
+                                        if (DateTime.Now - _lastUserCommandTime >= TimeSpan.FromSeconds(5))
+                                        {
+                                            TrackSerialFailure(s.Name);
+                                        }
                                     }
                                 }
                                 catch (Exception ex)
