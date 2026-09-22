@@ -656,8 +656,8 @@ namespace Keemya.Frontend.ViewModels
             // Cancel any in-flight tone activation dispatches immediately
             SirenCommunicationService.Instance.CancelActiveActivations();
 
-            // Immediately close drawer / clear selection on stop command
-            ClearSelection();
+            // Keep active selection intact so user can re-trigger or send follow-up commands without re-selecting
+            // (Selection can be cleared explicitly via the Clear button or closing the drawer)
 
             // Immediately send the CLEAR command in the background (exact CommandCenterViewModel parity)
             _ = Task.Run(async () => 
@@ -917,8 +917,8 @@ namespace Keemya.Frontend.ViewModels
                     }
 
                     // --- 1. Send 23H (Instant Status) ---
-                    // We query telemetry with trackStatus: false so reading health never alters physical status or triggers false OFFLINE
-                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23), trackStatus: false);
+                    // Query telemetry with trackStatus: true so responsive sirens immediately update to ONLINE (GREEN)
+                    bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23), trackStatus: true);
                     
                     if (!isOnline && s.Status == "OFFLINE")
                     {

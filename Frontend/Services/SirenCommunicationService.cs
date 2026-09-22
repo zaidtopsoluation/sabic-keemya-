@@ -913,7 +913,7 @@ namespace Keemya.Frontend.Services
             return resOff && res1 && res4;
         }
 
-        public async Task<bool> SendSerialCommandAsync(byte[] frame, bool expectsAck = true, bool isUserInitiated = true)
+        public async Task<(bool Success, bool Busy)> SendSerialCommandDetailedAsync(byte[] frame, bool expectsAck = true, bool isUserInitiated = true)
         {
             if (AppConfig.StationName != "Admin ECC")
             {
@@ -937,12 +937,12 @@ namespace Keemya.Frontend.Services
                         }
                     }
                     Log($"✅ [Remote Station] Raw serial command successfully queued in database.");
-                    return true;
+                    return (true, false);
                 }
                 catch (Exception ex)
                 {
                     Log($"❌ [Remote Station] Failed to queue raw serial command: {ex.Message}");
-                    return false;
+                    return (false, false);
                 }
             }
 
@@ -957,7 +957,7 @@ namespace Keemya.Frontend.Services
             if (!await _serialLock.WaitAsync(lockTimeout))
             {
                 Log($"⚠️ [Serial Sender] Busy — serial port lock could not be acquired within {lockTimeout / 1000}s. Skipping command.");
-                return false;
+                return (false, true);
             }
 
             bool shouldReleaseLockInFinally = true;
@@ -1055,7 +1055,7 @@ namespace Keemya.Frontend.Services
 
                     byte cmdByte = (byte)(frame.Length > 10 ? (frame[10] & 0x7F) : 0);
                     Log($"✅ [Serial Sender] Command {cmdByte:X2}H does not require ACK. Fast-completing instantly.");
-                    return true;
+                    return (true, false);
                 }
 
                 // Wait for the siren's ACK reply and return whether it was valid
@@ -1065,12 +1065,12 @@ namespace Keemya.Frontend.Services
                 {
                     _hasSuccessfulSerialComm = true;
                 }
-                return ackReceived;
+                return (ackReceived, false);
             }
             catch (Exception ex)
             {
                 Log($"❌ [Serial Sender] Port {_serialPortName} is unavailable or locked: {ex.Message}");
-                return false;
+                return (false, false);
             }
             finally
             {
@@ -1079,6 +1079,12 @@ namespace Keemya.Frontend.Services
                     _serialLock.Release(); // Always release in outer finally block if not offloaded!
                 }
             }
+        }
+
+        public async Task<bool> SendSerialCommandAsync(byte[] frame, bool expectsAck = true, bool isUserInitiated = true)
+        {
+            var res = await SendSerialCommandDetailedAsync(frame, expectsAck, isUserInitiated);
+            return res.Success;
         }
 
         // Returns true if a valid ACK frame with matching address was received, false on timeout or error
@@ -1437,6 +1443,11 @@ namespace Keemya.Frontend.Services
             if (isUserInitiated)
             {
                 InterruptSerialRead();
+                var userOpCache = GetCacheItemByAddressOrSource(sirenName);
+                if (userOpCache != null)
+                {
+                    userOpCache.LastOperatedTime = DateTime.Now;
+                }
             }
 
             if (!expectsAck)
@@ -1516,8 +1527,6 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Redundant Transmit] TCP transmit error for {sirenName}: {ex.Message}");
                     }
 
-                    var cacheItem = GetCacheItemByAddressOrSource(sirenName);
-                    if (expectsAck && cacheItem != null) cacheItem.IsTcpOnline = tcpOk;
                     return tcpOk;
                 });
 
@@ -1551,8 +1560,6 @@ namespace Keemya.Frontend.Services
                         Log($"❌ [Redundant Transmit] Serial transmit error for {sirenName}: {ex.Message}");
                     }
 
-                    var cacheItem = GetCacheItemByAddressOrSource(sirenName);
-                    if (expectsAck && cacheItem != null) cacheItem.IsSerialOnline = serialOk;
                     return serialOk;
                 });
 
@@ -1563,13 +1570,13 @@ namespace Keemya.Frontend.Services
 
                 bool overallSuccess = finalTcpOk || finalSerialOk;
 
-                if (expectsAck && trackStatus)
+                if (expectsAck && (trackStatus || isUserInitiated))
                 {
                     if (finalTcpOk) TrackTcpSuccess(sirenName);
-                    else TrackTcpFailure(sirenName);
+                    else if (trackStatus) TrackTcpFailure(sirenName);
 
                     if (finalSerialOk) TrackSerialSuccess(sirenName);
-                    else TrackSerialFailure(sirenName);
+                    else if (trackStatus) TrackSerialFailure(sirenName);
                 }
 
                 if (overallSuccess)
@@ -1597,10 +1604,13 @@ namespace Keemya.Frontend.Services
             if (serialSuccess)
             {
                 Log($"✅ [Redundant Transmit] Serial transmit successful for {sirenName}.");
-                if (expectsAck && trackStatus)
+                if (expectsAck)
                 {
                     if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = true;
-                    TrackSerialSuccess(sirenName);
+                    if (trackStatus || isUserInitiated)
+                    {
+                        TrackSerialSuccess(sirenName);
+                    }
                 }
                 return true;
             }
@@ -1609,7 +1619,6 @@ namespace Keemya.Frontend.Services
                 Log($"❌ [Redundant Transmit] Serial transmit failed for {sirenName}.");
                 if (expectsAck && trackStatus)
                 {
-                    if (serialOnlyCache != null) serialOnlyCache.IsSerialOnline = false;
                     TrackSerialFailure(sirenName);
                 }
                 return false;
@@ -1746,12 +1755,18 @@ namespace Keemya.Frontend.Services
 
         private void TrackSerialFailure(string sirenName)
         {
+            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
+            if (cacheItem != null && cacheItem.LastOperatedTime.HasValue && (DateTime.Now - cacheItem.LastOperatedTime.Value).TotalMinutes < 3 && cacheItem.IsSerialOnline)
+            {
+                Log($"⏳ [Serial Status] '{sirenName}' operated within last 3 mins — ignoring background serial timeout.");
+                return;
+            }
+
             int newCount = _serialFailureCounters.AddOrUpdate(sirenName, 1, (_, old) => old + 1);
             Log($"⚠️ [Serial Status] '{sirenName}' Serial failure count: {newCount}/{OfflineThreshold}");
 
             if (newCount < OfflineThreshold) return;
 
-            var cacheItem = GetCacheItemByAddressOrSource(sirenName);
             if (cacheItem != null)
             {
                 cacheItem.IsSerialOnline = false;
@@ -2166,7 +2181,6 @@ namespace Keemya.Frontend.Services
                                 {
                                     byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
                                     bool tcpSuccess = await SendTcpCommandAsync(s.Ip, frame, true);
-                                    cacheItem.IsTcpOnline = tcpSuccess;
 
                                     if (tcpSuccess)
                                     {
@@ -2245,20 +2259,24 @@ namespace Keemya.Frontend.Services
                                 try
                                 {
                                     byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
-                                    bool serialSuccess = await SendSerialCommandAsync(frame, true, false);
+                                    var (serialSuccess, isBusy) = await SendSerialCommandDetailedAsync(frame, true, false);
 
                                     if (serialSuccess)
                                     {
                                         s.IsSerialOnline = true;
                                         TrackSerialSuccess(s.Name);
                                     }
-                                    else
+                                    else if (!isBusy)
                                     {
-                                        // Only track failure if not interrupted by a user command
+                                        // Only track failure if not interrupted by a user command and NOT a lock busy timeout
                                         if (DateTime.Now - _lastUserCommandTime >= TimeSpan.FromSeconds(5))
                                         {
                                             TrackSerialFailure(s.Name);
                                         }
+                                    }
+                                    else
+                                    {
+                                        Log($"⏳ [Serial Poller] Lock busy for '{s.Name}'. Skipping failure count increment.");
                                     }
                                 }
                                 catch (Exception ex)
@@ -2358,15 +2376,19 @@ namespace Keemya.Frontend.Services
                 cmdByte = (byte)(expectedFrame[10] & 0x7F);
             }
 
+            string sentArea = "";
             string sentAddress = "";
             if (expectedFrame != null && expectedFrame.Length >= 8)
             {
+                sentArea = $"{(expectedFrame[1] & 0x0F)}{(expectedFrame[2] & 0x0F)}{(expectedFrame[3] & 0x0F)}";
                 sentAddress = $"{(expectedFrame[4] & 0x0F)}{(expectedFrame[5] & 0x0F)}{(expectedFrame[6] & 0x0F)}{(expectedFrame[7] & 0x0F)}";
             }
 
+            string rcvArea = "";
             string rcvAddress = "";
             if (frame.Length >= 8)
             {
+                rcvArea = $"{(frame[1] & 0x0F)}{(frame[2] & 0x0F)}{(frame[3] & 0x0F)}";
                 rcvAddress = $"{(frame[4] & 0x0F)}{(frame[5] & 0x0F)}{(frame[6] & 0x0F)}{(frame[7] & 0x0F)}";
             }
 
@@ -2397,11 +2419,15 @@ namespace Keemya.Frontend.Services
                 }
             }
 
-            // Resolve target cache item: first try parsed address, fallback to sent target address for serial
-            var cacheItem = GetCacheItemByAddressOrSource(rcvAddress);
+            // Resolve target cache item: first try parsed Area+Address, fallback to sent target Area+Address, fallback to IP/Source lookup
+            var cacheItem = GetCacheItemByAreaAndAddress(rcvArea, rcvAddress);
             if (cacheItem == null && !string.IsNullOrEmpty(sentAddress))
             {
-                cacheItem = GetCacheItemByAddressOrSource(sentAddress);
+                cacheItem = GetCacheItemByAreaAndAddress(sentArea, sentAddress);
+            }
+            if (cacheItem == null)
+            {
+                cacheItem = GetCacheItemByAddressOrSource(source);
             }
 
             Log($"✨ [Parser] Valid frame confirmed from {source} via {channel} (addr={rcvAddress}, {frame.Length} bytes, for Cmd={cmdByte:X2}H)");
@@ -2755,20 +2781,54 @@ namespace Keemya.Frontend.Services
             return _sirenCache.Values.ToList();
         }
 
+        public SirenStatusCacheItem? GetCacheItemByAreaAndAddress(string areaCode, string addressCode)
+        {
+            if (string.IsNullOrWhiteSpace(areaCode) || string.IsNullOrWhiteSpace(addressCode)) return null;
+
+            string reqArea = areaCode.Trim().PadLeft(3, '0');
+            string reqAddr = addressCode.Trim().PadLeft(4, '0');
+            string combinedReq = reqArea + reqAddr;
+
+            foreach (var val in _sirenCache.Values)
+            {
+                string itemArea = (val.AreaCode ?? "000").Trim().PadLeft(3, '0');
+                string itemAddr = (val.AddressCode ?? "0000").Trim().PadLeft(4, '0');
+                string itemCombined = itemArea + itemAddr;
+
+                if (itemCombined == combinedReq)
+                {
+                    return val;
+                }
+            }
+            return null;
+        }
+
         public SirenStatusCacheItem? GetCacheItemByAddressOrSource(string addressOrSource)
         {
-            // First try direct name lookup
+            if (string.IsNullOrWhiteSpace(addressOrSource)) return null;
+
+            // First try direct dictionary key, name, or IP lookup
             if (_sirenCache.TryGetValue(addressOrSource, out var item))
                 return item;
 
-            // Try key matching by parsed AddressCode or source IP or combined Area+Address
             foreach (var val in _sirenCache.Values)
             {
-                string combinedAddr = $"{(val.AreaCode ?? "").Trim()}{(val.AddressCode ?? "").Trim()}";
-                if (val.Ip == addressOrSource || 
-                    (val.AddressCode ?? "").PadLeft(4, '0') == addressOrSource.PadLeft(4, '0') ||
-                    val.Name == addressOrSource ||
-                    combinedAddr == addressOrSource)
+                if (val.Name.Equals(addressOrSource, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(val.Ip) && val.Ip.Equals(addressOrSource, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return val;
+                }
+            }
+
+            // Try key matching by combined 7-digit Area+Address
+            string cleanStr = addressOrSource.Trim();
+            foreach (var val in _sirenCache.Values)
+            {
+                string itemArea = (val.AreaCode ?? "000").Trim().PadLeft(3, '0');
+                string itemAddr = (val.AddressCode ?? "0000").Trim().PadLeft(4, '0');
+                string combinedAddr = itemArea + itemAddr;
+
+                if (combinedAddr == cleanStr || (cleanStr.Length == 7 && combinedAddr == cleanStr.PadLeft(7, '0')))
                 {
                     return val;
                 }
@@ -2900,6 +2960,7 @@ namespace Keemya.Frontend.Services
         public double CabTemp { get; set; } = 0.0;
         public double OutTemp { get; set; } = 0.0;
         public DateTime LastUpdated { get; set; } = DateTime.MinValue;
+        public DateTime? LastOperatedTime { get; set; }
 
         // Direct UI telemetry fields
         public bool SirenOn { get; set; } = false;

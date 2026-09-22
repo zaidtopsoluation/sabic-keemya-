@@ -68,12 +68,17 @@
             margin-right: 8px;
         }
 
-        /* Command Center / Dashboard Grid Button (Top Left below Back) */
-        .overlay-dashboard-btn {
+        /* Shape Selection Drawing Toolbar Overlay (Top Left below Back button) */
+        .overlay-shape-tools {
             position: absolute;
             top: 70px;
             left: 20px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .shape-tool-btn {
             background-color: #111827;
             color: #f3f4f6;
             border: 1px solid #1e293b;
@@ -87,9 +92,15 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
             transition: all 0.2s ease;
         }
-        .overlay-dashboard-btn:hover {
+        .shape-tool-btn:hover {
             background-color: #1f2937;
             border-color: #3b82f6;
+        }
+        .shape-tool-btn.active {
+            background-color: #2563eb;
+            border-color: #60a5fa;
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.7);
         }
 
         /* Zones Card Overlay (Bottom Left) */
@@ -780,12 +791,26 @@
             Back to Modules
         </button>
 
-        <!-- Command Center / Dashboard Grid Button Overlay -->
-        <button class="overlay-dashboard-btn" onclick="sendWpfMessage({type: 'back'})" title="Command Center">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
-                <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
-            </svg>
-        </button>
+        <!-- Shape Selection Drawing Toolbar Overlay (Square and 360° Circle area selection) -->
+        <div class="overlay-shape-tools">
+            <button id="tool-square-btn" class="shape-tool-btn" onclick="setShapeTool('square')" title="Draw Square Area Selection">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+            </button>
+            <button id="tool-circle-btn" class="shape-tool-btn" onclick="setShapeTool('circle')" title="Draw 360° Circle Area Selection">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+                </svg>
+            </button>
+            <button id="tool-clear-btn" class="shape-tool-btn" onclick="clearSirenSelection()" title="Clear Selection & Shape">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
 
         <!-- Zones List Overlay -->
         <div class="overlay-zones-card">
@@ -954,6 +979,7 @@
 
         var markersGroup = L.layerGroup().addTo(map);
         var zoneShapesGroup = L.layerGroup().addTo(map);
+        var drawingShapesGroup = L.layerGroup().addTo(map);
         var sirenMarkers = {};
         
         var sirensData = [];
@@ -963,6 +989,118 @@
         var selectedSirenId = null;
         var selectedSirenIds = [];
         var selectedZoneTargetNames = null;
+
+        var activeShapeTool = null; // 'square', 'circle', or null
+        var isDrawingShape = false;
+        var shapeStartLatLng = null;
+        var currentDrawnShapeLayer = null;
+
+        function setShapeTool(tool) {
+            if (activeShapeTool === tool) {
+                activeShapeTool = null;
+            } else {
+                activeShapeTool = tool;
+            }
+
+            var squareBtn = document.getElementById('tool-square-btn');
+            var circleBtn = document.getElementById('tool-circle-btn');
+
+            if (squareBtn) {
+                if (activeShapeTool === 'square') squareBtn.classList.add('active');
+                else squareBtn.classList.remove('active');
+            }
+            if (circleBtn) {
+                if (activeShapeTool === 'circle') circleBtn.classList.add('active');
+                else circleBtn.classList.remove('active');
+            }
+
+            var mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                mapContainer.style.cursor = activeShapeTool ? 'crosshair' : '';
+            }
+        }
+
+        // --- Map Drawing Shape Events ---
+        map.on('mousedown', function(e) {
+            if (!activeShapeTool) return;
+            isDrawingShape = true;
+            shapeStartLatLng = e.latlng;
+            map.dragging.disable();
+            drawingShapesGroup.clearLayers();
+            currentDrawnShapeLayer = null;
+        });
+
+        map.on('mousemove', function(e) {
+            if (!isDrawingShape || !shapeStartLatLng || !activeShapeTool) return;
+            var currentLatLng = e.latlng;
+            drawingShapesGroup.clearLayers();
+
+            var sirensInShape = [];
+
+            if (activeShapeTool === 'circle') {
+                var radiusMeters = shapeStartLatLng.distanceTo(currentLatLng);
+                if (radiusMeters < 5) radiusMeters = 5;
+
+                currentDrawnShapeLayer = L.circle(shapeStartLatLng, {
+                    radius: radiusMeters,
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.25,
+                    weight: 2,
+                    dashArray: '6, 6'
+                }).addTo(drawingShapesGroup);
+
+                sirensData.forEach(function(s) {
+                    var sirenLatLng = L.latLng(s.lat, s.lng);
+                    if (shapeStartLatLng.distanceTo(sirenLatLng) <= radiusMeters) {
+                        sirensInShape.push(String(s.id));
+                    }
+                });
+            } else if (activeShapeTool === 'square') {
+                var dLat = Math.abs(currentLatLng.lat - shapeStartLatLng.lat);
+                var dLng = Math.abs(currentLatLng.lng - shapeStartLatLng.lng);
+                if (dLat < 0.0001) dLat = 0.0001;
+                if (dLng < 0.0001) dLng = 0.0001;
+
+                var bounds = L.latLngBounds([
+                    [shapeStartLatLng.lat - dLat, shapeStartLatLng.lng - dLng],
+                    [shapeStartLatLng.lat + dLat, shapeStartLatLng.lng + dLng]
+                ]);
+
+                currentDrawnShapeLayer = L.rectangle(bounds, {
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.25,
+                    weight: 2,
+                    dashArray: '6, 6'
+                }).addTo(drawingShapesGroup);
+
+                sirensData.forEach(function(s) {
+                    var sirenLatLng = L.latLng(s.lat, s.lng);
+                    if (bounds.contains(sirenLatLng)) {
+                        sirensInShape.push(String(s.id));
+                    }
+                });
+            }
+
+            setSelectedSirens(sirensInShape, true, 'map');
+        });
+
+        map.on('mouseup', function(e) {
+            if (!isDrawingShape) return;
+            isDrawingShape = false;
+            map.dragging.enable();
+
+            if (currentDrawnShapeLayer) {
+                currentDrawnShapeLayer.setStyle({ dashArray: null, fillOpacity: 0.25 });
+            }
+
+            // Send updated list of selected IDs to C#
+            sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
+
+            // Deactivate shape drawing tool mode
+            setShapeTool(null);
+        });
         function getCommandColor(name) {
             switch ((name || "").toUpperCase()) {
                 case "FIRE ALARM": return "#A72A2A";
@@ -1352,72 +1490,29 @@
             }
         }
 
-        function toggleSirenSelection(id) {
-            if (!id) return;
-            selectedZoneTargetNames = null;
-            selectedZoneCount = 0;
-            
-            var index = selectedSirenIds.indexOf(id);
-            if (index > -1) {
-                // Deselect
-                selectedSirenIds.splice(index, 1);
-            } else {
-                // Select
-                selectedSirenIds.push(id);
-            }
-            
-            // Set selectedSirenId to the last one (or null if empty)
-            selectedSirenId = selectedSirenIds.length > 0 ? selectedSirenIds[selectedSirenIds.length - 1] : null;
-
-            applyRoleBasedPermissions();
-            
-            // Highlight selected pins
+        function updatePinHighlights() {
             for (var sirenId in sirenMarkers) {
                 var element = document.getElementById("pin-siren-" + sirenId);
                 if (element) {
-                    if (selectedSirenIds.indexOf(sirenId) > -1) {
+                    var sIdStr = String(sirenId);
+                    if (selectedSirenIds.indexOf(sIdStr) > -1 || (selectedSirenId && String(selectedSirenId) === sIdStr)) {
                         element.classList.add('selected');
                     } else {
                         element.classList.remove('selected');
                     }
                 }
             }
-
-            if (selectedSirenIds.length > 0) {
-                // Show activations drawer (single column mode 'map')
-                var sidebarDrawer = document.getElementById('sidebar-drawer');
-                var diagnosticsCol = document.getElementById('diagnostics-column');
-                var activationsCol = document.getElementById('activations-column');
-
-                if (diagnosticsCol) diagnosticsCol.style.display = 'none';
-                if (activationsCol) activationsCol.style.display = 'block';
-                sidebarDrawer.classList.add('single-column-mode');
-                document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
-                
-                var names = selectedSirenIds.map(sid => {
-                    var s = sirensData.find(x => x.id === sid);
-                    return s ? s.name : "";
-                }).filter(Boolean);
-                
-                document.getElementById('sidebar-subtitle').innerText = "Selected: " + names.join(", ");
-                renderCommands();
-                sidebarDrawer.classList.add('active');
-
-                // Send list of selected IDs to C#
-                sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
-            } else {
-                // Clear selection
-                document.getElementById('sidebar-drawer').classList.remove('active');
-                sendWpfMessage({ type: 'sirenSelectionChanged', ids: [], source: 'map' });
-            }
         }
 
-        // Visually toggle selection state
-        let activeShowMode = 'status';
-
-        function selectSiren(id, preserveTelemetry, showMode) {
-            selectedSirenId = id;
-            selectedSirenIds = id ? [id] : [];
+        function setSelectedSirens(ids, preserveTelemetry, showMode) {
+            if (!ids) {
+                ids = [];
+            } else if (!Array.isArray(ids)) {
+                ids = [ids];
+            }
+            
+            selectedSirenIds = ids.map(id => String(id));
+            selectedSirenId = selectedSirenIds.length > 0 ? selectedSirenIds[selectedSirenIds.length - 1] : null;
             selectedZoneTargetNames = null;
             selectedZoneCount = 0;
             
@@ -1426,77 +1521,108 @@
             }
             
             applyRoleBasedPermissions();
-            
-            // 1. Highlight pin visually
-            for (var sirenId in sirenMarkers) {
-                var item = sirenMarkers[sirenId];
-                var element = document.getElementById("pin-siren-" + sirenId);
-                if (element) {
-                    if (sirenId === id) {
-                        element.classList.add('selected');
-                    } else {
-                        element.classList.remove('selected');
-                    }
-                }
+            updatePinHighlights();
+
+            var sidebarDrawer = document.getElementById('sidebar-drawer');
+            var diagnosticsCol = document.getElementById('diagnostics-column');
+            var activationsCol = document.getElementById('activations-column');
+
+            if (selectedSirenIds.length === 0) {
+                if (sidebarDrawer) sidebarDrawer.classList.remove('active');
+                return;
             }
 
-            var siren = sirensData.find(s => s.id === id);
-            
-            if (siren) {
-                // 2. Pan map to target (only on fresh user selection)
-                if (!preserveTelemetry) {
-                    map.panTo([siren.lat, siren.lng]);
-                }
+            if (selectedSirenIds.length === 1 && activeShowMode !== 'map') {
+                var siren = sirensData.find(s => String(s.id) === selectedSirenIds[0]);
+                if (siren) {
+                    if (!preserveTelemetry) {
+                        map.panTo([siren.lat, siren.lng]);
+                    }
 
-                // 3. Load Diagnostics Column
-                document.getElementById('diag-name').innerText = siren.name;
-                document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
-                
-                // Only reset/decode status if not preserving telemetry
-                if (!preserveTelemetry) {
-                    decodeAndApplyHealth(siren.status, null);
-                }
+                    document.getElementById('diag-name').innerText = siren.name;
+                    document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
+                    
+                    if (!preserveTelemetry) {
+                        decodeAndApplyHealth(siren.status, null);
+                    }
 
-                // Meta details
-                document.getElementById('meta-group').innerText = siren.groupName || "None";
-                document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
-                
-                var statusPill = document.getElementById('meta-status');
-                statusPill.innerText = siren.status;
-                statusPill.style.color = getStatusColor(siren.status);
+                    document.getElementById('meta-group').innerText = siren.groupName || "None";
+                    document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
+                    
+                    var statusPill = document.getElementById('meta-status');
+                    statusPill.innerText = siren.status;
+                    statusPill.style.color = getStatusColor(siren.status);
 
-                // 4. Slide out right widescreen drawer based on activeShowMode
-                var sidebarDrawer = document.getElementById('sidebar-drawer');
-                var diagnosticsCol = document.getElementById('diagnostics-column');
-                var activationsCol = document.getElementById('activations-column');
-
-                if (activeShowMode === 'map') {
-                    // Show only activations column for map clicks
-                    if (diagnosticsCol) diagnosticsCol.style.display = 'none';
-                    if (activationsCol) activationsCol.style.display = 'block';
-                    sidebarDrawer.classList.add('single-column-mode');
-                    var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
-                    if (titleElem) titleElem.innerText = "Siren Activation";
-                } else {
-                    // Show only status/diagnostics column for right sidebar list clicks
                     if (diagnosticsCol) diagnosticsCol.style.display = 'block';
                     if (activationsCol) activationsCol.style.display = 'none';
-                    sidebarDrawer.classList.add('single-column-mode');
+                    if (sidebarDrawer) sidebarDrawer.classList.add('single-column-mode');
                     var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
                     if (titleElem) titleElem.innerText = "Siren Status";
+                    
+                    document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
                 }
-                
-                document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
-                renderCommands(); // Refresh command card target names
-                sidebarDrawer.classList.add('active');
             } else {
-                // Clear selection drawer
-                document.getElementById('sidebar-drawer').classList.remove('active');
+                // Multi-selection OR map shape selection: ALWAYS open activation column drawer!
+                if (diagnosticsCol) diagnosticsCol.style.display = 'none';
+                if (activationsCol) activationsCol.style.display = 'block';
+                if (sidebarDrawer) sidebarDrawer.classList.add('single-column-mode');
+                var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
+                if (titleElem) titleElem.innerText = "Siren Activation";
+
+                var names = selectedSirenIds.map(sid => {
+                    var s = sirensData.find(x => String(x.id) === sid);
+                    return s ? s.name : "";
+                }).filter(Boolean);
+
+                document.getElementById('sidebar-subtitle').innerText = "Selected: " + (names.length > 0 ? names.join(", ") : selectedSirenIds.length + " sirens");
+            }
+
+            renderCommands();
+            if (sidebarDrawer) sidebarDrawer.classList.add('active');
+        }
+
+        function toggleSirenSelection(id) {
+            if (!id) return;
+            var idStr = String(id);
+            selectedZoneTargetNames = null;
+            selectedZoneCount = 0;
+            
+            var index = selectedSirenIds.indexOf(idStr);
+            if (index > -1) {
+                // Deselect
+                selectedSirenIds.splice(index, 1);
+            } else {
+                // Select
+                selectedSirenIds.push(idStr);
+            }
+            
+            setSelectedSirens(selectedSirenIds, true, 'map');
+            
+            // Send updated list of selected IDs to C#
+            sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
+        }
+
+        // Visually toggle selection state
+        let activeShowMode = 'status';
+
+        function selectSiren(id, preserveTelemetry, showMode) {
+            if (!id) {
+                setSelectedSirens([], preserveTelemetry, showMode);
+                return;
+            }
+            var idStr = String(id);
+            if (selectedSirenIds.length > 1 && selectedSirenIds.indexOf(idStr) > -1) {
+                // Preserve multi-selection if id is part of active selection
+                setSelectedSirens(selectedSirenIds, preserveTelemetry, showMode);
+            } else {
+                setSelectedSirens([idStr], preserveTelemetry, showMode || activeShowMode);
             }
         }
 
         function clearSirenSelection() {
-            selectSiren(null);
+            if (drawingShapesGroup) drawingShapesGroup.clearLayers();
+            currentDrawnShapeLayer = null;
+            setSelectedSirens([], false);
             sendWpfMessage({ type: 'clearSelection' });
         }
         
