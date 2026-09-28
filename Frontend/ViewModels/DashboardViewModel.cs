@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Keemya.Frontend.Services;
 using Keemya.Frontend.Stores;
 using MySqlConnector;
 using System;
@@ -176,7 +177,8 @@ namespace Keemya.Frontend.ViewModels
 
             foreach (var s in cachedSirens)
             {
-                if (s.IsOnline || s.IsSerialOnline || s.IsTcpOnline || s.LastKnownStatus == "ONLINE" || s.LastKnownStatus == "WARNING") 
+                string status = SirenCommunicationService.Instance.GetComputedStatus(s);
+                if (status == "ONLINE" || status == "WARNING") 
                     onlineCount++;
                 if (s.HasAlarm) 
                     alarmCount++;

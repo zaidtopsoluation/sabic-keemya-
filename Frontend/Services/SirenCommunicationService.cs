@@ -1866,7 +1866,7 @@ namespace Keemya.Frontend.Services
                             AreaCode = area,
                             AddressCode = addr,
                             IsOnline = isOnlineOrWarning,
-                            IsSerialOnline = isOnlineOrWarning,
+                            IsSerialOnline = isOnlineOrWarning && (string.IsNullOrWhiteSpace(ip) || redundant),
                             IsTcpOnline = isOnlineOrWarning && !string.IsNullOrWhiteSpace(ip),
                             LastKnownStatus = status.ToUpper(),
                             LastUpdated = DateTime.Now
@@ -2245,7 +2245,9 @@ namespace Keemya.Frontend.Services
                         var serialSirens = _sirenCache.Values.ToList();
 
                         string[] availablePorts = SerialPort.GetPortNames();
-                        if (availablePorts.Length > 0 && serialSirens.Count > 0)
+                        bool portAvailable = availablePorts.Any(p => p.Equals(_serialPortName, StringComparison.OrdinalIgnoreCase));
+
+                        if (portAvailable && serialSirens.Count > 0)
                         {
                             foreach (var s in serialSirens)
                             {
@@ -2294,6 +2296,17 @@ namespace Keemya.Frontend.Services
                                 s.LastUpdated = DateTime.Now;
                                 string computedStatus = GetComputedStatus(s);
                                 _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);
+                            }
+                        }
+                        else if (!portAvailable && serialSirens.Count > 0)
+                        {
+                            Log($"🔌 [Serial Poller] Configured port '{_serialPortName}' unavailable or unplugged. Tracking serial failure.");
+                            foreach (var s in serialSirens)
+                            {
+                                if (string.IsNullOrWhiteSpace(s.Ip) || s.Redundant)
+                                {
+                                    TrackSerialFailure(s.Name);
+                                }
                             }
                         }
                     }
