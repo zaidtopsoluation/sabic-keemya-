@@ -49,13 +49,23 @@ namespace Keemya.Frontend.ViewModels
         [NotifyPropertyChangedFor(nameof(StatusColor))]
         private bool isOnline = false;
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(StatusColor))]
+        private string status = "OFFLINE";
+
         public Guid?   GroupId       { get; set; }
         public string  Ip            { get; set; } = string.Empty;
         public bool    Redundant     { get; set; }
 
         [ObservableProperty] private bool isSelected = false;
 
-        public string StatusColor   => IsOnline ? "#10B981" : "#6B7280";
+        public string StatusColor => Status?.ToUpper() switch
+        {
+            "ONLINE" => "#10B981",   // GREEN
+            "WARNING" => "#F59E0B",  // YELLOW
+            "OFFLINE" => "#EF4444",  // RED
+            _ => IsOnline ? "#10B981" : "#EF4444"
+        };
         public string AddressDisplay => $"{AreaCode}-{AddressCode}";
     }
 
@@ -526,6 +536,7 @@ namespace Keemya.Frontend.ViewModels
                 var siren = _allSirens.FirstOrDefault(s => s.Name == sirenName);
                 if (siren != null)
                 {
+                    siren.Status = status;
                     siren.IsOnline = online;
                 }
 
@@ -572,9 +583,10 @@ namespace Keemya.Frontend.ViewModels
                     while (await rdr.ReadAsync())
                     {
                         string name = rdr.GetString(1);
-                        string status = rdr.IsDBNull(4) ? "OFFLINE" : rdr.GetString(4);
+                        string dbStatus = rdr.IsDBNull(4) ? "OFFLINE" : rdr.GetString(4);
                         var cache = Keemya.Frontend.Services.SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(name);
-                        bool isOnline = (cache != null && cache.IsOnline) || status == "ONLINE" || status == "WARNING";
+                        string finalStatus = cache != null ? Keemya.Frontend.Services.SirenCommunicationService.Instance.GetComputedStatus(cache) : dbStatus;
+                        bool isOnline = finalStatus == "ONLINE" || finalStatus == "WARNING";
 
                         sirens.Add(new SirenRowItem
                         {
@@ -582,6 +594,7 @@ namespace Keemya.Frontend.ViewModels
                             Name        = name,
                             AreaCode    = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
                             AddressCode = rdr.IsDBNull(3) ? "" : rdr.GetString(3),
+                            Status      = finalStatus,
                             IsOnline    = isOnline,
                             GroupId     = rdr.IsDBNull(5) ? (Guid?)null : rdr.GetGuid(5),
                             Ip          = rdr.IsDBNull(6) ? "" : rdr.GetString(6),
