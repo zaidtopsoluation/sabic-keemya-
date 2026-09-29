@@ -76,7 +76,7 @@ namespace Keemya.Frontend.Services
         // Serial Port variables
         private SerialPort? _serialPort;
         private string _serialPortName = "COM4";
-        private int _serialBaudRate = 9600; // Default — actual value loaded from DB (match your physical siren's DIP switch setting)
+        private int _serialBaudRate = 1200; // Fixed per Whelen RS232IM specification (1200 baud, 8-N-1)
         private CancellationTokenSource? _serialReadCts;
 
         // Ensures only one serial send+read cycle runs at a time
@@ -430,7 +430,7 @@ namespace Keemya.Frontend.Services
             }
         }
 
-        public void SetSerialPortConfig(string portName, int baudRate = 9600)
+        public void SetSerialPortConfig(string portName, int baudRate = 1200)
         {
             if (string.IsNullOrWhiteSpace(portName)) return;
             _serialPortName = portName;
@@ -455,7 +455,14 @@ namespace Keemya.Frontend.Services
                 return null;
             }
 
+            if (DateTime.Now - _lastAutoDetectAttempt < TimeSpan.FromMinutes(10))
+            {
+                Log("⏳ [Auto-Detect] Auto-detect on cooldown (< 10 mins). Skipping scan to prevent serial port lock contention.");
+                return null;
+            }
+
             _isAutoDetecting = true;
+            _lastAutoDetectAttempt = DateTime.Now;
             Log("🔍 [Auto-Detect] Starting automatic serial port detection...");
 
             // 1. Get all siren addresses from DB to test, starting with wildcard
@@ -536,8 +543,8 @@ namespace Keemya.Frontend.Services
 
             Log($"🔍 [Auto-Detect] Found {availablePorts.Length} port(s) (prioritizing {_serialPortName}): {string.Join(", ", availablePorts)}");
 
-            // Acquire lock to avoid conflict with normal transmission
-            if (!await _serialLock.WaitAsync(10000))
+            // Acquire lock to avoid conflict with normal transmission (max 1s wait)
+            if (!await _serialLock.WaitAsync(1000))
             {
                 Log("⚠️ [Auto-Detect] Serial port lock is busy. Aborting scan.");
                 _isAutoDetecting = false;
@@ -559,10 +566,8 @@ namespace Keemya.Frontend.Services
                     _serialPort = null;
                 }
 
-                // Determine bauds to test (try current default/configured baud first)
-                int defaultBaud = _serialBaudRate;
-                int altBaud = _serialBaudRate == 1200 ? 9600 : 1200;
-                int[] baudsToTest = new int[] { defaultBaud, altBaud };
+                // Whelen RS232IM interface spec: fixed at 1200 baud (1 start bit, 8 data bits, 1 stop bit, no parity)
+                int[] baudsToTest = new int[] { 1200, 9600 };
 
                 foreach (string portName in availablePorts)
                 {
@@ -570,8 +575,8 @@ namespace Keemya.Frontend.Services
                     {
                         Log($"🔍 [Auto-Detect] Testing {portName} @ {baudRate} baud...");
                         using var testPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One);
-                        testPort.ReadTimeout = 1000;
-                        testPort.WriteTimeout = 1000;
+                        testPort.ReadTimeout = 250;
+                        testPort.WriteTimeout = 250;
 
                         try
                         {
@@ -585,17 +590,17 @@ namespace Keemya.Frontend.Services
 
                                 testPort.Write(tf.Frame, 0, tf.Frame.Length);
 
-                                // Wait up to 1 second for any incoming byte
+                                // Fast wait up to 250ms for reply
                                 var sw = System.Diagnostics.Stopwatch.StartNew();
                                 bool replied = false;
-                                while (sw.ElapsedMilliseconds < 1000)
+                                while (sw.ElapsedMilliseconds < 250)
                                 {
                                     if (testPort.BytesToRead > 0)
                                     {
                                         replied = true;
                                         break;
                                     }
-                                    await Task.Delay(50);
+                                    await Task.Delay(25);
                                 }
 
                                 if (replied)
@@ -603,6 +608,7 @@ namespace Keemya.Frontend.Services
                                     Log($"✨ [Auto-Detect] SUCCESS! Siren responded on port {portName} @ {baudRate} baud using address of '{tf.Name}'.");
                                     _serialPortName = portName;
                                     _serialBaudRate = baudRate;
+                                    _hasSuccessfulSerialComm = true;
                                     
                                     // Reinitialize main serial port to this config
                                     if (_serialPort != null)
@@ -615,8 +621,8 @@ namespace Keemya.Frontend.Services
                                         _serialPort.Dispose();
                                     }
                                     _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
-                                    _serialPort.ReadTimeout = 5000;
-                                    _serialPort.WriteTimeout = 5000;
+                                    _serialPort.ReadTimeout = 2000;
+                                    _serialPort.WriteTimeout = 2000;
 
                                     // Save to database
                                     _ = Task.Run(() => SaveSerialPortConfigAsync(portName, baudRate));
@@ -1563,10 +1569,14 @@ namespace Keemya.Frontend.Services
                     return serialOk;
                 });
 
-                await Task.WhenAll(tcpTask, serialTask);
+                var dualTasks = Task.WhenAll(tcpTask, serialTask);
+                if (await Task.WhenAny(dualTasks, Task.Delay(4000)) != dualTasks)
+                {
+                    Log($"⚠️ [Redundant Transmit] Dual-path wait timed out (4s limit) for {sirenName}. Proceeding with available results.");
+                }
 
-                bool finalTcpOk = await tcpTask;
-                bool finalSerialOk = await serialTask;
+                bool finalTcpOk = tcpTask.IsCompletedSuccessfully ? tcpTask.Result : false;
+                bool finalSerialOk = serialTask.IsCompletedSuccessfully ? serialTask.Result : false;
 
                 bool overallSuccess = finalTcpOk || finalSerialOk;
 
@@ -2205,6 +2215,11 @@ namespace Keemya.Frontend.Services
                             var cacheItem = GetCacheItemByAddressOrSource(s.Name);
                             if (cacheItem != null)
                             {
+                                if (_tcpFailureCounters.TryGetValue(s.Name, out int failCount) && failCount > 0 && failCount < OfflineThreshold)
+                                {
+                                    continue;
+                                }
+
                                 cacheItem.LastUpdated = DateTime.Now;
                                 string computedStatus = GetComputedStatus(cacheItem);
                                 _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);
@@ -2293,6 +2308,11 @@ namespace Keemya.Frontend.Services
                             // Sync computed status after serial poll cycle
                             foreach (var s in serialSirens)
                             {
+                                if (_serialFailureCounters.TryGetValue(s.Name, out int failCount) && failCount > 0 && failCount < OfflineThreshold)
+                                {
+                                    continue;
+                                }
+
                                 s.LastUpdated = DateTime.Now;
                                 string computedStatus = GetComputedStatus(s);
                                 _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);

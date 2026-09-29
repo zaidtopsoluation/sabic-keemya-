@@ -13,6 +13,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- TopSolutions Background Logo -->
+        <Image Source="pack://application:,,,/Resources/top_solutions_logo.jpg"
+               Opacity="0.35"
+               Stretch="Uniform"
+               MaxWidth="650"
+               MaxHeight="450"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               IsHitTestVisible="False"
+               Grid.RowSpan="2" />
+
         <!-- KPI Cards -->
         <UniformGrid Grid.Row="0" Columns="4" Margin="-10">
             <!-- Total Zones -->

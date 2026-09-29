@@ -36,6 +36,10 @@
     <None Update="Resources\gulf_map.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\top_solutions_logo.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Resource Include="Resources\top_solutions_logo.jpg" />
     <None Update="Resources\picker_map.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
