@@ -1057,15 +1057,7 @@
                     }
                 });
             } else if (activeShapeTool === 'square') {
-                var dLat = Math.abs(currentLatLng.lat - shapeStartLatLng.lat);
-                var dLng = Math.abs(currentLatLng.lng - shapeStartLatLng.lng);
-                if (dLat < 0.0001) dLat = 0.0001;
-                if (dLng < 0.0001) dLng = 0.0001;
-
-                var bounds = L.latLngBounds([
-                    [shapeStartLatLng.lat - dLat, shapeStartLatLng.lng - dLng],
-                    [shapeStartLatLng.lat + dLat, shapeStartLatLng.lng + dLng]
-                ]);
+                var bounds = L.latLngBounds(shapeStartLatLng, currentLatLng);
 
                 currentDrawnShapeLayer = L.rectangle(bounds, {
                     color: '#3b82f6',
