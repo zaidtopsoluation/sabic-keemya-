@@ -7,132 +7,101 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1200">
-    <Grid>
+    <Grid Margin="25,0,25,25">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- TopSolutions Background Logo -->
-        <Image Source="pack://application:,,,/Resources/top_solutions_logo.jpg"
-               Opacity="0.35"
-               Stretch="Uniform"
-               MaxWidth="650"
-               MaxHeight="450"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center"
-               IsHitTestVisible="False"
-               Grid.RowSpan="2" />
 
         <!-- KPI Cards -->
         <UniformGrid Grid.Row="0" Columns="4" Margin="-10">
             <!-- Total Zones -->
-            <Border Style="{StaticResource KpiCardStyle}" Padding="0">
+            <Border Style="{StaticResource KpiCardStyle}">
                 <Grid>
-                    <!-- Top colored accent line -->
-                    <Border Height="4" Background="#8B5CF6" VerticalAlignment="Top" CornerRadius="8,8,0,0" />
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource TotalZones}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
                     
-                    <Grid Margin="20">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="{DynamicResource TotalZones}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
-                        
-                        <!-- Icon with light-colored wrapper -->
-                        <Border Grid.Row="0" Background="#F5F3FF" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="FolderOutline" Foreground="#8B5CF6" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        
-                        <TextBlock Grid.Row="1" Text="{Binding TotalZones}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,15,0,0" />
-                    </Grid>
+                    <!-- Icon with light-colored wrapper -->
+                    <Border Grid.Row="0" Background="#F5F3FF" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
+                        <materialDesign:PackIcon Kind="FolderOutline" Foreground="#8B5CF6" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    
+                    <TextBlock Grid.Row="1" Text="{Binding TotalZones}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,15,0,0" />
                 </Grid>
             </Border>
 
             <!-- Active Alarms -->
-            <Border Style="{StaticResource KpiCardStyle}" Padding="0">
+            <Border Style="{StaticResource KpiCardStyle}">
                 <Grid>
-                    <!-- Top colored accent line -->
-                    <Border Height="4" Background="#10B981" VerticalAlignment="Top" CornerRadius="8,8,0,0" />
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource ActiveAlarms}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
                     
-                    <Grid Margin="20">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="{DynamicResource ActiveAlarms}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
-                        
-                        <!-- Icon with light-colored wrapper -->
-                        <Border Grid.Row="0" Background="#ECFDF5" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="AlertOutline" Foreground="#10B981" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        
-                        <TextBlock Grid.Row="1" Text="{Binding ActiveAlarms}" FontSize="28" FontWeight="Bold" Foreground="#10B981" Margin="0,15,0,0" />
-                        <TextBlock Grid.Row="2" Text="{DynamicResource AllClear}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
-                    </Grid>
+                    <!-- Icon with light-colored wrapper -->
+                    <Border Grid.Row="0" Background="#ECFDF5" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
+                        <materialDesign:PackIcon Kind="AlertOutline" Foreground="#10B981" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    
+                    <TextBlock Grid.Row="1" Text="{Binding ActiveAlarms}" FontSize="28" FontWeight="Bold" Foreground="#10B981" Margin="0,15,0,0" />
+                    <TextBlock Grid.Row="2" Text="{DynamicResource AllClear}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
                 </Grid>
             </Border>
 
             <!-- Online Devices -->
-            <Border Style="{StaticResource KpiCardStyle}" Padding="0">
+            <Border Style="{StaticResource KpiCardStyle}">
                 <Grid>
-                    <!-- Top colored accent line -->
-                    <Border Height="4" Background="#F59E0B" VerticalAlignment="Top" CornerRadius="8,8,0,0" />
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource OnlineDevices}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
                     
-                    <Grid Margin="20">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="{DynamicResource OnlineDevices}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
-                        
-                        <!-- Icon with light-colored wrapper -->
-                        <Border Grid.Row="0" Background="#FEFCE8" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="Pulse" Foreground="#F59E0B" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        
-                        <TextBlock Grid.Row="1" Text="{Binding OnlineDevicesText}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,15,0,0" />
-                        <TextBlock Grid.Row="2" Text="{DynamicResource OnlineDevices}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
-                    </Grid>
+                    <!-- Icon with light-colored wrapper -->
+                    <Border Grid.Row="0" Background="#FEFCE8" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
+                        <materialDesign:PackIcon Kind="Pulse" Foreground="#F59E0B" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    
+                    <TextBlock Grid.Row="1" Text="{Binding OnlineDevicesText}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,15,0,0" />
+                    <TextBlock Grid.Row="2" Text="{DynamicResource OnlineDevices}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
                 </Grid>
             </Border>
 
             <!-- System Uptime -->
-            <Border Style="{StaticResource KpiCardStyle}" Padding="0">
+            <Border Style="{StaticResource KpiCardStyle}">
                 <Grid>
-                    <!-- Top colored accent line -->
-                    <Border Height="4" Background="#EF4444" VerticalAlignment="Top" CornerRadius="8,8,0,0" />
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource SystemUptime}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
                     
-                    <Grid Margin="20">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="{DynamicResource SystemUptime}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
-                        
-                        <!-- Icon with light-colored wrapper -->
-                        <Border Grid.Row="0" Background="#FEF2F2" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="ShieldCheckOutline" Foreground="#EF4444" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        
-                        <TextBlock Grid.Row="1" Text="{Binding SystemUptimeText}" FontSize="28" FontWeight="Bold" Foreground="#EF4444" Margin="0,15,0,0" />
-                        <TextBlock Grid.Row="2" Text="{Binding SystemUptimeStatusText}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
-                    </Grid>
+                    <!-- Icon with light-colored wrapper -->
+                    <Border Grid.Row="0" Background="#FEF2F2" CornerRadius="6" Width="28" Height="28" HorizontalAlignment="Right">
+                        <materialDesign:PackIcon Kind="ShieldCheckOutline" Foreground="#EF4444" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    
+                    <TextBlock Grid.Row="1" Text="{Binding SystemUptimeText}" FontSize="28" FontWeight="Bold" Foreground="#EF4444" Margin="0,15,0,0" />
+                    <TextBlock Grid.Row="2" Text="{Binding SystemUptimeStatusText}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,5,0,0" />
                 </Grid>
             </Border>
         </UniformGrid>
 
         <!-- Modules Section -->
         <StackPanel Grid.Row="1" Margin="0,30,0,0">
-            <TextBlock Text="{DynamicResource SystemModules}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,5" />
-            <TextBlock Text="{DynamicResource SystemModulesDesc}" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,20" />
+            <TextBlock Text="{DynamicResource SystemModules}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,20" />
 
             <UniformGrid Columns="4" Margin="-10">
                 <!-- Map -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#3B82F6" BorderThickness="4,1,1,1" Command="{Binding NavigateToMapCommand}" Visibility="{Binding IsMapVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#3B82F6" BorderThickness="1" Command="{Binding NavigateToMapCommand}" Visibility="{Binding IsMapVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#EFF6FF" CornerRadius="6" Width="40" Height="40">
@@ -145,7 +114,7 @@
                 </Button>
 
                 <!-- Command Center -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#0D9488" BorderThickness="4,1,1,1" Command="{Binding NavigateToCommandCenterCommand}" Visibility="{Binding IsCommandCenterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#0D9488" BorderThickness="1" Command="{Binding NavigateToCommandCenterCommand}" Visibility="{Binding IsCommandCenterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#F0FDFA" CornerRadius="6" Width="40" Height="40">
@@ -159,7 +128,7 @@
 
 
                 <!-- Siren Management -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#EF4444" BorderThickness="4,1,1,1" Command="{Binding NavigateToSirenManagementCommand}" Visibility="{Binding IsSirenMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#EF4444" BorderThickness="1" Command="{Binding NavigateToSirenManagementCommand}" Visibility="{Binding IsSirenMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#FEF2F2" CornerRadius="6" Width="40" Height="40">
@@ -173,7 +142,7 @@
 
 
                 <!-- User Management -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#3B82F6" BorderThickness="4,1,1,1" Command="{Binding NavigateToUserManagementCommand}" Visibility="{Binding IsUserMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#3B82F6" BorderThickness="1" Command="{Binding NavigateToUserManagementCommand}" Visibility="{Binding IsUserMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#EFF6FF" CornerRadius="6" Width="40" Height="40">
@@ -186,7 +155,7 @@
                 </Button>
 
                 <!-- Notifications -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#F59E0B" BorderThickness="4,1,1,1" Command="{Binding NavigateToNotificationsCommand}" Visibility="{Binding IsNotificationsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#F59E0B" BorderThickness="1" Command="{Binding NavigateToNotificationsCommand}" Visibility="{Binding IsNotificationsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#FEFCE8" CornerRadius="6" Width="40" Height="40">
@@ -199,7 +168,7 @@
                 </Button>
 
                 <!-- Audit Logs -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#10B981" BorderThickness="4,1,1,1" Command="{Binding NavigateToAuditLogsCommand}" Visibility="{Binding IsAuditLogsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#10B981" BorderThickness="1" Command="{Binding NavigateToAuditLogsCommand}" Visibility="{Binding IsAuditLogsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#ECFDF5" CornerRadius="6" Width="40" Height="40">
@@ -212,7 +181,7 @@
                 </Button>
 
                 <!-- Profile -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#BE185D" BorderThickness="4,1,1,1" Command="{Binding NavigateToProfileCommand}" Visibility="{Binding IsProfileVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#BE185D" BorderThickness="1" Command="{Binding NavigateToProfileCommand}" Visibility="{Binding IsProfileVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#FDF2F8" CornerRadius="6" Width="40" Height="40">
@@ -225,7 +194,7 @@
                 </Button>
 
                 <!-- Service Management -->
-                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#4F46E5" BorderThickness="4,1,1,1" Command="{Binding NavigateToServiceManagementCommand}" Visibility="{Binding IsServiceMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#4F46E5" BorderThickness="1" Command="{Binding NavigateToServiceManagementCommand}" Visibility="{Binding IsServiceMgmtVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                             <Border Background="#EEF2FF" CornerRadius="6" Width="40" Height="40">

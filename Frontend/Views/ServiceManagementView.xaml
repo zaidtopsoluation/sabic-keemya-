@@ -18,7 +18,7 @@
         <local:StatusWithDataConverter x:Key="StatusWithDataConverter"/>
     </UserControl.Resources>
 
-    <Grid Background="#F8FAFC">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

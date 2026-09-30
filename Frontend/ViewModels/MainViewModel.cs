@@ -13,7 +13,7 @@ namespace Keemya.Frontend.ViewModels
 
         public bool IsHeaderVisible => CurrentViewModel is not MapViewModel;
 
-        public Thickness MainGridMargin => CurrentViewModel is MapViewModel ? new Thickness(0) : new Thickness(30);
+        public Thickness MainGridMargin => new Thickness(0);
 
         [ObservableProperty]
         private int unreadNotificationsCount;

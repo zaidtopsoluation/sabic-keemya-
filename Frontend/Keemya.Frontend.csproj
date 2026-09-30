@@ -40,6 +40,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Resource Include="Resources\top_solutions_logo.jpg" />
+    <None Update="Resources\top_solutions_bg_pattern.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Resource Include="Resources\top_solutions_bg_pattern.png" />
     <None Update="Resources\picker_map.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

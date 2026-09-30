@@ -71,8 +71,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource AppBackground}">
-        <Grid Margin="30">
+    <Grid Margin="25,0,25,25">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -222,6 +221,5 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </Grid>
-        </Grid>
     </Grid>
 </UserControl>
