@@ -1637,18 +1637,25 @@ namespace Keemya.Frontend.Services
 
         public string GetComputedStatus(SirenStatusCacheItem item)
         {
-            // If neither channel is connected -> OFFLINE (Solid RED)
+            // 1. If neither TCP nor Serial channel is connected -> OFFLINE (Solid RED)
             if (!item.IsTcpOnline && !item.IsSerialOnline)
                 return "OFFLINE";
 
-            // If active hardware alarm or low battery -> WARNING (Solid YELLOW)
+            // 2. If active hardware alarm or low battery -> WARNING (Solid YELLOW)
             if (item.HasAlarm || (item.DcVoltage > 0 && item.DcVoltage < 22.0))
             {
                 return "WARNING";
             }
 
-            // If either communication path (Serial or TCP) is online and no active hardware alarm -> ONLINE (Solid GREEN)
-            return "ONLINE";
+            // 3. Both communication mediums (TCP and Serial) must be connected to be ONLINE (Solid GREEN).
+            // If connected on only ONE medium (TCP only or Serial only) -> WARNING (Solid YELLOW - Partial connection).
+            if (item.IsTcpOnline && item.IsSerialOnline)
+            {
+                return "ONLINE";
+            }
+
+            // Only 1 medium connected -> WARNING (Solid YELLOW)
+            return "WARNING";
         }
 
         private async Task SyncSirenStatusToDbAndNotifyAsync(string sirenName, string statusStr)
@@ -2110,8 +2117,8 @@ namespace Keemya.Frontend.Services
                                 {
                                     bool isOnline = item.Status == "ONLINE" || item.Status == "WARNING";
                                     cacheItem.IsOnline = isOnline;
-                                    cacheItem.IsTcpOnline = isOnline;
-                                    cacheItem.IsSerialOnline = isOnline;
+                                    cacheItem.IsTcpOnline = isOnline && !string.IsNullOrWhiteSpace(cacheItem.Ip);
+                                    cacheItem.IsSerialOnline = isOnline && (string.IsNullOrWhiteSpace(cacheItem.Ip) || cacheItem.Redundant);
                                     cacheItem.LastKnownStatus = item.Status;
                                     cacheItem.LastUpdated = DateTime.Now;
                                     SirenStatusChanged?.Invoke(item.Name, item.Status);

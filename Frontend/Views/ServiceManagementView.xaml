@@ -212,14 +212,7 @@
                                     <!-- ── COL 0: Status (single big dot) ── -->
                                     <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0">
                                         <TextBlock Text="Status" Foreground="#1F2937" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                        <Border Width="24" Height="24" CornerRadius="4" VerticalAlignment="Center">
-                                            <Border.Background>
-                                                <MultiBinding Converter="{StaticResource StatusWithDataConverter}">
-                                                    <Binding Path="HealthLink"/>
-                                                    <Binding Path="HasSiTestData"/>
-                                                </MultiBinding>
-                                            </Border.Background>
-                                        </Border>
+                                        <Border Width="24" Height="24" CornerRadius="4" Background="{Binding SelectedSiren.StatusColorBrush, Converter={StaticResource StatusHexToBrushConverter}}" VerticalAlignment="Center"/>
                                     </StackPanel>
 
                                     <!-- ── COL 2: Activity / Link / Radio ── -->

@@ -245,10 +245,10 @@
                         <TextBlock Grid.Column="0" Text="Audit Trail" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" />
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Command="{Binding ExportCsvCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="10,5" Margin="0,0,10,0">
+                            <Button Command="{Binding ExportCsvCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="10,5" Margin="0,0,10,0" ToolTip="Export Audit Logs with frozen bold header and auto-filters">
                                 <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="FileDocumentOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Export CSV" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <materialDesign:PackIcon Kind="FileExcel" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Export Excel / CSV" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Button>
                             <Button Command="{Binding ExportPdfCommand}" Background="Transparent" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="10,5">

@@ -181,6 +181,7 @@ namespace Keemya.Frontend.ViewModels
                     var cache = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(dto.Name);
                     if (cache != null)
                     {
+                        dto.Status = SirenCommunicationService.Instance.GetComputedStatus(cache);
                         dto.DcVolts = cache.DcVoltage;
                         dto.AcVolts = cache.AcVoltage;
                         dto.CabTemp = cache.CabTemp;
@@ -451,7 +452,16 @@ namespace Keemya.Frontend.ViewModels
                             if (isOnline)
                             {
                                 targetSiren.IsSerialOnline = true;
-                                targetSiren.Status = string.IsNullOrEmpty(s.Ip) ? "ONLINE" : targetSiren.Status;
+                                var cacheItem = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(targetSiren.Name);
+                                if (cacheItem != null)
+                                {
+                                    cacheItem.IsSerialOnline = true;
+                                    targetSiren.Status = SirenCommunicationService.Instance.GetComputedStatus(cacheItem);
+                                }
+                                else
+                                {
+                                    targetSiren.Status = string.IsNullOrEmpty(s.Ip) ? "WARNING" : targetSiren.Status;
+                                }
                             }
                         }
                         // Link is confirmed true if transmit succeeded (response will update from event)
@@ -752,11 +762,20 @@ namespace Keemya.Frontend.ViewModels
                     HealthLink = true;
                     HasSiTestData = true;
 
-                    // Mark the siren ONLINE since we received a valid response
+                    // Compute siren status via service logic
                     if (siren != null)
                     {
                         siren.IsSerialOnline = true;
-                        siren.Status = "ONLINE";
+                        var cacheItem = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(siren.Name);
+                        if (cacheItem != null)
+                        {
+                            cacheItem.IsSerialOnline = true;
+                            siren.Status = SirenCommunicationService.Instance.GetComputedStatus(cacheItem);
+                        }
+                        else
+                        {
+                            siren.Status = string.IsNullOrEmpty(siren.Ip) ? "WARNING" : siren.Status;
+                        }
                     }
                 }
             });
@@ -827,7 +846,16 @@ namespace Keemya.Frontend.ViewModels
                     }
                     if (cabTemp > 100) siren.CabTemp = (double)(cabTemp - 100);
                     siren.IsSerialOnline = true;
-                    siren.Status = "ONLINE";
+                    var cacheItem1 = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(siren.Name);
+                    if (cacheItem1 != null)
+                    {
+                        cacheItem1.IsSerialOnline = true;
+                        siren.Status = SirenCommunicationService.Instance.GetComputedStatus(cacheItem1);
+                    }
+                    else
+                    {
+                        siren.Status = string.IsNullOrEmpty(siren.Ip) ? "WARNING" : siren.Status;
+                    }
                 }
 
                 if (SelectedSiren != null && (SelectedSiren.Name == addressCode || (SelectedSiren.AddressCode ?? "0000").PadLeft(4, '0') == rcvAddr || (SelectedSiren.AddressCode ?? "") == addressCode))
@@ -858,11 +886,20 @@ namespace Keemya.Frontend.ViewModels
                     HasSiTestData = true;
                     LastTestTimestamp = DateTime.Now.ToString("dd/MM/yy HH:mm:ss");
 
-                    // Mark siren ONLINE — response received
+                    // Compute siren status via service logic
                     if (siren != null)
                     {
                         siren.IsSerialOnline = true;
-                        siren.Status = "ONLINE";
+                        var cacheItem2 = SirenCommunicationService.Instance.GetCacheItemByAddressOrSource(siren.Name);
+                        if (cacheItem2 != null)
+                        {
+                            cacheItem2.IsSerialOnline = true;
+                            siren.Status = SirenCommunicationService.Instance.GetComputedStatus(cacheItem2);
+                        }
+                        else
+                        {
+                            siren.Status = string.IsNullOrEmpty(siren.Ip) ? "WARNING" : siren.Status;
+                        }
                     }
                 }
             });
