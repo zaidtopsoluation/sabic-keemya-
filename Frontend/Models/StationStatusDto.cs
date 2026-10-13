@@ -11,6 +11,7 @@ namespace Keemya.Frontend.Models
         public string Type { get; set; } = string.Empty; // "Workstation" or "Controller"
         public string IpAddress { get; set; } = string.Empty;
         public string? ActiveCallTarget { get; set; }
+        public DateTime? LastHeartbeat { get; set; }
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(StatusColorBrush))]

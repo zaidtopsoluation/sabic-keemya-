@@ -263,17 +263,30 @@
         function initMap(lat, lng) {
             if (map) { map.remove(); map = null; marker = null; }
 
+            var kemyaBounds = L.latLngBounds(
+                L.latLng(27.018000, 49.582000), // Southwest corner
+                L.latLng(27.038000, 49.606000)  // Northeast corner
+            );
+
+            // Center map around provided coords, or default to KEMYA center
+            var centerLat = (lat && lat !== 0) ? lat : 27.028000;
+            var centerLng = (lng && lng !== 0) ? lng : 49.595000;
+
             map = L.map('map', {
-                center: [lat || 26.3927, lng || 49.9777],
-                zoom: 10,
+                center: [centerLat, centerLng],
+                zoom: 16,
                 zoomControl: true,
-                attributionControl: true
+                attributionControl: true,
+                maxBounds: kemyaBounds,
+                maxBoundsViscosity: 1.0,
+                minZoom: 14,
+                maxZoom: 20
             });
 
-            // Light OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
+            // Add Google Hybrid Tiles (Satellite + Road labels)
+            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                attribution: '© Google Maps'
             }).addTo(map);
 
             // If pre-existing coordinates → place marker immediately

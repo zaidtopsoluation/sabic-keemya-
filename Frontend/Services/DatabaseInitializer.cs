@@ -11,6 +11,8 @@ namespace Keemya.Frontend.Services
         {
             try
             {
+                AppConfig.EnsureHealthyConnection();
+
                 if (string.IsNullOrWhiteSpace(AppConfig.ConnectionString))
                 {
                     return;

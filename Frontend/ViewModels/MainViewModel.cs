@@ -21,12 +21,28 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty]
         private string currentUsername = "admin";
 
+        [ObservableProperty]
+        private string activeServerStatusText = $"Node: {AppConfig.ActiveServerName}";
+
+        [ObservableProperty]
+        private bool isFailoverActive = AppConfig.IsFailoverActive;
+
         private readonly System.Timers.Timer _unreadTimer;
 
         public MainViewModel(NavigationStore navigationStore)
         {
             _navigationStore = navigationStore;
             _navigationStore.CurrentViewModelChanged += OnCurrentViewModelChanged;
+
+            // Listen to server failover / switch events
+            AppConfig.ActiveServerChanged += (serverName, isFailover) =>
+            {
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    IsFailoverActive = isFailover;
+                    ActiveServerStatusText = isFailover ? $"Failover: {serverName}" : $"Node: {serverName}";
+                });
+            };
 
             // Start a timer to poll for unread notifications count every 2 seconds
             _unreadTimer = new System.Timers.Timer(2000);

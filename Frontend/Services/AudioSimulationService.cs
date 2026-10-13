@@ -18,8 +18,8 @@ namespace Keemya.Frontend.Services
 
         public void SetPttRelayState(bool state)
         {
-            // Only key the PTT relay if the local station is the main Admin ECC dispatcher
-            if (AppConfig.StationName != "Admin ECC") return;
+            // Only key the PTT relay if the local station is an authorized controller or dispatcher
+            if (!AppConfig.IsMasterDispatcher) return;
 
             string portName = AppConfig.PttRelayPort;
             if (string.IsNullOrWhiteSpace(portName) || portName.Equals("NONE", StringComparison.OrdinalIgnoreCase))

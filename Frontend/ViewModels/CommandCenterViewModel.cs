@@ -1265,18 +1265,22 @@ namespace Keemya.Frontend.ViewModels
                 }
                 else
                 {
-                    if (AppConfig.StationName == "Admin ECC")
+                    if (AppConfig.IsControllerStation)
                     {
                         Keemya.Frontend.Services.AudioSimulationService.Instance.StartLoopback();
                     }
                     else
                     {
-                        // We are the office PC: Start live PA voice streaming to Admin ECC
-                        ActiveIntercomStation = "PA:Admin ECC";
-                        _ = UpdateActiveCallTargetInDbAsync("PA:Admin ECC");
+                        // We are an operator screen: Start live PA voice streaming to Controller
+                        ActiveIntercomStation = "PA:PCB-Controller";
+                        _ = UpdateActiveCallTargetInDbAsync("PA:PCB-Controller");
                         _ = Task.Run(async () =>
                         {
-                            string? ip = await GetStationIpAsync("Admin ECC");
+                            string? ip = await GetStationIpAsync("PCB-Controller");
+                            if (string.IsNullOrEmpty(ip))
+                            {
+                                ip = await GetStationIpAsync("RCB-Controller");
+                            }
                             if (!string.IsNullOrEmpty(ip))
                             {
                                 Keemya.Frontend.Services.AudioCommunicationService.Instance.StartRecording(ip);
@@ -1694,7 +1698,7 @@ namespace Keemya.Frontend.ViewModels
 
             string seqString = string.Join("|", items.Where(x => !string.IsNullOrEmpty(x)));
 
-            if (AppConfig.StationName == "Admin ECC")
+            if (AppConfig.IsMasterDispatcher)
             {
                 if (playlist.Count > 0)
                 {
@@ -1724,7 +1728,7 @@ namespace Keemya.Frontend.ViewModels
                 using (var connection = new MySqlConnection(ConnStr))
                 {
                     await connection.OpenAsync();
-                    string sql = "SELECT Id, Name, Type, IpAddress, Status, ActiveCallTarget FROM StationStatuses";
+                    string sql = "SELECT Id, Name, Type, IpAddress, Status, ActiveCallTarget, LastHeartbeat FROM StationStatuses";
                     using (var cmd = new MySqlCommand(sql, connection))
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
@@ -1737,7 +1741,8 @@ namespace Keemya.Frontend.ViewModels
                                 Type = reader.GetString(2),
                                 IpAddress = reader.GetString(3),
                                 Status = reader.GetString(4),
-                                ActiveCallTarget = reader.IsDBNull(5) ? null : reader.GetString(5)
+                                ActiveCallTarget = reader.IsDBNull(5) ? null : reader.GetString(5),
+                                LastHeartbeat = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
                             });
                         }
                     }
@@ -1746,41 +1751,54 @@ namespace Keemya.Frontend.ViewModels
                 // Update the collection on UI thread
                 Application.Current?.Dispatcher?.Invoke(() =>
                 {
+                    Func<StationStatusDto?, string> resolveStatus = (st) =>
+                    {
+                        if (st == null) return "OFFLINE";
+                        if (string.Equals(AppConfig.StationName, st.Name, StringComparison.OrdinalIgnoreCase))
+                            return "ONLINE";
+                        bool hasRecent = st.LastHeartbeat.HasValue && (DateTime.Now - st.LastHeartbeat.Value).TotalSeconds <= 15;
+                        if (st.Type == "Workstation")
+                            return hasRecent ? "ONLINE" : "OFFLINE";
+                        if (hasRecent) return "ONLINE";
+                        return st.Status == "ONLINE" ? "ONLINE" : "OFFLINE";
+                    };
+
                     foreach (var item in list)
                     {
                         var existing = StationStatuses.FirstOrDefault(x => x.Name == item.Name);
                         if (existing != null)
                         {
-                            existing.Status = item.Status;
+                            existing.Status = resolveStatus(item);
                             existing.IpAddress = item.IpAddress;
                             existing.ActiveCallTarget = item.ActiveCallTarget;
+                            existing.LastHeartbeat = item.LastHeartbeat;
                         }
                         else
                         {
+                            item.Status = resolveStatus(item);
                             StationStatuses.Add(item);
                         }
                     }
 
                     // Update local helper properties for command center toggle backgrounds
-                    var admin = list.FirstOrDefault(x => x.Name == "Admin ECC");
-                    AdminEccStatus = admin?.Status ?? "OFFLINE";
+                    AdminEccStatus = resolveStatus(list.FirstOrDefault(x => x.Name == "Admin ECC"));
+                    PcbEcsStatus = resolveStatus(list.FirstOrDefault(x => x.Name == "PCB/ECS"));
+                    RcbEcsStatus = resolveStatus(list.FirstOrDefault(x => x.Name == "RCB/ECS"));
+                    PcbControllerStatus = resolveStatus(list.FirstOrDefault(x => x.Name == "PCB-Controller"));
+                    RcbControllerStatus = resolveStatus(list.FirstOrDefault(x => x.Name == "RCB-Controller"));
 
-                    var pcb = list.FirstOrDefault(x => x.Name == "PCB/ECS");
-                    PcbEcsStatus = pcb?.Status ?? "OFFLINE";
-
-                    var rcb = list.FirstOrDefault(x => x.Name == "RCB/ECS");
-                    RcbEcsStatus = rcb?.Status ?? "OFFLINE";
-
-                    // Controllers show the health status of their respective office PC workstations instead of hardware pings
-                    PcbControllerStatus = PcbEcsStatus;
-                    RcbControllerStatus = RcbEcsStatus;
+                    OnPropertyChanged(nameof(AdminEccStatusColor));
+                    OnPropertyChanged(nameof(PcbEcsStatusColor));
+                    OnPropertyChanged(nameof(RcbEcsStatusColor));
+                    OnPropertyChanged(nameof(PcbControllerStatusColor));
+                    OnPropertyChanged(nameof(RcbControllerStatusColor));
 
                     OnPropertyChanged(nameof(RadioStatusColor));
                     OnPropertyChanged(nameof(RadioStatusText));
 
                     // DB-driven Intercom voice Call Synchronization
-                    // Find if another workstation has initiated a call or pre-recorded PA request
-                    var caller = list.FirstOrDefault(x => x.Type == "Workstation" && x.Name != AppConfig.StationName && x.ActiveCallTarget != null && (x.ActiveCallTarget.EndsWith(AppConfig.StationName) || x.ActiveCallTarget.StartsWith("PA:FILE:") || x.ActiveCallTarget.StartsWith("PA:SEQ:")));
+                    // Find if another station has initiated a call or pre-recorded PA request
+                    var caller = list.FirstOrDefault(x => x.Name != AppConfig.StationName && x.ActiveCallTarget != null && (x.ActiveCallTarget.EndsWith(AppConfig.StationName) || x.ActiveCallTarget.StartsWith("PA:FILE:") || x.ActiveCallTarget.StartsWith("PA:SEQ:")));
                     if (caller != null)
                     {
                         string? targetSignal = caller.ActiveCallTarget;

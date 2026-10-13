@@ -55,6 +55,49 @@
                 </StackPanel>
             </StackPanel>
 
+            <!-- Server Node Status Badge -->
+            <Border Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="30,0,0,0"
+                    BorderThickness="1" CornerRadius="12" Padding="10,4">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#F0FDF4" />
+                        <Setter Property="BorderBrush" Value="#BBF7D0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFailoverActive}" Value="True">
+                                <Setter Property="Background" Value="#FEFCE8" />
+                                <Setter Property="BorderBrush" Value="#FEF08A" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#22C55E" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFailoverActive}" Value="True">
+                                        <Setter Property="Fill" Value="#EAB308" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding ActiveServerStatusText}" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#15803D" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFailoverActive}" Value="True">
+                                        <Setter Property="Foreground" Value="#A16207" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
             <!-- User Info and Actions -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- Premium Language Toggle -->

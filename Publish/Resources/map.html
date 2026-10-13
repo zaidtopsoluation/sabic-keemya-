@@ -68,12 +68,17 @@
             margin-right: 8px;
         }
 
-        /* Command Center / Dashboard Grid Button (Top Left below Back) */
-        .overlay-dashboard-btn {
+        /* Shape Selection Drawing Toolbar Overlay (Top Left below Back button) */
+        .overlay-shape-tools {
             position: absolute;
             top: 70px;
             left: 20px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .shape-tool-btn {
             background-color: #111827;
             color: #f3f4f6;
             border: 1px solid #1e293b;
@@ -87,13 +92,20 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
             transition: all 0.2s ease;
         }
-        .overlay-dashboard-btn:hover {
+        .shape-tool-btn:hover {
             background-color: #1f2937;
             border-color: #3b82f6;
+        }
+        .shape-tool-btn.active {
+            background-color: #2563eb;
+            border-color: #60a5fa;
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.7);
         }
 
         /* Zones Card Overlay (Bottom Left) */
         .overlay-zones-card {
+            display: none !important;
             position: absolute;
             left: 20px;
             bottom: 20px;
@@ -181,17 +193,14 @@
             transform: translateX(0);
         }
         .overlay-sidebar-drawer.single-column-mode {
-            width: 380px;
-            transform: translateX(380px);
+            width: 300px;
+            transform: translateX(300px);
         }
         .overlay-sidebar-drawer.single-column-mode.active {
             transform: translateX(0);
         }
         .overlay-sidebar-drawer.single-column-mode .sidebar-content {
             grid-template-columns: 1fr;
-        }
-        .overlay-sidebar-drawer.single-column-mode .drawer-column:nth-child(2) {
-            display: none;
         }
 
         .sidebar-header {
@@ -490,10 +499,26 @@
         }
         .selected .pulse-ring {
             display: block;
+            border: 3px solid #2563eb;
+            animation: ripple-animation 1.5s infinite cubic-bezier(0.25, 0, 0, 1);
+            width: 60px;
+            height: 60px;
+            top: -12px;
+            left: -12px;
         }
         @keyframes pulse-animation {
             0% { transform: scale(0.9); opacity: 0.2; }
             100% { transform: scale(1.1); opacity: 0.8; }
+        }
+        @keyframes ripple-animation {
+            0% {
+                transform: scale(0.7);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
         }
         .pin-marker {
             width: 36px;
@@ -507,6 +532,11 @@
             justify-content: center;
             box-sizing: border-box;
             z-index: 2;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+        }
+        .selected .pin-marker {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #2563eb, 0 0 20px rgba(37, 99, 235, 0.9);
         }
         .pin-inner-circle {
             width: 24px;
@@ -761,12 +791,26 @@
             Back to Modules
         </button>
 
-        <!-- Command Center / Dashboard Grid Button Overlay -->
-        <button class="overlay-dashboard-btn" onclick="sendWpfMessage({type: 'back'})" title="Command Center">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
-                <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/>
-            </svg>
-        </button>
+        <!-- Shape Selection Drawing Toolbar Overlay (Square and 360° Circle area selection) -->
+        <div class="overlay-shape-tools">
+            <button id="tool-square-btn" class="shape-tool-btn" onclick="setShapeTool('square')" title="Draw Square Area Selection">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+            </button>
+            <button id="tool-circle-btn" class="shape-tool-btn" onclick="setShapeTool('circle')" title="Draw 360° Circle Area Selection">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+                </svg>
+            </button>
+            <button id="tool-clear-btn" class="shape-tool-btn" onclick="clearSirenSelection()" title="Clear Selection & Shape">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
 
         <!-- Zones List Overlay -->
         <div class="overlay-zones-card">
@@ -895,7 +939,7 @@
                 </div>
                 
                 <!-- COLUMN 2 (RIGHT PARALLEL): Dynamic Emergency Activations -->
-                <div class="drawer-column scrollable">
+                <div class="drawer-column scrollable" id="activations-column">
                     <div class="sidebar-section-title">Emergency Activations</div>
                     <div id="commands-list">
                         <!-- Loaded dynamically from C# backend -->
@@ -907,31 +951,35 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Define KEMYA plant boundaries (GPS)
+        var kemyaBounds = L.latLngBounds(
+            L.latLng(27.018000, 49.582000), // Southwest corner
+            L.latLng(27.038000, 49.606000)  // Northeast corner
+        );
+
         var map = L.map('map', {
             zoomControl: false,
-            attributionControl: true
-        }).setView([26.0, 50.0], 10);
+            attributionControl: true,
+            maxBounds: kemyaBounds,
+            maxBoundsViscosity: 1.0,
+            minZoom: 14,
+            maxZoom: 20
+        }).setView([27.028, 49.595], 16);
 
         // Add standard zoom control at bottom-right
         L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
 
-        var lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        });
-
-        var darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors, © CARTO'
-        });
-
-        // Default to light tiles
-        lightTiles.addTo(map);
+        // Add Google Hybrid Tiles (Satellite + Road labels)
+        var googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            attribution: '© Google Maps'
+        }).addTo(map);
 
         var markersGroup = L.layerGroup().addTo(map);
         var zoneShapesGroup = L.layerGroup().addTo(map);
+        var drawingShapesGroup = L.layerGroup().addTo(map);
         var sirenMarkers = {};
         
         var sirensData = [];
@@ -939,7 +987,123 @@
         var commandsData = [];
         
         var selectedSirenId = null;
+        var selectedSirenIds = [];
         var selectedZoneTargetNames = null;
+
+        var activeShapeTool = null; // 'square', 'circle', or null
+        var isDrawingShape = false;
+        var shapeStartLatLng = null;
+        var currentDrawnShapeLayer = null;
+
+        function setShapeTool(tool) {
+            if (activeShapeTool === tool) {
+                activeShapeTool = null;
+            } else {
+                activeShapeTool = tool;
+            }
+
+            var squareBtn = document.getElementById('tool-square-btn');
+            var circleBtn = document.getElementById('tool-circle-btn');
+
+            if (squareBtn) {
+                if (activeShapeTool === 'square') squareBtn.classList.add('active');
+                else squareBtn.classList.remove('active');
+            }
+            if (circleBtn) {
+                if (activeShapeTool === 'circle') circleBtn.classList.add('active');
+                else circleBtn.classList.remove('active');
+            }
+
+            var mapContainer = document.getElementById('map');
+            if (mapContainer) {
+                mapContainer.style.cursor = activeShapeTool ? 'crosshair' : '';
+            }
+        }
+
+        // --- Map Drawing Shape Events ---
+        map.on('mousedown', function(e) {
+            if (!activeShapeTool) return;
+            isDrawingShape = true;
+            shapeStartLatLng = e.latlng;
+            map.dragging.disable();
+            drawingShapesGroup.clearLayers();
+            currentDrawnShapeLayer = null;
+        });
+
+        map.on('mousemove', function(e) {
+            if (!isDrawingShape || !shapeStartLatLng || !activeShapeTool) return;
+            var currentLatLng = e.latlng;
+            drawingShapesGroup.clearLayers();
+
+            var sirensInShape = [];
+
+            if (activeShapeTool === 'circle') {
+                var radiusMeters = shapeStartLatLng.distanceTo(currentLatLng);
+                if (radiusMeters < 5) radiusMeters = 5;
+
+                currentDrawnShapeLayer = L.circle(shapeStartLatLng, {
+                    radius: radiusMeters,
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.25,
+                    weight: 2,
+                    dashArray: '6, 6'
+                }).addTo(drawingShapesGroup);
+
+                sirensData.forEach(function(s) {
+                    var sirenLatLng = L.latLng(s.lat, s.lng);
+                    if (shapeStartLatLng.distanceTo(sirenLatLng) <= radiusMeters) {
+                        sirensInShape.push(String(s.id));
+                    }
+                });
+            } else if (activeShapeTool === 'square') {
+                var bounds = L.latLngBounds(shapeStartLatLng, currentLatLng);
+
+                currentDrawnShapeLayer = L.rectangle(bounds, {
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.25,
+                    weight: 2,
+                    dashArray: '6, 6'
+                }).addTo(drawingShapesGroup);
+
+                sirensData.forEach(function(s) {
+                    var sirenLatLng = L.latLng(s.lat, s.lng);
+                    if (bounds.contains(sirenLatLng)) {
+                        sirensInShape.push(String(s.id));
+                    }
+                });
+            }
+
+            setSelectedSirens(sirensInShape, true, 'map');
+        });
+
+        map.on('mouseup', function(e) {
+            if (!isDrawingShape) return;
+            isDrawingShape = false;
+            map.dragging.enable();
+
+            if (currentDrawnShapeLayer) {
+                currentDrawnShapeLayer.setStyle({ dashArray: null, fillOpacity: 0.25 });
+            }
+
+            // Send updated list of selected IDs to C#
+            sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
+
+            // Deactivate shape drawing tool mode
+            setShapeTool(null);
+        });
+        function getCommandColor(name) {
+            switch ((name || "").toUpperCase()) {
+                case "FIRE ALARM": return "#A72A2A";
+                case "GAS ALARM": return "#E68A00";
+                case "ALL CLEAR ALARM": return "#2A75B3";
+                case "RESET ALARM": return "#E6D900";
+                case "PUBLIC ADDRESS": return "#3B82F6";
+                case "ATTENTION": return "#5C2AB3";
+                default: return "#3B82F6";
+            }
+        }
 
         // Monitor zoom changes
         map.on('zoomend', function() {
@@ -1050,7 +1214,7 @@
                     var marker = L.marker([siren.lat, siren.lng], { icon: customIcon });
                     
                     marker.on('click', function() {
-                        sendWpfMessage({ type: 'sirenClicked', id: siren.id });
+                        toggleSirenSelection(siren.id);
                     });
 
                     markersGroup.addLayer(marker);
@@ -1063,7 +1227,7 @@
                 
                 // Keep selection visual state active if a siren is selected
                 if (selectedSirenId) {
-                    selectSiren(selectedSirenId);
+                    selectSiren(selectedSirenId, true);
                 }
                 
                 renderZoneShapes();
@@ -1111,12 +1275,26 @@
             var listContainer = document.getElementById('commands-list');
             listContainer.innerHTML = '';
             
+            // Set flex container styling to center buttons vertically stacked
+            listContainer.style.display = 'flex';
+            listContainer.style.flexDirection = 'column';
+            listContainer.style.alignItems = 'center';
+            listContainer.style.gap = '15px';
+            listContainer.style.padding = '10px 0';
+            
             var targetName = "-";
             var availableCount = "0";
 
             if (selectedZoneTargetNames) {
                 targetName = selectedZoneTargetNames;
                 availableCount = selectedZoneCount || "0";
+            } else if (selectedSirenIds.length > 0) {
+                var names = selectedSirenIds.map(sid => {
+                    var s = sirensData.find(x => x.id === sid);
+                    return s ? s.name : "";
+                }).filter(Boolean);
+                targetName = names.join(", ");
+                availableCount = selectedSirenIds.length.toString();
             } else {
                 var selectedSiren = sirensData.find(s => s.id === selectedSirenId);
                 targetName = selectedSiren ? selectedSiren.name : "-";
@@ -1124,42 +1302,55 @@
             }
 
             commandsData.forEach(function(cmd) {
-                var card = document.createElement('div');
-                card.className = 'command-card';
+                var btn = document.createElement('button');
+                btn.className = 'command-card-touch';
+                var color = getCommandColor(cmd.name);
+                var isReset = cmd.name.toUpperCase() === 'RESET ALARM';
+                var textColor = isReset ? '#000000' : '#ffffff';
                 
-                card.innerHTML = `
-                    <div class="command-card-title">${cmd.name}</div>
-                    <div class="command-details">
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                            Default Target: <span class="command-detail-value">${targetName}</span>
-                        </div>
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                            </svg>
-                            ${availableCount} Siren(s) Available
-                        </div>
-                        <div class="command-detail-row">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
-                            Duration: <span class="command-detail-value">${cmd.duration}s</span>
-                        </div>
-                    </div>
-                    <button class="activate-btn" onclick="promptCommandActivation('${cmd.id}', '${cmd.name}')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        Activate
-                    </button>
-                `;
-                listContainer.appendChild(card);
+                btn.style.backgroundColor = color;
+                btn.style.borderColor = '#ffffff';
+                btn.style.borderWidth = '1.2px';
+                btn.style.borderStyle = 'solid';
+                btn.style.color = textColor;
+                btn.style.cursor = 'pointer';
+                
+                // Centered compact touch bar layout
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.justifyContent = 'center';
+                btn.style.width = '240px'; // Shorter width as requested to fit 300px drawer
+                btn.style.height = '50px';
+                btn.style.boxSizing = 'border-box';
+                btn.style.borderRadius = '4px';
+                btn.style.textAlign = 'center';
+                btn.style.fontWeight = 'bold';
+                btn.style.fontSize = '11.5px'; // Fits names cleanly on a single line
+                btn.style.textTransform = 'uppercase';
+                btn.style.whiteSpace = 'nowrap';
+                btn.style.boxShadow = '0 3px 6px rgba(0,0,0,0.3)';
+                btn.style.transition = 'transform 0.1s, filter 0.2s';
+                
+                btn.onmouseenter = function() {
+                    btn.style.filter = 'brightness(1.1)';
+                };
+                btn.onmouseleave = function() {
+                    btn.style.filter = 'brightness(1.0)';
+                };
+                btn.onmousedown = function() {
+                    btn.style.transform = 'scale(0.96)';
+                };
+                btn.onmouseup = function() {
+                    btn.style.transform = 'scale(1.0)';
+                };
+                
+                btn.onclick = function() {
+                    promptCommandActivation(cmd.id, cmd.name);
+                };
+                
+                btn.innerText = cmd.name.toUpperCase();
+                
+                listContainer.appendChild(btn);
             });
         }
 
@@ -1291,64 +1482,139 @@
             }
         }
 
-        // Visually toggle selection state
-        function selectSiren(id) {
-            selectedSirenId = id;
-            selectedZoneTargetNames = null;
-            selectedZoneCount = 0;
-            
-            applyRoleBasedPermissions();
-            
-            // 1. Highlight pin visually
+        function updatePinHighlights() {
             for (var sirenId in sirenMarkers) {
-                var item = sirenMarkers[sirenId];
                 var element = document.getElementById("pin-siren-" + sirenId);
                 if (element) {
-                    if (sirenId === id) {
+                    var sIdStr = String(sirenId);
+                    if (selectedSirenIds.indexOf(sIdStr) > -1 || (selectedSirenId && String(selectedSirenId) === sIdStr)) {
                         element.classList.add('selected');
                     } else {
                         element.classList.remove('selected');
                     }
                 }
             }
+        }
 
-            var siren = sirensData.find(s => s.id === id);
+        function setSelectedSirens(ids, preserveTelemetry, showMode) {
+            if (!ids) {
+                ids = [];
+            } else if (!Array.isArray(ids)) {
+                ids = [ids];
+            }
             
-            if (siren) {
-                // 2. Pan map to target
-                map.panTo([siren.lat, siren.lng]);
+            selectedSirenIds = ids.map(id => String(id));
+            selectedSirenId = selectedSirenIds.length > 0 ? selectedSirenIds[selectedSirenIds.length - 1] : null;
+            selectedZoneTargetNames = null;
+            selectedZoneCount = 0;
+            
+            if (showMode) {
+                activeShowMode = showMode;
+            }
+            
+            applyRoleBasedPermissions();
+            updatePinHighlights();
 
-                // 3. Load Diagnostics Column (Parallel columns)
-                document.getElementById('diag-name').innerText = siren.name;
-                document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
-                
-                // Decode status bytes dynamically based on the specifications in pages 7-11
-                decodeAndApplyHealth(siren.status, null);
+            var sidebarDrawer = document.getElementById('sidebar-drawer');
+            var diagnosticsCol = document.getElementById('diagnostics-column');
+            var activationsCol = document.getElementById('activations-column');
 
-                // Meta details
-                document.getElementById('meta-group').innerText = siren.groupName || "None";
-                document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
-                
-                var statusPill = document.getElementById('meta-status');
-                statusPill.innerText = siren.status;
-                statusPill.style.color = getStatusColor(siren.status);
+            if (selectedSirenIds.length === 0) {
+                if (sidebarDrawer) sidebarDrawer.classList.remove('active');
+                return;
+            }
 
-                // 4. Slide out right widescreen drawer
-                document.getElementById('diagnostics-column').style.display = 'block';
-                document.querySelector('#diagnostics-column .sidebar-section-title').innerText = "Diagnostics & Telemetry";
-                document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Control Center";
-                
-                document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
-                renderCommands(); // Refresh command card target names
-                document.getElementById('sidebar-drawer').classList.add('active');
+            if (selectedSirenIds.length === 1 && activeShowMode !== 'map') {
+                var siren = sirensData.find(s => String(s.id) === selectedSirenIds[0]);
+                if (siren) {
+                    if (!preserveTelemetry) {
+                        map.panTo([siren.lat, siren.lng]);
+                    }
+
+                    document.getElementById('diag-name').innerText = siren.name;
+                    document.getElementById('diag-subtext').innerText = siren.subtext || "No details";
+                    
+                    if (!preserveTelemetry) {
+                        decodeAndApplyHealth(siren.status, null);
+                    }
+
+                    document.getElementById('meta-group').innerText = siren.groupName || "None";
+                    document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
+                    
+                    var statusPill = document.getElementById('meta-status');
+                    statusPill.innerText = siren.status;
+                    statusPill.style.color = getStatusColor(siren.status);
+
+                    if (diagnosticsCol) diagnosticsCol.style.display = 'block';
+                    if (activationsCol) activationsCol.style.display = 'none';
+                    if (sidebarDrawer) sidebarDrawer.classList.add('single-column-mode');
+                    var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
+                    if (titleElem) titleElem.innerText = "Siren Status";
+                    
+                    document.getElementById('sidebar-subtitle').innerText = `Selected: ${siren.name}`;
+                }
             } else {
-                // Clear selection drawer
-                document.getElementById('sidebar-drawer').classList.remove('active');
+                // Multi-selection OR map shape selection: ALWAYS open activation column drawer!
+                if (diagnosticsCol) diagnosticsCol.style.display = 'none';
+                if (activationsCol) activationsCol.style.display = 'block';
+                if (sidebarDrawer) sidebarDrawer.classList.add('single-column-mode');
+                var titleElem = document.querySelector('#sidebar-drawer .sidebar-title');
+                if (titleElem) titleElem.innerText = "Siren Activation";
+
+                var names = selectedSirenIds.map(sid => {
+                    var s = sirensData.find(x => String(x.id) === sid);
+                    return s ? s.name : "";
+                }).filter(Boolean);
+
+                document.getElementById('sidebar-subtitle').innerText = "Selected: " + (names.length > 0 ? names.join(", ") : selectedSirenIds.length + " sirens");
+            }
+
+            renderCommands();
+            if (sidebarDrawer) sidebarDrawer.classList.add('active');
+        }
+
+        function toggleSirenSelection(id) {
+            if (!id) return;
+            var idStr = String(id);
+            selectedZoneTargetNames = null;
+            selectedZoneCount = 0;
+            
+            var index = selectedSirenIds.indexOf(idStr);
+            if (index > -1) {
+                // Deselect
+                selectedSirenIds.splice(index, 1);
+            } else {
+                // Select
+                selectedSirenIds.push(idStr);
+            }
+            
+            setSelectedSirens(selectedSirenIds, true, 'map');
+            
+            // Send updated list of selected IDs to C#
+            sendWpfMessage({ type: 'sirenSelectionChanged', ids: selectedSirenIds, source: 'map' });
+        }
+
+        // Visually toggle selection state
+        let activeShowMode = 'status';
+
+        function selectSiren(id, preserveTelemetry, showMode) {
+            if (!id) {
+                setSelectedSirens([], preserveTelemetry, showMode);
+                return;
+            }
+            var idStr = String(id);
+            if (selectedSirenIds.length > 1 && selectedSirenIds.indexOf(idStr) > -1) {
+                // Preserve multi-selection if id is part of active selection
+                setSelectedSirens(selectedSirenIds, preserveTelemetry, showMode);
+            } else {
+                setSelectedSirens([idStr], preserveTelemetry, showMode || activeShowMode);
             }
         }
 
         function clearSirenSelection() {
-            selectSiren(null);
+            if (drawingShapesGroup) drawingShapesGroup.clearLayers();
+            currentDrawnShapeLayer = null;
+            setSelectedSirens([], false);
             sendWpfMessage({ type: 'clearSelection' });
         }
         
@@ -1380,58 +1646,6 @@
 
         function renderZoneShapes() {
             zoneShapesGroup.clearLayers();
-            if (!zonesData || !sirensData) return;
-
-            zonesData.forEach(function(zone) {
-                var zoneSirens = sirensData.filter(s => s.groupName === zone.name);
-                if (zoneSirens.length === 0) return;
-
-                var lats = zoneSirens.map(s => s.lat);
-                var lngs = zoneSirens.map(s => s.lng);
-                
-                var minLat = Math.min(...lats);
-                var maxLat = Math.max(...lats);
-                var minLng = Math.min(...lngs);
-                var maxLng = Math.max(...lngs);
-                
-                // Add padding
-                var padLat = 0.02;
-                var padLng = 0.02;
-                var bounds = [
-                    [minLat - padLat, minLng - padLng],
-                    [maxLat + padLat, maxLng + padLng]
-                ];
-                
-                var shapeType = (zone.shape || 'Rectangle').toLowerCase();
-                var color = zone.colorHex || zone.color || '#ff0000';
-                var style = { color: color, weight: 2, fillColor: color, fillOpacity: 0.15 };
-
-                if (shapeType === 'circle') {
-                    var centerLat = (minLat + maxLat) / 2;
-                    var centerLng = (minLng + maxLng) / 2;
-                    var center = L.latLng(centerLat, centerLng);
-                    
-                    var maxDist = 0;
-                    zoneSirens.forEach(function(s) {
-                        var dist = center.distanceTo(L.latLng(s.lat, s.lng));
-                        if (dist > maxDist) maxDist = dist;
-                    });
-                    
-                    var radius = maxDist + 2000; // +2km padding
-                    if (radius < 3000) radius = 3000; // minimum 3km radius
-                    L.circle(center, { radius: radius, ...style }).addTo(zoneShapesGroup);
-                } 
-                else if (shapeType === 'triangle') {
-                    var topCenter = [maxLat + padLat * 2, (minLng + maxLng) / 2];
-                    var bottomLeft = [minLat - padLat, minLng - padLng * 2];
-                    var bottomRight = [minLat - padLat, maxLng + padLng * 2];
-                    L.polygon([topCenter, bottomLeft, bottomRight], style).addTo(zoneShapesGroup);
-                }
-                else {
-                    // Default to Rectangle / Square / Polygon
-                    L.rectangle(bounds, style).addTo(zoneShapesGroup);
-                }
-            });
         }
 
         // --- Toast Notification Logic ---

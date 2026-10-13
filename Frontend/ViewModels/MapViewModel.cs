@@ -1260,7 +1260,7 @@ namespace Keemya.Frontend.ViewModels
                 using (var connection = new MySqlConnection(ConnStr))
                 {
                     await connection.OpenAsync();
-                    string sql = "SELECT Id, Name, Type, IpAddress, Status FROM StationStatuses";
+                    string sql = "SELECT Id, Name, Type, IpAddress, Status, LastHeartbeat FROM StationStatuses";
                     using (var cmd = new MySqlCommand(sql, connection))
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
@@ -1272,7 +1272,8 @@ namespace Keemya.Frontend.ViewModels
                                 Name = reader.GetString(1),
                                 Type = reader.GetString(2),
                                 IpAddress = reader.GetString(3),
-                                Status = reader.GetString(4)
+                                Status = reader.GetString(4),
+                                LastHeartbeat = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
                             });
                         }
                     }
@@ -1281,16 +1282,30 @@ namespace Keemya.Frontend.ViewModels
                 // Update the collection on UI thread
                 System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
                 {
+                    Func<StationStatusDto?, string> resolveStatus = (st) =>
+                    {
+                        if (st == null) return "OFFLINE";
+                        if (string.Equals(AppConfig.StationName, st.Name, StringComparison.OrdinalIgnoreCase))
+                            return "ONLINE";
+                        bool hasRecent = st.LastHeartbeat.HasValue && (DateTime.Now - st.LastHeartbeat.Value).TotalSeconds <= 15;
+                        if (st.Type == "Workstation")
+                            return hasRecent ? "ONLINE" : "OFFLINE";
+                        if (hasRecent) return "ONLINE";
+                        return st.Status == "ONLINE" ? "ONLINE" : "OFFLINE";
+                    };
+
                     foreach (var item in list)
                     {
                         var existing = StationStatuses.FirstOrDefault(x => x.Name == item.Name);
                         if (existing != null)
                         {
-                            existing.Status = item.Status;
+                            existing.Status = resolveStatus(item);
                             existing.IpAddress = item.IpAddress;
+                            existing.LastHeartbeat = item.LastHeartbeat;
                         }
                         else
                         {
+                            item.Status = resolveStatus(item);
                             StationStatuses.Add(item);
                         }
                     }
