@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <title>EMS Location Picker</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
         * {
             box-sizing: border-box;
@@ -196,7 +196,7 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="leaflet/leaflet.js"></script>
     <script>
         // ── State ───────────────────────────────────────────────────────────
         let map = null;
@@ -283,11 +283,22 @@
                 maxZoom: 20
             });
 
-            // Add Google Hybrid Tiles (Satellite + Road labels)
-            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            // Offline-first local tiles for KEMYA plant (100% offline, 0 internet needed)
+            L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+                minZoom: 14,
                 maxZoom: 20,
-                attribution: '© Google Maps'
+                maxNativeZoom: 18,
+                attribution: '© SABIC Keemya Plant Map'
             }).addTo(map);
+
+            // Fallback to online Google Hybrid tiles if connected to internet
+            if (navigator.onLine) {
+                L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                    minZoom: 14,
+                    maxZoom: 20,
+                    attribution: '© Google Maps'
+                }).addTo(map);
+            }
 
             // If pre-existing coordinates → place marker immediately
             if (lat && lng && lat !== 0 && lng !== 0) {

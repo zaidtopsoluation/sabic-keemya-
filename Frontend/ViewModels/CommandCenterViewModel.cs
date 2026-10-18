@@ -634,10 +634,27 @@ namespace Keemya.Frontend.ViewModels
                 using var conn = new MySqlConnection(ConnStr);
                 await conn.OpenAsync();
 
-                const string sql = @"SELECT c.Id, c.Name, c.CommandType, c.CommandHex, c.Color, c.Duration, a.FilePath
-                                     FROM CommandConfigs c
-                                     LEFT JOIN AudioFiles a ON c.AudioFileId = a.Id
-                                     WHERE c.IsEnabled = 1";
+                // Check whether AudioFileId exists in CommandConfigs table, otherwise fallback to AudioId
+                string audioCol = "AudioFileId";
+                try
+                {
+                    using var checkCmd = new MySqlCommand(
+                        "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CommandConfigs' AND COLUMN_NAME = 'AudioFileId';", conn);
+                    var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+                    if (count == 0)
+                    {
+                        audioCol = "AudioId";
+                    }
+                }
+                catch
+                {
+                    audioCol = "AudioId";
+                }
+
+                string sql = $@"SELECT c.Id, c.Name, c.CommandType, c.CommandHex, c.Color, c.Duration, a.FilePath
+                                FROM CommandConfigs c
+                                LEFT JOIN AudioFiles a ON c.{audioCol} = a.Id
+                                WHERE c.IsEnabled = 1";
 
                 var cards = new List<CommandCardDto>();
                 using var cmd = new MySqlCommand(sql, conn);

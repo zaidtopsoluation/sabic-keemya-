@@ -1,0 +1,33 @@
+<?xml version='1.0'?>
+<Obfuscator>
+  <Var name="InPath" value=".\build_staging" />
+  <Var name="OutPath" value=".\build_staging\Obfuscated" />
+  <Var name="KeepPublicApi" value="false" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="ReuseNames" value="true" />
+  <Var name="HideStrings" value="true" />
+  <Var name="OptimizeMethods" value="true" />
+  <Var name="RenameFields" value="true" />
+  <Var name="RenameProperties" value="false" />
+  <Var name="RenameEvents" value="false" />
+  <Var name="SkipGenerated" value="true" />
+  <Var name="SkipSpecialName" value="true" />
+
+  <AssemblySearchPath path="C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\10.0.7" />
+  <AssemblySearchPath path="C:\Program Files\dotnet\shared\Microsoft.NETCore.App\10.0.7" />
+  <AssemblySearchPath path=".\build_staging" />
+
+  <Module file="$(InPath)\Keemya.Frontend.dll">
+    <!-- Preserve WPF Entry Points and Views -->
+    <SkipType name="Keemya.Frontend.App" />
+    <SkipType name="Keemya.Frontend.MainWindow" />
+    <SkipNamespace name="Keemya.Frontend.Views" />
+
+    <!-- Preserve ViewModels & Models for XAML DataBindings -->
+    <SkipNamespace name="Keemya.Frontend.ViewModels" />
+    <SkipNamespace name="Keemya.Frontend.Models" />
+
+    <!-- Preserve Anonymous and Compiler-Generated Types -->
+    <SkipType name="*AnonymousType*" />
+  </Module>
+</Obfuscator>

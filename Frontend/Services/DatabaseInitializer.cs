@@ -134,6 +134,36 @@ namespace Keemya.Frontend.Services
                 }
                 catch { /* Column already exists or table doesn't exist yet */ }
 
+                // 4a. Ensure AudioFileId column exists dynamically in CommandConfigs
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        using (var command = new MySqlCommand(
+                            "ALTER TABLE CommandConfigs ADD COLUMN AudioFileId char(36) NULL; " +
+                            "UPDATE CommandConfigs SET AudioFileId = AudioId WHERE AudioFileId IS NULL AND AudioId IS NOT NULL;", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* Column already exists or table doesn't exist yet */ }
+
+                // 4b. Ensure SortOrder column exists dynamically in CommandConfigs
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        using (var command = new MySqlCommand("ALTER TABLE CommandConfigs ADD COLUMN SortOrder int NOT NULL DEFAULT 0;", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* Column already exists or table doesn't exist yet */ }
+
                 // 5. Safeguard: Check if Users table is empty. If empty, seed default admin.
                 try
                 {

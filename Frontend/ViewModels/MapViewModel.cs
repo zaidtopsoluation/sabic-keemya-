@@ -1161,7 +1161,7 @@ namespace Keemya.Frontend.ViewModels
 
         public async Task<string> GetSirensJsonAsync()
         {
-            var list = Sirens.Select(s => new
+            var list = Sirens.Select(s => new Keemya.Frontend.Models.SirenMapItemDto
             {
                 id = s.Id.ToString(),
                 name = s.Name,
@@ -1184,7 +1184,7 @@ namespace Keemya.Frontend.ViewModels
 
         public string GetCommandsJson()
         {
-            var list = CommandCards.Select(c => new
+            var list = CommandCards.Select(c => new Keemya.Frontend.Models.SirenMapCommandDto
             {
                 id = c.Id.ToString(),
                 name = c.Name,

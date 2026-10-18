@@ -77,7 +77,7 @@ namespace Keemya.Frontend.Views
                     string source = string.IsNullOrWhiteSpace(_viewModel.LastSirenClickSource) ? "status" : _viewModel.LastSirenClickSource;
                     await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectSiren('{idStr}', false, '{source}')");
 
-                    var data = new
+                    var data = new Keemya.Frontend.Models.SirenHealthDataDto
                     {
                         dcVoltage = _viewModel.HealthDcVoltage,
                         acVoltage = _viewModel.HealthAcVoltage,
@@ -118,7 +118,7 @@ namespace Keemya.Frontend.Views
             {
                 if (_viewModel != null && _viewModel.SelectedSiren != null)
                 {
-                    var data = new
+                    var data = new Keemya.Frontend.Models.SirenHealthDataDto
                     {
                         dcVoltage = _viewModel.HealthDcVoltage,
                         acVoltage = _viewModel.HealthAcVoltage,

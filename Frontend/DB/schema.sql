@@ -75,7 +75,9 @@ CREATE TABLE `CommandConfigs` (
     `Description` longtext CHARACTER SET utf8mb4 NOT NULL,
     `CommandType` longtext CHARACTER SET utf8mb4 NOT NULL,
     `AudioId` char(36) COLLATE ascii_general_ci NULL,
+    `AudioFileId` char(36) COLLATE ascii_general_ci NULL,
     `Duration` int NOT NULL,
+    `SortOrder` int NOT NULL DEFAULT 0,
     CONSTRAINT `PK_CommandConfigs` PRIMARY KEY (`Id`),
     CONSTRAINT `FK_CommandConfigs_AudioFiles_AudioId` FOREIGN KEY (`AudioId`) REFERENCES `AudioFiles` (`Id`)
 ) CHARACTER SET=utf8mb4;
