@@ -1,6 +1,6 @@
 # Claude Code ToolBox — MCP & Skills awareness
 
-_Generated: 2026-10-15T07:16:20.975Z_
+_Generated: 2026-10-21T06:57:49.386Z_
 
 ## How to use this report
 
@@ -21,9 +21,11 @@ _No active workspace servers in mcp.json._
 
 ## MCP — user profile
 
-- **C:\Users\HP\.claude.json** — _File exists — no servers defined_
+- **C:\Users\HP\.claude.json** — _File exists — servers defined_
 
-_No active user-scoped servers in mcp.json._
+| Server id | Kind | Detail |
+|-----------|------|--------|
+| rea | stdio | C:\Program Files\nodejs\node.exe C:\Users\HP\AppData\Roaming\npm\node_modules\rea-agents\scripts\rea.mjs mcp |
 
 ## Skills (local `SKILL.md` folders)
 
@@ -33,7 +35,8 @@ _None found (or no workspace open)._
 
 ### User-scoped
 
-_None found._
+- **reverse-engineer-anything** — `C:\Users\HP\.claude\skills\reverse-engineer-anything`
+  - Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA. Use shipped-artifact or requested runtime evidence to explain features, compare versions, decompile code, or guide 
 
 ---
 

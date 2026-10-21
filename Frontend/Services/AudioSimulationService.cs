@@ -39,7 +39,7 @@ namespace Keemya.Frontend.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[PTT Relay] Failed to control PTT relay on {portName}: {ex.Message}");
+                SirenCommunicationService.Instance.Log($"[PTT Relay] Failed to control PTT relay on {portName}: {ex.Message}");
             }
         }
 
@@ -52,6 +52,7 @@ namespace Keemya.Frontend.Services
             {
                 // Capture from default microphone
                 _waveIn = new WaveInEvent();
+                _waveIn.DeviceNumber = -1; // WAVE_MAPPER = Windows default mic; NAudio's default 0 is just the first device (e.g. an empty headset jack)
                 _waveIn.WaveFormat = new WaveFormat(44100, 16, 1);
                 _waveIn.BufferMilliseconds = 50;
 
@@ -88,7 +89,7 @@ namespace Keemya.Frontend.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to start audio loopback: {ex.Message}");
+                SirenCommunicationService.Instance.Log($"[PA] Failed to start microphone: {ex.Message}");
                 StopLoopback();
             }
         }

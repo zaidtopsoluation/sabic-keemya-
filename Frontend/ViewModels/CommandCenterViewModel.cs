@@ -401,6 +401,7 @@ namespace Keemya.Frontend.ViewModels
 
             // Rebuild AssemblyPoints collection
             AssemblyPoints.Clear();
+            AssemblyPoints.Add(Skip);
             foreach (var r in recommended)
             {
                 AssemblyPoints.Add(r);
@@ -430,6 +431,25 @@ namespace Keemya.Frontend.ViewModels
         partial void OnSelectedCategoryChanged(string value) => UpdateSummaryText();
         partial void OnSelectedWindDirectionChanged(string value) => UpdateSummaryText();
         partial void OnSelectedAssemblyPointChanged(string value) => UpdateSummaryText();
+
+        // Dropdown value meaning "leave this part out of the announcement"
+        private const string Skip = "Skip";
+
+        // Spoken order: "<event> <type>, category <n>, in <plant>, wind direction is <dir>, assembly point is <point>".
+        // Each lead-in phrase is its own clip in Assets\Audio and is dropped together with a skipped value.
+        private string[] SelectedAudioItems() =>
+            new (string? Lead, string Value)[]
+            {
+                (null, SelectedEvent),
+                (null, SelectedType),
+                ("Category", SelectedCategory),
+                ("In", SelectedArea),
+                ("Wind direction is", SelectedWindDirection),
+                ("Assembly point is", SelectedAssemblyPoint)
+            }
+            .Where(p => !string.IsNullOrEmpty(p.Value) && p.Value != Skip)
+            .SelectMany(p => p.Lead == null ? new[] { p.Value } : new[] { p.Lead, p.Value })
+            .ToArray();
 
         private void UpdateSummaryText()
         {
@@ -485,10 +505,10 @@ namespace Keemya.Frontend.ViewModels
 
             // Initialize Dropdown collections
             Events = new ObservableCollection<string> { "Fire", "Gas release", "Chemical spoilage", "Toxic Gas Release", "Shelter in place" };
-            Types = new ObservableCollection<string> { "Real", "Drill" };
-            Categories = new ObservableCollection<string> { "1", "2", "3" };
-            Areas = new ObservableCollection<string>(PlantAssemblyPoints.Keys.OrderBy(k => k));
-            WindDirections = new ObservableCollection<string> { "North to South", "South to North", "East to west", "West to East" };
+            Types = new ObservableCollection<string> { Skip, "Real", "Drill" };
+            Categories = new ObservableCollection<string> { Skip, "1", "2", "3" };
+            Areas = new ObservableCollection<string>(PlantAssemblyPoints.Keys.OrderBy(k => k).Prepend(Skip));
+            WindDirections = new ObservableCollection<string> { Skip, "North to South", "South to North", "East to west", "West to East" };
             AssemblyPoints = new ObservableCollection<string>();
 
             // Set default selected items
@@ -797,6 +817,22 @@ namespace Keemya.Frontend.ViewModels
             else
             {
                 MessageBox.Show("Pre-configured Air Horn command (All Clear Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private void SelectShelterInPlace()
+        {
+            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 5);
+            if (cmd != null)
+            {
+                _commandToConfirm = cmd;
+                CommandToConfirmName = "SHELTER IN PLACE";
+                IsConfirmingCommand = true;
+            }
+            else
+            {
+                MessageBox.Show("Pre-configured Air Horn command (Shelter in Place) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -1601,10 +1637,8 @@ namespace Keemya.Frontend.ViewModels
             else
             {
                 var playlist = new List<string>();
-                string[] items = new[] { SelectedEvent, SelectedType, SelectedCategory, SelectedArea, SelectedWindDirection, SelectedAssemblyPoint };
-                foreach (var item in items)
+                foreach (var item in SelectedAudioItems())
                 {
-                    if (string.IsNullOrEmpty(item)) continue;
                     string? path = FindAudioFile(item);
                     if (path != null)
                     {
@@ -1705,15 +1739,14 @@ namespace Keemya.Frontend.ViewModels
             });
 
             var playlist = new List<string>();
-            string[] items = new[] { SelectedEvent, SelectedType, SelectedCategory, SelectedArea, SelectedWindDirection, SelectedAssemblyPoint };
+            string[] items = SelectedAudioItems();
             foreach (var item in items)
             {
-                if (string.IsNullOrEmpty(item)) continue;
                 string? path = FindAudioFile(item);
                 if (path != null) playlist.Add(path);
             }
 
-            string seqString = string.Join("|", items.Where(x => !string.IsNullOrEmpty(x)));
+            string seqString = string.Join("|", items);
 
             if (AppConfig.IsMasterDispatcher)
             {

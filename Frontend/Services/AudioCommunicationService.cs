@@ -219,6 +219,7 @@ namespace Keemya.Frontend.Services
                 
                 _waveSource = new WaveInEvent
                 {
+                    DeviceNumber = -1, // Windows default mic, not just the first device
                     WaveFormat = new WaveFormat(8000, 16, 1),
                     BufferMilliseconds = 100 // low latency 100ms packet buffers
                 };

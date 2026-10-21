@@ -139,6 +139,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -176,6 +177,12 @@
                     <!-- ATTENTION -->
                     <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAttentionCommand}" Margin="8" Width="140" Height="75" Background="#5C2AB3">
                         <TextBlock Text="ATTENTION" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+
+                    <!-- Row 2 -->
+                    <!-- SHELTER IN PLACE -->
+                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectShelterInPlaceCommand}" Margin="8" Width="140" Height="75" Background="#0F766E">
+                        <TextBlock Text="SHELTER IN PLACE" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </Grid>
 

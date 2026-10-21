@@ -1667,7 +1667,25 @@ namespace Keemya.Frontend.Services
             return "WARNING";
         }
 
+        // One lock per siren so status writes from the TCP and serial pollers are applied
+        // in call order. Without it, an older status could reach the DB last and stay stuck there.
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _statusSyncLocks = new();
+
         private async Task SyncSirenStatusToDbAndNotifyAsync(string sirenName, string statusStr)
+        {
+            var syncLock = _statusSyncLocks.GetOrAdd(sirenName, _ => new SemaphoreSlim(1, 1));
+            await syncLock.WaitAsync();
+            try
+            {
+                await SyncSirenStatusToDbAndNotifyCoreAsync(sirenName, statusStr);
+            }
+            finally
+            {
+                syncLock.Release();
+            }
+        }
+
+        private async Task SyncSirenStatusToDbAndNotifyCoreAsync(string sirenName, string statusStr)
         {
             var cacheItem = GetCacheItemByAddressOrSource(sirenName);
             bool acFailed = cacheItem?.HasAcLoss ?? false;
@@ -1898,6 +1916,15 @@ namespace Keemya.Frontend.Services
                             LastUpdated = DateTime.Now
                         };
                         _sirenCache[name] = item;
+
+                        // Status loaded from the DB is unverified after a restart. Pre-seed the failure
+                        // counters so the FIRST failed poll after startup marks the channel offline,
+                        // instead of showing a stale ONLINE color for 2 full poll cycles.
+                        // A successful poll clears the counter as usual.
+                        if (item.IsTcpOnline)
+                            _tcpFailureCounters[name] = OfflineThreshold - 1;
+                        if (item.IsSerialOnline)
+                            _serialFailureCounters[name] = OfflineThreshold - 1;
                     }
                     Log($"🗄️ Cache populated with {_sirenCache.Count} sirens from the database.");
                 }
@@ -2201,33 +2228,47 @@ namespace Keemya.Frontend.Services
                             }
                         }
 
-                        // Poll TCP channels in parallel for all IP-enabled sirens
+                        // Poll TCP channels in parallel across gateways, but sequentially for sirens that
+                        // share the same gateway IP — many serial-to-Ethernet gateways accept only one
+                        // TCP connection at a time, so simultaneous connects cause false failures.
                         var tcpSirens = sirens.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
-                        var tcpTasks = tcpSirens.Select(async s =>
-                        {
-                            try
+                        var tcpTasks = tcpSirens
+                            .GroupBy(s => s.Ip.Split(':')[0].Trim())
+                            .Select(async gateway =>
                             {
-                                var cacheItem = GetCacheItemByAddressOrSource(s.Name);
-                                if (cacheItem != null)
+                                bool first = true;
+                                foreach (var s in gateway)
                                 {
-                                    byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
-                                    bool tcpSuccess = await SendTcpCommandAsync(s.Ip, frame, true);
-
-                                    if (tcpSuccess)
+                                    if (!first)
                                     {
-                                        TrackTcpSuccess(s.Name);
+                                        await Task.Delay(200); // let the gateway release the previous connection
                                     }
-                                    else
+                                    first = false;
+
+                                    try
                                     {
-                                        TrackTcpFailure(s.Name);
+                                        var cacheItem = GetCacheItemByAddressOrSource(s.Name);
+                                        if (cacheItem != null)
+                                        {
+                                            byte[] frame = BuildStatusFrame(s.AreaCode, s.AddressCode);
+                                            bool tcpSuccess = await SendTcpCommandAsync(s.Ip, frame, true);
+
+                                            if (tcpSuccess)
+                                            {
+                                                TrackTcpSuccess(s.Name);
+                                            }
+                                            else
+                                            {
+                                                TrackTcpFailure(s.Name);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log($"❌ [TCP Poller Error for {s.Name}] {ex.Message}");
                                     }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                Log($"❌ [TCP Poller Error for {s.Name}] {ex.Message}");
-                            }
-                        });
+                            });
                         await Task.WhenAll(tcpTasks);
 
                         // Sync computed status for IP sirens
@@ -2468,6 +2509,14 @@ namespace Keemya.Frontend.Services
                     if (channel == "TCP/IP")
                     {
                         Log("❌ [Parser] Discarding mismatched TCP frame.");
+                        return false;
+                    }
+
+                    // A status poll (23H) must be answered by the polled siren itself. Otherwise a late
+                    // reply from another siren would mark an offline siren as serial-online.
+                    if (cmdByte == 0x23)
+                    {
+                        Log("❌ [Parser] Discarding mismatched serial status reply (belongs to another siren).");
                         return false;
                     }
                 }

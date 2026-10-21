@@ -295,6 +295,15 @@ namespace Keemya.Frontend.ViewModels
                         CommandHex = 3,
                         Color = "#5C2AB3",
                         Duration = 90
+                    },
+                    new CommandConfigDto
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = "SHELTER IN PLACE",
+                        CommandType = "AirHorn",
+                        CommandHex = 5,
+                        Color = "#0F766E",
+                        Duration = 90
                     }
                 };
 
