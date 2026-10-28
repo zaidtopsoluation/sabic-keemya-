@@ -40,5 +40,10 @@ namespace Keemya.Frontend.Models
             "Cyan"   => "#06B6D4",
             _        => Color.StartsWith("#") ? Color : "#6366F1"
         };
+
+        public string TextColorHex => Keemya.Frontend.Services.PanelButtonService.TextColorFor(ColorHex);
+
+        public string ToneDisplay => Keemya.Frontend.Services.PanelButtonService.Tones
+            .FirstOrDefault(t => t.Hex == CommandHex)?.Display ?? CommandHexLabel;
     }
 }

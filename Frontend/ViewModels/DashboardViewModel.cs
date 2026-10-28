@@ -59,6 +59,7 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty] private bool isAuditLogsVisible = false;
         [ObservableProperty] private bool isProfileVisible = false;
         [ObservableProperty] private bool isServiceMgmtVisible = false;
+        [ObservableProperty] private bool isButtonConfigVisible = false;
 
         public DashboardViewModel(NavigationStore navigationStore)
         {
@@ -94,6 +95,9 @@ namespace Keemya.Frontend.ViewModels
             
             // ServiceManagement: Admin, Service
             IsServiceMgmtVisible = role == "ADMIN" || role == "ADMINISTRATOR" || role == "SERVICE";
+
+            // ButtonConfig: Admin, Service
+            IsButtonConfigVisible = role == "ADMIN" || role == "ADMINISTRATOR" || role == "SERVICE";
         }
 
         private async Task LoadStatsAsync()
@@ -267,6 +271,13 @@ namespace Keemya.Frontend.ViewModels
         {
             if (IsServiceMgmtVisible)
                 _navigationStore.CurrentViewModel = new ServiceManagementViewModel(_navigationStore);
+        }
+
+        [RelayCommand]
+        private void NavigateToButtonConfig()
+        {
+            if (IsButtonConfigVisible)
+                _navigationStore.CurrentViewModel = new ButtonConfigViewModel(_navigationStore);
         }
     }
 }

@@ -7,6 +7,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <AssemblyName>TS_EMS</AssemblyName>
+    <Product>TS Emergency Management System</Product>
+    <Company>Top Solutions</Company>
   </PropertyGroup>
 
   <ItemGroup>

@@ -288,17 +288,8 @@
                 minZoom: 14,
                 maxZoom: 20,
                 maxNativeZoom: 18,
-                attribution: '© SABIC Keemya Plant Map'
+                attribution: '© Top Solutions'
             }).addTo(map);
-
-            // Fallback to online Google Hybrid tiles if connected to internet
-            if (navigator.onLine) {
-                L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                    minZoom: 14,
-                    maxZoom: 20,
-                    attribution: '© Google Maps'
-                }).addTo(map);
-            }
 
             // If pre-existing coordinates → place marker immediately
             if (lat && lng && lat !== 0 && lng !== 0) {

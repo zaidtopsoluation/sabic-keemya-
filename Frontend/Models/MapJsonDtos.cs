@@ -19,6 +19,8 @@ namespace Keemya.Frontend.Models
         public string? id { get; set; }
         public string? name { get; set; }
         public string? type { get; set; }
+        public string? color { get; set; }
+        public string? textColor { get; set; }
         public int duration { get; set; }
     }
 

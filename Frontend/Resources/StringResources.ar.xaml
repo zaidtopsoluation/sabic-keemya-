@@ -11,8 +11,8 @@
     <sys:String x:Key="Cancel">إلغاء</sys:String>
 
     <!-- Login Window -->
-    <sys:String x:Key="LoginTitle">كيمياء</sys:String>
-    <sys:String x:Key="LoginSubtitle">سجل الدخول للوصول إلى نظام كيمياء</sys:String>
+    <sys:String x:Key="LoginTitle">نظام TS لإدارة الطوارئ</sys:String>
+    <sys:String x:Key="LoginSubtitle">سجل الدخول للوصول إلى نظام TS لإدارة الطوارئ</sys:String>
     <sys:String x:Key="Username">اسم المستخدم</sys:String>
     <sys:String x:Key="Password">كلمة المرور</sys:String>
     <sys:String x:Key="SignIn">تسجيل الدخول</sys:String>
@@ -53,6 +53,8 @@
     <sys:String x:Key="ModProfileDesc">عرض إعدادات حسابك، وتفاصيل حالتك، وتحديث كلمة مرور الأمان الخاصة بك</sys:String>
     <sys:String x:Key="ModServiceMgmt">إدارة الصيانة</sys:String>
     <sys:String x:Key="ModServiceMgmtDesc">التشخيصات التشغيلية، دورات الصيانة، وعناصر تحكم الخدمة للنظام</sys:String>
+    <sys:String x:Key="ModButtonConfig">إعداد الأزرار</sys:String>
+    <sys:String x:Key="ModButtonConfigDesc">إضافة وتلوين وترتيب أزرار التفعيل في مركز القيادة والخريطة</sys:String>
 
     <!-- User Management View -->
     <sys:String x:Key="UserMgmtTitle">إدارة المستخدمين</sys:String>

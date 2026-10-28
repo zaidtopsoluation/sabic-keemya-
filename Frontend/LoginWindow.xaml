@@ -7,7 +7,7 @@
         xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="Login - TS Keemya" Height="768" Width="1366"
+        Title="Login - TS Emergency Management System" Height="768" Width="1366"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         Icon="Assets/logo.png">

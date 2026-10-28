@@ -164,6 +164,53 @@ namespace Keemya.Frontend.Services
                 }
                 catch { /* Column already exists or table doesn't exist yet */ }
 
+                // 4b2. Siren alarm columns and the serial config table are used by the app but were never created on a
+                // fresh install (status saves then failed with "Unknown column 'AcFailed'" and the map stayed red).
+                foreach (string sql in new[]
+                {
+                    "ALTER TABLE SirenDevices ADD COLUMN AcFailed tinyint(1) NOT NULL DEFAULT 0;",
+                    "ALTER TABLE SirenDevices ADD COLUMN ApmFailed tinyint(1) NOT NULL DEFAULT 0;",
+                    "ALTER TABLE SirenDevices ADD COLUMN DoorIntruded tinyint(1) NOT NULL DEFAULT 0;",
+                    "CREATE TABLE IF NOT EXISTS WorkstationSerialConfigs (StationName VARCHAR(255) NOT NULL, PortName VARCHAR(50) NOT NULL, BaudRate INT NOT NULL, PRIMARY KEY (StationName));",
+                })
+                {
+                    try
+                    {
+                        using var connection = new MySqlConnection(builder.ConnectionString);
+                        connection.Open();
+                        using var command = new MySqlCommand(sql, connection);
+                        command.ExecuteNonQuery();
+                    }
+                    catch { /* Column already exists */ }
+                }
+
+                // 4c. ShowOnPanel marks rows drawn as activation buttons (Command Center + Map).
+                // Seed the original 7 buttons only when the column is first added, so admin deletes stay deleted.
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        using (var command = new MySqlCommand("ALTER TABLE CommandConfigs ADD COLUMN ShowOnPanel tinyint(1) NOT NULL DEFAULT 0;", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                        using (var command = new MySqlCommand(
+                            "INSERT IGNORE INTO CommandConfigs (Id, Name, Description, CommandType, CommandHex, Color, Duration, IsEnabled, SortOrder, ShowOnPanel) VALUES " +
+                            "('00000000-0000-0000-0003-000000000001', 'FIRE ALARM', '', 'Attack', 2, '#A72A2A', 90, 1, 1, 1)," +
+                            "('00000000-0000-0000-0003-000000000002', 'GAS ALARM', '', 'Wail', 1, '#E68A00', 90, 1, 2, 1)," +
+                            "('00000000-0000-0000-0003-000000000003', 'ALL CLEAR ALARM', '', 'Air Horn', 5, '#2A75B3', 90, 1, 3, 1)," +
+                            "('00000000-0000-0000-0003-000000000004', 'RESET ALARM', '', 'Clear / Reset', 0, '#E6D900', 0, 1, 4, 1)," +
+                            "('00000000-0000-0000-0003-000000000005', 'PUBLIC ADDRESS', '', 'Public Address', 4, '#3B82F6', 0, 1, 5, 1)," +
+                            "('00000000-0000-0000-0003-000000000006', 'ATTENTION', '', 'Alert', 3, '#5C2AB3', 90, 1, 6, 1)," +
+                            "('00000000-0000-0000-0003-000000000007', 'SHELTER IN PLACE', '', 'Voice Message 1', 49, '#0F766E', 90, 1, 7, 1);", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* Column already exists or table doesn't exist yet */ }
+
                 // 5. Safeguard: Check if Users table is empty. If empty, seed default admin.
                 try
                 {

@@ -52,6 +52,9 @@ namespace Keemya.Frontend
                 return;
             }
 
+            // Server PCs keep their own MySQL in sync with the other server (no-op on dispatchers)
+            Keemya.Frontend.Services.DatabaseSyncService.StartForThisServer();
+
             // Initialize audit logs table
             try
             {

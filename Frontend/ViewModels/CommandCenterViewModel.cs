@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Keemya.Frontend.Models;
+using Keemya.Frontend.Services;
 using Keemya.Frontend.Stores;
 using MySqlConnector;
 using System.Windows.Media;
@@ -494,6 +495,10 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty]
         private double microphoneVolume;
 
+        // Activation buttons configured in the Button Configuration module (CommandConfigs.ShowOnPanel)
+        [ObservableProperty]
+        private ObservableCollection<CommandConfigDto> panelButtons = new();
+
         private List<CommandCardDto> _allCommands = new();
         private CommandCardDto? _commandToConfirm;
         private System.Threading.CancellationTokenSource? _activeCommandCts;
@@ -692,6 +697,7 @@ namespace Keemya.Frontend.ViewModels
                     });
 
                 _allCommands = cards;
+                PanelButtons = new ObservableCollection<CommandConfigDto>(await PanelButtonService.LoadAsync());
             }
             catch (Exception ex)
             {
@@ -773,98 +779,20 @@ namespace Keemya.Frontend.ViewModels
         }
 
         [RelayCommand]
-        private void SelectFireAlarm()
+        private void SelectPanelButton(CommandConfigDto button)
         {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 2);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "FIRE ALARM";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                MessageBox.Show("Pre-configured Attack tone command (Fire Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        [RelayCommand]
-        private void SelectGasAlarm()
-        {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 1);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "GAS ALARM";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                MessageBox.Show("Pre-configured Wail tone command (Gas Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        [RelayCommand]
-        private void SelectAllClearAlarm()
-        {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 5);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "ALL CLEAR ALARM";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                MessageBox.Show("Pre-configured Air Horn command (All Clear Alarm) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        [RelayCommand]
-        private void SelectShelterInPlace()
-        {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 5);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "SHELTER IN PLACE";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                MessageBox.Show("Pre-configured Air Horn command (Shelter in Place) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        [RelayCommand]
-        private void SelectResetAlarm()
-        {
+            if (button == null) return;
             _commandToConfirm = new CommandCardDto
             {
-                Id = Guid.NewGuid(),
-                Name = "RESET ALARM",
-                CommandHex = 0,
-                Color = "Yellow",
-                CommandType = "Reset/Clear"
+                Id = button.Id,
+                Name = button.Name,
+                CommandType = button.CommandType,
+                CommandHex = button.CommandHex,
+                Color = button.ColorHex,
+                Duration = button.Duration
             };
-            CommandToConfirmName = "RESET ALARM";
+            CommandToConfirmName = button.Name;
             IsConfirmingCommand = true;
-        }
-
-        [RelayCommand]
-        private void SelectAttention()
-        {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 3);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "ATTENTION";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                MessageBox.Show("Pre-configured Alert tone command (Attention) not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
         }
 
         [RelayCommand]
@@ -896,33 +824,6 @@ namespace Keemya.Frontend.ViewModels
             else
             {
                 MessageBox.Show("Pre-configured PA Radio Paging command not found in database.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        [RelayCommand]
-        private void SelectPublicAddress()
-        {
-            var cmd = _allCommands.FirstOrDefault(c => c.CommandHex == 4);
-            if (cmd != null)
-            {
-                _commandToConfirm = cmd;
-                CommandToConfirmName = "PUBLIC ADDRESS";
-                IsConfirmingCommand = true;
-            }
-            else
-            {
-                var mockCmd = new CommandCardDto
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "PUBLIC ADDRESS",
-                    CommandType = "Live",
-                    CommandHex = 4,
-                    Color = "#3B82F6",
-                    Duration = 0
-                };
-                _commandToConfirm = mockCmd;
-                CommandToConfirmName = "PUBLIC ADDRESS";
-                IsConfirmingCommand = true;
             }
         }
 

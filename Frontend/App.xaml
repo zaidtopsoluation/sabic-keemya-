@@ -136,6 +136,10 @@
             <DataTemplate DataType="{x:Type viewmodels:ServiceManagementViewModel}">
                 <views:ServiceManagementView />
             </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:ButtonConfigViewModel}">
+                <views:ButtonConfigView />
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

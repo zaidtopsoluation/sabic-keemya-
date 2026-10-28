@@ -17,7 +17,7 @@
   <AssemblySearchPath path="C:\Program Files\dotnet\shared\Microsoft.NETCore.App\10.0.7" />
   <AssemblySearchPath path=".\build_staging" />
 
-  <Module file="$(InPath)\Keemya.Frontend.dll">
+  <Module file="$(InPath)\TS_EMS.dll">
     <!-- Preserve WPF Entry Points and Views -->
     <SkipType name="Keemya.Frontend.App" />
     <SkipType name="Keemya.Frontend.MainWindow" />

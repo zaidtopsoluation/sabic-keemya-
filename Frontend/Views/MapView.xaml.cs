@@ -69,7 +69,13 @@ namespace Keemya.Frontend.Views
 
         private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(MapViewModel.SelectedSiren) && MapWebView.CoreWebView2 != null)
+            // Buttons load from the DB asynchronously; push them if the page loaded first
+            if (e.PropertyName == nameof(MapViewModel.CommandCards) && MapWebView.CoreWebView2 != null && _viewModel != null)
+            {
+                try { await MapWebView.CoreWebView2.ExecuteScriptAsync($"updateCommands('{_viewModel.GetCommandsJson()}')"); }
+                catch { }
+            }
+            else if (e.PropertyName == nameof(MapViewModel.SelectedSiren) && MapWebView.CoreWebView2 != null)
             {
                 if (_viewModel?.SelectedSiren != null)
                 {

@@ -2,3 +2,6 @@ bin/
 obj/
 PublishOutput/
 .vs/
+installer/
+Publish/
+build_staging/

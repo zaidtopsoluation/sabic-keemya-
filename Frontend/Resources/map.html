@@ -976,17 +976,8 @@
             minZoom: 14,
             maxZoom: 20,
             maxNativeZoom: 18,
-            attribution: '© SABIC Keemya Plant Map'
+            attribution: '© Top Solutions'
         }).addTo(map);
-
-        // Fallback to online Google Hybrid tiles if connected to internet
-        if (navigator.onLine) {
-            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                minZoom: 14,
-                maxZoom: 20,
-                attribution: '© Google Maps'
-            }).addTo(map);
-        }
 
         var markersGroup = L.layerGroup().addTo(map);
         var zoneShapesGroup = L.layerGroup().addTo(map);
@@ -1126,16 +1117,8 @@
             map.setView([26.0, 50.0], 10);
         }
 
-        // Custom theme setter
-        function setTheme(isDark) {
-            if (isDark) {
-                map.removeLayer(lightTiles);
-                darkTiles.addTo(map);
-            } else {
-                map.removeLayer(darkTiles);
-                lightTiles.addTo(map);
-            }
-        }
+        // Called by MapView on theme change; the offline satellite tiles have one style, so nothing to swap.
+        function setTheme(isDark) { }
 
         var currentUserRole = "Admin";
         function setUserRole(role) {
@@ -1316,9 +1299,8 @@
             commandsData.forEach(function(cmd) {
                 var btn = document.createElement('button');
                 btn.className = 'command-card-touch';
-                var color = getCommandColor(cmd.name);
-                var isReset = cmd.name.toUpperCase() === 'RESET ALARM';
-                var textColor = isReset ? '#000000' : '#ffffff';
+                var color = cmd.color || getCommandColor(cmd.name);
+                var textColor = cmd.textColor || (cmd.name.toUpperCase() === "RESET ALARM" ? "#000000" : "#ffffff");
                 
                 btn.style.backgroundColor = color;
                 btn.style.borderColor = '#ffffff';

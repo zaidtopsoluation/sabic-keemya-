@@ -5,4 +5,7 @@
   <Folder Name="/Frontend/">
     <Project Path="Frontend/Keemya.Frontend.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Keemya.Frontend.Tests/Keemya.Frontend.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -205,6 +205,19 @@
                         <TextBlock Text="{DynamicResource ModServiceMgmtDesc}" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
+
+                <!-- Button Configuration -->
+                <Button Style="{StaticResource ModuleCardStyle}" BorderBrush="#0F766E" BorderThickness="1" Command="{Binding NavigateToButtonConfigCommand}" Visibility="{Binding IsButtonConfigVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                            <Border Background="#CCFBF1" CornerRadius="6" Width="40" Height="40">
+                                <materialDesign:PackIcon Kind="Palette" Width="20" Height="20" Foreground="#0F766E" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource ModButtonConfig}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="15,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource ModButtonConfigDesc}" Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
             </UniformGrid>
         </StackPanel>
     </Grid>

@@ -240,75 +240,8 @@ namespace Keemya.Frontend.ViewModels
         {
             try
             {
-                var list = new List<CommandConfigDto>
-                {
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000003"),
-                        Name = "FIRE ALARM",
-                        CommandType = "Attack",
-                        CommandHex = 2,
-                        Color = "#A72A2A",
-                        Duration = 90
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000002"),
-                        Name = "GAS ALARM",
-                        CommandType = "Wail",
-                        CommandHex = 1,
-                        Color = "#E68A00",
-                        Duration = 90
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000006"),
-                        Name = "ALL CLEAR ALARM",
-                        CommandType = "AirHorn",
-                        CommandHex = 5,
-                        Color = "#2A75B3",
-                        Duration = 90
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000001"),
-                        Name = "RESET ALARM",
-                        CommandType = "Clear",
-                        CommandHex = 0,
-                        Color = "#E6D900",
-                        Duration = 0
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000005"),
-                        Name = "PUBLIC ADDRESS",
-                        CommandType = "PublicAddress",
-                        CommandHex = 4,
-                        Color = "#3B82F6",
-                        Duration = 0
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.Parse("00000000-0000-0000-0001-000000000004"),
-                        Name = "ATTENTION",
-                        CommandType = "Alert",
-                        CommandHex = 3,
-                        Color = "#5C2AB3",
-                        Duration = 90
-                    },
-                    new CommandConfigDto
-                    {
-                        Id = Guid.NewGuid(),
-                        Name = "SHELTER IN PLACE",
-                        CommandType = "AirHorn",
-                        CommandHex = 5,
-                        Color = "#0F766E",
-                        Duration = 90
-                    }
-                };
-
-                CommandCards = new ObservableCollection<CommandConfigDto>(list);
-                await Task.CompletedTask;
+                // Same buttons as Command Center, configured in the Button Configuration module
+                CommandCards = new ObservableCollection<CommandConfigDto>(await PanelButtonService.LoadAsync());
             }
             catch (Exception ex)
             {
@@ -1197,6 +1130,8 @@ namespace Keemya.Frontend.ViewModels
             {
                 id = c.Id.ToString(),
                 name = c.Name,
+                color = c.ColorHex,
+                textColor = c.TextColorHex,
                 duration = c.Duration
             }).ToList();
             return System.Text.Json.JsonSerializer.Serialize(list);

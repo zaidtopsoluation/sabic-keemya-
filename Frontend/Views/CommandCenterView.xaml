@@ -6,6 +6,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
              xmlns:views="clr-namespace:Keemya.Frontend.Views"
+             xmlns:services="clr-namespace:Keemya.Frontend.Services"
              mc:Ignorable="d" d:DesignHeight="768" d:DesignWidth="1366">
 
     <UserControl.Resources>
@@ -135,56 +136,21 @@
                 </Grid.RowDefinitions>
 
                 <!-- Alarm Grid (Top) -->
-                <Grid Grid.Row="0" Margin="20,10,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Row 0 -->
-                    <!-- FIRE ALARM -->
-                    <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectFireAlarmCommand}" Margin="8" Width="140" Height="75" Background="#A72A2A">
-                        <TextBlock Text="FIRE ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- GAS ALARM -->
-                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectGasAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E68A00">
-                        <TextBlock Text="GAS ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- ALL CLEAR ALARM -->
-                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAllClearAlarmCommand}" Margin="8" Width="140" Height="75" Background="#2A75B3">
-                        <TextBlock Text="ALL CLEAR ALARM" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Row 1 -->
-                    <!-- RESET ALARM -->
-                    <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectResetAlarmCommand}" Margin="8" Width="140" Height="75" Background="#E6D900">
-                        <TextBlock Text="RESET ALARM" Foreground="Black" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- PUBLIC ADDRESS -->
-                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectPublicAddressCommand}" Margin="8" Width="140" Height="75" Background="#3B82F6">
-                        <TextBlock Text="PUBLIC ADDRESS" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- ATTENTION -->
-                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectAttentionCommand}" Margin="8" Width="140" Height="75" Background="#5C2AB3">
-                        <TextBlock Text="ATTENTION" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Row 2 -->
-                    <!-- SHELTER IN PLACE -->
-                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding SelectShelterInPlaceCommand}" Margin="8" Width="140" Height="75" Background="#0F766E">
-                        <TextBlock Text="SHELTER IN PLACE" Foreground="White" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button>
-                </Grid>
+                <!-- Buttons come from the Button Configuration module (CommandConfigs.ShowOnPanel) -->
+                <ItemsControl Grid.Row="0" Margin="20,10,0,0" ItemsSource="{Binding PanelButtons}" HorizontalAlignment="Left">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="3"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding DataContext.SelectPanelButtonCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Margin="8" Width="140" Height="75" Background="{Binding ColorHex}">
+                                <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <!-- Station Grid (Bottom) -->
                 <Grid Grid.Row="2" Margin="20,0,0,10">
@@ -551,7 +517,7 @@
                                    FontWeight="Bold" FontSize="11" VerticalAlignment="Center" FontFamily="Consolas"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="COM6 @ 1200 bps" Foreground="{StaticResource TextSecondary}" 
+                        <TextBlock Text="{Binding SerialPortDisplay, Source={x:Static services:SirenCommunicationService.Instance}, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" 
                                    FontSize="10" VerticalAlignment="Center" FontFamily="Consolas" Margin="0,0,10,0"/>
                         <Button x:Name="CopyLogsButton" Command="{Binding CopyLogsCommand}"
                                 Style="{StaticResource MaterialDesignFlatButton}"

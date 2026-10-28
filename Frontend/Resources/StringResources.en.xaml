@@ -10,8 +10,8 @@
     <sys:String x:Key="Cancel">Cancel</sys:String>
 
     <!-- Login Window -->
-    <sys:String x:Key="LoginTitle">Keemya</sys:String>
-    <sys:String x:Key="LoginSubtitle">Sign in to access the Keemya system</sys:String>
+    <sys:String x:Key="LoginTitle">TS Emergency Management System</sys:String>
+    <sys:String x:Key="LoginSubtitle">Sign in to access the TS Emergency Management System</sys:String>
     <sys:String x:Key="Username">Username</sys:String>
     <sys:String x:Key="Password">Password</sys:String>
     <sys:String x:Key="SignIn">Sign In</sys:String>
@@ -52,6 +52,8 @@
     <sys:String x:Key="ModProfileDesc">View your account settings, status details, and update your security password</sys:String>
     <sys:String x:Key="ModServiceMgmt">Service Management</sys:String>
     <sys:String x:Key="ModServiceMgmtDesc">Operational diagnostics, maintenance cycles, and system service controls</sys:String>
+    <sys:String x:Key="ModButtonConfig">Button Configuration</sys:String>
+    <sys:String x:Key="ModButtonConfigDesc">Add, color and order the activation buttons shown in Command Center and Map</sys:String>
 
 
     <!-- User Management View -->

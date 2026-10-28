@@ -43,9 +43,14 @@ namespace Keemya.Frontend
         public static string StationName { get; private set; } = "Admin ECC";
         public static string PttRelayPort { get; private set; } = "COM3";
 
-        public static bool IsControllerStation =>
-            string.Equals(StationName, "PCB-Controller", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(StationName, "RCB-Controller", StringComparison.OrdinalIgnoreCase);
+        /// <summary>"Server" (owns the siren links) or "Dispatcher" (operator screen). Empty on installs made before this setting existed.</summary>
+        public static string Role { get; private set; } = "";
+
+        public static bool IsControllerStation => Role.Length > 0
+            ? string.Equals(Role, "Server", StringComparison.OrdinalIgnoreCase)
+            // Older installs have no Role: keep the original rule based on the station name.
+            : string.Equals(StationName, "PCB-Controller", StringComparison.OrdinalIgnoreCase) ||
+              string.Equals(StationName, "RCB-Controller", StringComparison.OrdinalIgnoreCase);
 
         public static bool IsMasterDispatcher => IsControllerStation;
 
@@ -111,6 +116,16 @@ namespace Keemya.Frontend
                         if (!string.IsNullOrWhiteSpace(value))
                         {
                             StationName = value;
+                        }
+                    }
+
+                    if (doc.RootElement.TryGetProperty("Role", out var roleProp))
+                    {
+                        var value = roleProp.GetString()?.Trim();
+                        if (string.Equals(value, "Server", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(value, "Dispatcher", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Role = value!;
                         }
                     }
 

@@ -14,7 +14,7 @@ using MySqlConnector;
 
 namespace Keemya.Frontend.Services
 {
-    public class SirenCommunicationService
+    public class SirenCommunicationService : System.ComponentModel.INotifyPropertyChanged
     {
         private static readonly Lazy<SirenCommunicationService> _instance =
             new Lazy<SirenCommunicationService>(() => new SirenCommunicationService());
@@ -46,7 +46,7 @@ namespace Keemya.Frontend.Services
         private const int SerialAckTimeoutMs = 1200;         // ACK wait for 1200 baud serial (125ms send + 450ms C2030 process + 125ms reply = ~700-900ms)
         private const int SerialOfflineAckTimeoutMs = 1000;  // ACK wait for offline 1200 baud sirens to safely receive slow frames
         private const int TcpAckTimeoutMs = 800;             // was 1000ms (hardcoded) — ACK wait over TCP
-        private const int AutoDetectCooldownMs = 60000;      // NEW — prevents auto-detect from re-triggering (and hogging the serial lock) on every single failed send
+        private const int AutoDetectCooldownMs = 300000;     // a scan holds the serial line ~30 s per port; when the siren is really off, rescan only every 5 min
         private const int UserCommandLockTimeoutMs = 8000;   // was 30000ms — ceiling to acquire serial lock for a user command
         private const int PollingLockTimeoutMs = 2000;        // was 3000ms — ceiling to acquire serial lock for background polling
         private const int SerialPollInterDeviceDelayMs_Many = 500;  // was 2000ms — gap between polling >5 serial sirens
@@ -68,6 +68,8 @@ namespace Keemya.Frontend.Services
 
         // Consecutive failure counter — siren must fail this many polls in a row before OFFLINE is declared
         private const int OfflineThreshold = 2;
+        private const int QueueCommandMaxAgeSeconds = 30;      // relayed commands older than this are expired, never sent late
+        private const int UnhealthyControllerGraceSeconds = 3; // a controller with no working siren link waits this long before taking a command
         private static readonly ConcurrentDictionary<string, int> _failureCounters = new();
 
         // Live in-memory cache of siren states
@@ -92,6 +94,7 @@ namespace Keemya.Frontend.Services
         // Auto-detect throttling — protects against a single unresponsive siren
         // repeatedly triggering a full port/baud scan and starving the serial lock
         private DateTime _lastAutoDetectAttempt = DateTime.MinValue;
+        private int _silentSerialRounds;
 
         private SirenCommunicationService()
         {
@@ -408,25 +411,66 @@ namespace Keemya.Frontend.Services
                 conn.Open();
 
                 // Read port name and baud rate for the CURRENT workstation from the database
+                bool hasSerialConfig = false;
                 string sql = "SELECT PortName, BaudRate FROM WorkstationSerialConfigs WHERE StationName = @StationName LIMIT 1";
-                using var cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@StationName", AppConfig.StationName);
-                using var rdr = cmd.ExecuteReader();
-                if (rdr.Read())
+                using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    _serialPortName = rdr.GetString(0);
-                    int dbBaud = rdr.GetInt32(1);
-                    if (dbBaud == 1200 || dbBaud == 9600)
-                        _serialBaudRate = dbBaud;
-                    else
-                        Log($"⚠️ [Serial Config] Invalid baud rate {dbBaud} in DB — keeping default {_serialBaudRate}.");
+                    cmd.Parameters.AddWithValue("@StationName", AppConfig.StationName);
+                    using var rdr = cmd.ExecuteReader();
+                    if (rdr.Read())
+                    {
+                        hasSerialConfig = true;
+                        _serialPortName = rdr.GetString(0);
+                        int dbBaud = rdr.GetInt32(1);
+                        if (dbBaud == 1200 || dbBaud == 9600)
+                            _serialBaudRate = dbBaud;
+                        else
+                            Log($"⚠️ [Serial Config] Invalid baud rate {dbBaud} in DB — keeping default {_serialBaudRate}.");
 
-                    Log($"⚙️ [Serial Config] Loaded: {_serialPortName} @ {_serialBaudRate} baud for workstation {AppConfig.StationName}");
+                        Log($"⚙️ [Serial Config] Loaded: {_serialPortName} @ {_serialBaudRate} baud for workstation {AppConfig.StationName}");
+                        OnPropertyChanged(nameof(SerialPortDisplay));
+                    }
                 }
+
+                CheckStationRole(conn, hasSerialConfig);
             }
             catch
             {
                 Log($"⚙️ [Serial Config] DB table missing or unseeded for {AppConfig.StationName}. Using defaults: {_serialPortName} @ {_serialBaudRate} baud");
+            }
+        }
+
+        // Like GV Core, the role should match the hardware: a server owns a siren link, a dispatcher does not.
+        private void CheckStationRole(MySqlConnection conn, bool hasSerialConfig)
+        {
+            try
+            {
+                string role = AppConfig.IsControllerStation ? "Server" : "Dispatcher";
+                Log($"🖥️ [Station] '{AppConfig.StationName}' running as {role}{(AppConfig.Role.Length == 0 ? " (from station name, no Role in appsettings.json)" : "")}.");
+
+                string? warning = null;
+                if (AppConfig.IsControllerStation)
+                {
+                    bool hasComPort = hasSerialConfig || SerialPort.GetPortNames().Any(p => p.Equals(_serialPortName, StringComparison.OrdinalIgnoreCase));
+                    using var ipCmd = new MySqlCommand("SELECT COUNT(*) FROM SirenDevices WHERE Ip <> ''", conn);
+                    bool hasTcpSirens = Convert.ToInt32(ipCmd.ExecuteScalar()) > 0;
+                    if (!hasComPort && !hasTcpSirens)
+                        warning = $"Station '{AppConfig.StationName}' is set up as a Server, but it has no siren connection (no serial port '{_serialPortName}' and no sirens with an IP address). It cannot send commands to sirens.";
+                }
+                else if (hasSerialConfig)
+                {
+                    warning = $"Station '{AppConfig.StationName}' is set up as a Dispatcher, but a siren serial port ({_serialPortName}) is configured for it. Dispatchers do not talk to sirens; set Role to \"Server\" in appsettings.json if this PC is a siren controller.";
+                }
+
+                if (warning != null)
+                {
+                    Log($"⚠️ [Station] {warning}");
+                    _ = new NotificationService().AddNotificationAsync("Station Role Check", warning, "Warning");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"⚠️ [Station] Role check skipped: {ex.Message}");
             }
         }
 
@@ -436,221 +480,85 @@ namespace Keemya.Frontend.Services
             _serialPortName = portName;
             _serialBaudRate = baudRate;
             Log($"⚙️ [Serial Config] Serial port manually configured to: {_serialPortName} @ {_serialBaudRate} baud");
+            OnPropertyChanged(nameof(SerialPortDisplay));
             _ = Task.Run(() => SaveSerialPortConfigAsync(portName, baudRate));
         }
 
-        public async Task<string?> AutoDetectSerialPortAsync()
+        // Finds the COM port the sirens are on, so the app is not tied to COM4. Tries every port Windows lists
+        // (last known first) through the normal serial send path, so RTS, the 950 ms Whelen gap and the reply
+        // validation are the same as polling; the first port where a known serial siren gives a valid reply wins
+        // and is saved for this station. Runs when the configured port is missing or no serial siren answers.
+        public async Task<string?> AutoDetectSerialPortAsync(string reason)
         {
-            if (!AppConfig.IsMasterDispatcher) return null;
+            if (!AppConfig.IsMasterDispatcher || _isAutoDetecting) return null;
+            if (!TryBeginAutoDetectThrottle()) return null;
 
-            if (_hasSuccessfulSerialComm)
-            {
-                Log("🔍 [Auto-Detect] Serial communication is active and healthy — skipping port scan.");
-                return _serialPortName;
-            }
-
-            if (_isAutoDetecting)
-            {
-                Log("🔍 [Auto-Detect] Port scanning is already in progress.");
-                return null;
-            }
-
-            if (DateTime.Now - _lastAutoDetectAttempt < TimeSpan.FromMinutes(10))
-            {
-                Log("⏳ [Auto-Detect] Auto-detect on cooldown (< 10 mins). Skipping scan to prevent serial port lock contention.");
-                return null;
-            }
+            string[] ports = SerialPort.GetPortNames();
+            var probes = _sirenCache.Values.Where(s => UsesSerial(s.Ip, s.Redundant))
+                .OrderByDescending(s => s.IsSerialOnline).ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            if (probes.Count == 0) return null;
 
             _isAutoDetecting = true;
-            _lastAutoDetectAttempt = DateTime.Now;
-            Log("🔍 [Auto-Detect] Starting automatic serial port detection...");
-
-            // 1. Get all siren addresses from DB to test, starting with wildcard
-            var testFrames = new List<(string Name, byte[] Frame)>();
-            
-            // Always prioritize wildcard frame first to quickly scan on any active port
-            byte[] wildcardFrame = new byte[15];
-            wildcardFrame[0] = 0x02;
-            wildcardFrame[1] = 0x8F; wildcardFrame[2] = 0x8F; wildcardFrame[3] = 0x8F;
-            wildcardFrame[4] = 0x8F; wildcardFrame[5] = 0x8F; wildcardFrame[6] = 0x8F; wildcardFrame[7] = 0x8F;
-            wildcardFrame[8] = 0x80; wildcardFrame[9] = 0x80;
-            wildcardFrame[10] = 0xA3;
-            wildcardFrame[11] = 0x03;
-            byte wildcardXor = 0;
-            for (int i = 0; i <= 11; i++) wildcardXor ^= wildcardFrame[i];
-            wildcardFrame[12] = (byte)(0x80 | (wildcardXor >> 4));
-            wildcardFrame[13] = (byte)(0x80 | (wildcardXor & 0x0F));
-            wildcardFrame[14] = 0x0D;
-            testFrames.Add(("Default Wildcard", wildcardFrame));
-
+            string originalPort = _serialPortName;
+            int originalBaud = _serialBaudRate;
+            Log($"🔍 [Auto-Detect] {reason} Scanning {string.Join(", ", ports)} for a responding siren...");
             try
             {
-                using var conn = new MySqlConnection(AppConfig.ConnectionString);
-                await conn.OpenAsync();
-                using var cmd = new MySqlCommand("SELECT Name, AreaCode, AddressCode FROM SirenDevices", conn);
-                using var rdr = await cmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
+                foreach (int baud in new[] { 1200, 9600 }) // Whelen RS232IM is fixed at 1200; 9600 for converters
                 {
-                    string name = rdr.GetString(0);
-                    string areaCode = rdr.IsDBNull(1) ? "000" : rdr.GetString(1);
-                    string addressCode = rdr.IsDBNull(2) ? "0000" : rdr.GetString(2);
-
-                    // Construct 15-byte protocol frame for 0x23 (Instant Status Check)
-                    byte[] frame = new byte[15];
-                    frame[0] = 0x02;
-
-                    string area = areaCode.PadLeft(3, '0');
-                    frame[1] = (byte)(0x80 | (area[0] - '0'));
-                    frame[2] = (byte)(0x80 | (area[1] - '0'));
-                    frame[3] = (byte)(0x80 | (area[2] - '0'));
-
-                    string addr = addressCode.PadLeft(4, '0');
-                    frame[4] = (byte)(0x80 | (addr[0] - '0'));
-                    frame[5] = (byte)(0x80 | (addr[1] - '0'));
-                    frame[6] = (byte)(0x80 | (addr[2] - '0'));
-                    frame[7] = (byte)(0x80 | (addr[3] - '0'));
-
-                    frame[8] = 0x80;
-                    frame[9] = 0x80;
-                    frame[10] = 0xA3; // 0x23 | 0x80
-                    frame[11] = 0x03;
-
-                    byte xor = 0;
-                    for (int i = 0; i <= 11; i++) xor ^= frame[i];
-                    frame[12] = (byte)(0x80 | (xor >> 4));
-                    frame[13] = (byte)(0x80 | (xor & 0x0F));
-                    frame[14] = 0x0D;
-
-                    testFrames.Add((name, frame));
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"⚠️ [Auto-Detect] Database query failed: {ex.Message}");
-            }
-
-            string[] availablePorts = SerialPort.GetPortNames()
-                .OrderByDescending(p => p.Equals(_serialPortName, StringComparison.OrdinalIgnoreCase))
-                .ThenBy(p => p)
-                .ToArray();
-
-            if (availablePorts.Length == 0)
-            {
-                Log("❌ [Auto-Detect] No active COM ports found on this machine.");
-                _isAutoDetecting = false;
-                return null;
-            }
-
-            Log($"🔍 [Auto-Detect] Found {availablePorts.Length} port(s) (prioritizing {_serialPortName}): {string.Join(", ", availablePorts)}");
-
-            // Acquire lock to avoid conflict with normal transmission (max 1s wait)
-            if (!await _serialLock.WaitAsync(1000))
-            {
-                Log("⚠️ [Auto-Detect] Serial port lock is busy. Aborting scan.");
-                _isAutoDetecting = false;
-                return null;
-            }
-
-            try
-            {
-                // Temporarily close and dispose active serial port
-                if (_serialPort != null)
-                {
-                    try
+                    foreach (string port in OrderPortsForScan(ports, originalPort))
                     {
-                        if (_serialPort.IsOpen)
-                            _serialPort.Close();
-                    }
-                    catch {}
-                    _serialPort.Dispose();
-                    _serialPort = null;
-                }
-
-                // Whelen RS232IM interface spec: fixed at 1200 baud (1 start bit, 8 data bits, 1 stop bit, no parity)
-                int[] baudsToTest = new int[] { 1200, 9600 };
-
-                foreach (string portName in availablePorts)
-                {
-                    foreach (int baudRate in baudsToTest)
-                    {
-                        Log($"🔍 [Auto-Detect] Testing {portName} @ {baudRate} baud...");
-                        using var testPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One);
-                        testPort.ReadTimeout = 250;
-                        testPort.WriteTimeout = 250;
-
-                        try
+                        _serialPortName = port;
+                        _serialBaudRate = baud;
+                        foreach (var s in probes)
                         {
-                            testPort.Open();
+                            if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5)) await Task.Delay(3000);
+                            var (ok, _) = await SendSerialCommandDetailedAsync(BuildStatusFrame(s.AreaCode, s.AddressCode), true, false);
+                            if (!ok) continue;
 
-                            foreach (var tf in testFrames)
-                            {
-                                Log($"🔍 [Auto-Detect]   Pinging with address of '{tf.Name}'...");
-                                testPort.DiscardInBuffer();
-                                testPort.DiscardOutBuffer();
-
-                                testPort.Write(tf.Frame, 0, tf.Frame.Length);
-
-                                // Fast wait up to 250ms for reply
-                                var sw = System.Diagnostics.Stopwatch.StartNew();
-                                bool replied = false;
-                                while (sw.ElapsedMilliseconds < 250)
-                                {
-                                    if (testPort.BytesToRead > 0)
-                                    {
-                                        replied = true;
-                                        break;
-                                    }
-                                    await Task.Delay(25);
-                                }
-
-                                if (replied)
-                                {
-                                    Log($"✨ [Auto-Detect] SUCCESS! Siren responded on port {portName} @ {baudRate} baud using address of '{tf.Name}'.");
-                                    _serialPortName = portName;
-                                    _serialBaudRate = baudRate;
-                                    _hasSuccessfulSerialComm = true;
-                                    
-                                    // Reinitialize main serial port to this config
-                                    if (_serialPort != null)
-                                    {
-                                        try
-                                        {
-                                            if (_serialPort.IsOpen) _serialPort.Close();
-                                        }
-                                        catch {}
-                                        _serialPort.Dispose();
-                                    }
-                                    _serialPort = new SerialPort(_serialPortName, _serialBaudRate, Parity.None, 8, StopBits.One);
-                                    _serialPort.ReadTimeout = 2000;
-                                    _serialPort.WriteTimeout = 2000;
-
-                                    // Save to database
-                                    _ = Task.Run(() => SaveSerialPortConfigAsync(portName, baudRate));
-
-                                    return portName;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"🔍 [Auto-Detect] Port {portName} @ {baudRate} baud check failed: {ex.Message}");
-                        }
-                        finally
-                        {
-                            if (testPort.IsOpen) testPort.Close();
+                            Log($"✨ [Auto-Detect] '{s.Name}' answered on {port} @ {baud} baud. Using this port.");
+                            _hasSuccessfulSerialComm = true;
+                            if (!port.Equals(originalPort, StringComparison.OrdinalIgnoreCase) || baud != originalBaud)
+                                _ = Task.Run(() => SaveSerialPortConfigAsync(port, baud));
+                            OnPropertyChanged(nameof(SerialPortDisplay));
+                            return port;
                         }
                     }
                 }
 
-                Log("❌ [Auto-Detect] No responding sirens found on any available COM port.");
+                _serialPortName = originalPort;
+                _serialBaudRate = originalBaud;
+                Log($"❌ [Auto-Detect] No siren answered on any COM port. Keeping {originalPort} @ {originalBaud}; retrying in {AutoDetectCooldownMs / 60000} min.");
                 return null;
             }
             finally
             {
-                _serialLock.Release();
                 _isAutoDetecting = false;
             }
         }
+
+        /// <summary>Removes our own request from the start of the received bytes (echo); a real reply may follow it.</summary>
+        internal static byte[] StripLeadingEcho(byte[] data, byte[]? sent)
+        {
+            if (sent == null || sent.Length == 0 || data.Length < sent.Length) return data;
+            int start = Array.IndexOf(data, (byte)0x02);
+            if (start < 0 || data.Length - start < sent.Length) return data;
+            for (int i = 0; i < sent.Length; i++)
+                if (data[start + i] != sent[i]) return data;
+            return data.Skip(start + sent.Length).ToArray();
+        }
+
+        /// <summary>Scan order: the last known port first, then COM1, COM2 ... COM10 in numeric order.</summary>
+        internal static IEnumerable<string> OrderPortsForScan(IEnumerable<string> ports, string preferred) =>
+            ports.Distinct(StringComparer.OrdinalIgnoreCase)
+                 .OrderByDescending(p => p.Equals(preferred, StringComparison.OrdinalIgnoreCase))
+                 .ThenBy(p => p.Length)
+                 .ThenBy(p => p, StringComparer.OrdinalIgnoreCase);
+
+        public string SerialPortDisplay => $"{_serialPortName} @ {_serialBaudRate} bps";
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
         private async Task SaveSerialPortConfigAsync(string portName, int baudRate)
         {
@@ -703,7 +611,7 @@ namespace Keemya.Frontend.Services
             {
                 if (_serialPort == null || !_serialPort.IsOpen)
                 {
-                    if (_serialPort != null && _serialPort.PortName == _serialPortName)
+                    if (_serialPort != null && _serialPort.PortName == _serialPortName && _serialPort.BaudRate == _serialBaudRate)
                     {
                         _serialPort.Open();
                     }
@@ -836,11 +744,10 @@ namespace Keemya.Frontend.Services
                         await connection.OpenAsync();
                         string sql = @"
                             INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
-                            VALUES (@Id, '__WILDCARD_CLEAR__', '', 0, '', 0, 1, @Created, 'PENDING');";
+                            VALUES (@Id, '__WILDCARD_CLEAR__', '', 0, '', 0, 1, NOW(6), 'PENDING');";
                         using (var cmd = new MySqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
-                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
                             await cmd.ExecuteNonQueryAsync();
                         }
                     }
@@ -931,14 +838,13 @@ namespace Keemya.Frontend.Services
                         await connection.OpenAsync();
                         string sql = @"
                             INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
-                            VALUES (@Id, '__RAW_SERIAL__', '', 0, @FrameHex, @TrackStatus, @IsUserInitiated, @Created, 'PENDING');";
+                            VALUES (@Id, '__RAW_SERIAL__', '', 0, @FrameHex, @TrackStatus, @IsUserInitiated, NOW(6), 'PENDING');";
                         using (var cmd = new MySqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
                             cmd.Parameters.AddWithValue("@FrameHex", BitConverter.ToString(frame).Replace("-", ""));
                             cmd.Parameters.AddWithValue("@TrackStatus", expectsAck ? 1 : 0);
                             cmd.Parameters.AddWithValue("@IsUserInitiated", isUserInitiated ? 1 : 0);
-                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
                             await cmd.ExecuteNonQueryAsync();
                         }
                     }
@@ -970,7 +876,7 @@ namespace Keemya.Frontend.Services
             try
             {
                 // Check if port is already open or configured
-                if (_serialPort == null || _serialPort.PortName != _serialPortName)
+                if (_serialPort == null || _serialPort.PortName != _serialPortName || _serialPort.BaudRate != _serialBaudRate)
                 {
                     if (_serialPort != null)
                     {
@@ -1272,7 +1178,7 @@ namespace Keemya.Frontend.Services
             return BuildFrameWithCommand(originalFrame, 0x1A);
         }
 
-        private byte[] BuildFrameWithCommand(byte[] originalFrame, byte targetCommand)
+        internal static byte[] BuildFrameWithCommand(byte[] originalFrame, byte targetCommand)
         {
             byte[] frame = new byte[15];
             frame[0] = 0x02; // STX
@@ -1299,7 +1205,7 @@ namespace Keemya.Frontend.Services
             return frame;
         }
 
-        private byte[] BuildUnitFrame(string areaCode, string addressCode, byte commandHex)
+        internal static byte[] BuildUnitFrame(string areaCode, string addressCode, byte commandHex)
         {
             byte[] frame = new byte[15];
             frame[0] = 0x02;
@@ -1342,7 +1248,7 @@ namespace Keemya.Frontend.Services
             {
                 if (_serialPort == null || !_serialPort.IsOpen)
                 {
-                    if (_serialPort != null && _serialPort.PortName == _serialPortName)
+                    if (_serialPort != null && _serialPort.PortName == _serialPortName && _serialPort.BaudRate == _serialBaudRate)
                     {
                         _serialPort.Open();
                     }
@@ -1405,7 +1311,7 @@ namespace Keemya.Frontend.Services
                         await connection.OpenAsync();
                         string sql = @"
                             INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
-                            VALUES (@Id, @Target, @Ip, @Redundant, @FrameHex, @TrackStatus, @IsUserInitiated, @Created, 'PENDING');";
+                            VALUES (@Id, @Target, @Ip, @Redundant, @FrameHex, @TrackStatus, @IsUserInitiated, NOW(6), 'PENDING');";
                         using (var cmd = new MySqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
@@ -1415,7 +1321,6 @@ namespace Keemya.Frontend.Services
                             cmd.Parameters.AddWithValue("@FrameHex", BitConverter.ToString(frame).Replace("-", ""));
                             cmd.Parameters.AddWithValue("@TrackStatus", trackStatus ? 1 : 0);
                             cmd.Parameters.AddWithValue("@IsUserInitiated", isUserInitiated ? 1 : 0);
-                            cmd.Parameters.AddWithValue("@Created", DateTime.Now);
                             await cmd.ExecuteNonQueryAsync();
                         }
                     }
@@ -1446,14 +1351,22 @@ namespace Keemya.Frontend.Services
             // Tone and setup commands (Wail, Attack, Alert, PA, Siren On/Off) are write-only activations.
             bool expectsAck = (cmdByte == 35 || cmdByte == 31 || cmdByte == 15 || cmdByte == 22 || cmdByte == 33 || cmdByte == 34);
 
+            var userOpCache = isUserInitiated ? GetCacheItemByAddressOrSource(sirenName) : null;
+            DateTime? previousOperatedTime = userOpCache?.LastOperatedTime;
             if (isUserInitiated)
             {
                 InterruptSerialRead();
-                var userOpCache = GetCacheItemByAddressOrSource(sirenName);
                 if (userOpCache != null)
                 {
                     userOpCache.LastOperatedTime = DateTime.Now;
                 }
+            }
+
+            // The 3-minute "siren is busy playing, ignore serial timeouts" grace only makes sense if the command
+            // actually went out; after a failed send it hid a pulled cable for 3+ minutes (stayed yellow).
+            void UndoOperatedOnFailure()
+            {
+                if (userOpCache != null) userOpCache.LastOperatedTime = previousOperatedTime;
             }
 
             if (!expectsAck)
@@ -1605,6 +1518,7 @@ namespace Keemya.Frontend.Services
                 else
                 {
                     Log($"❌ [Redundant Transmit] BOTH TCP and Serial paths failed for {sirenName}.");
+                    UndoOperatedOnFailure();
                 }
 
                 return overallSuccess;
@@ -1636,6 +1550,7 @@ namespace Keemya.Frontend.Services
             else
             {
                 Log($"❌ [Redundant Transmit] Serial transmit failed for {sirenName}.");
+                UndoOperatedOnFailure();
                 if (expectsAck && trackStatus)
                 {
                     TrackSerialFailure(sirenName);
@@ -1644,7 +1559,109 @@ namespace Keemya.Frontend.Services
             }
         }
 
-        public string GetComputedStatus(SirenStatusCacheItem item)
+        // Both servers often reach the sirens through one TCP gateway that answers only one client, so each server
+        // publishes the status it measured (SirenLinkStatus, synced) and screens show the best fresh one.
+        private static readonly TimeSpan PeerStatusMaxAge = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan ShareRefreshInterval = TimeSpan.FromSeconds(20);
+
+        public string GetComputedStatus(SirenStatusCacheItem item) =>
+            CombineStatus(ComputeStatus(item), DateTime.Now - item.PeerSeenAt < PeerStatusMaxAge ? item.PeerStatus : null);
+
+        internal static string CombineStatus(string own, string? peer)
+        {
+            static int Rank(string? s) => s switch { "ONLINE" => 2, "WARNING" => 1, _ => 0 };
+            return Rank(peer) > Rank(own) ? peer! : own;
+        }
+
+        // Two servers polling the same siren line collide (the C2030 needs ~850 ms between commands) and the siren
+        // stops answering both. Like GV Core redundancy, only the preferred server (Server 1) polls while it is
+        // publishing status; the other stays on standby and takes over when the preferred one goes quiet.
+        private bool _pollingStandby;
+
+        internal static bool ShouldStandby(bool localPreferred, bool hasPeer, bool peerPublishing) =>
+            hasPeer && !localPreferred && peerPublishing;
+
+        private bool IsPollingStandby()
+        {
+            bool hasPeer = !string.Equals(AppConfig.PrimaryConnectionString, AppConfig.SecondaryConnectionString, StringComparison.OrdinalIgnoreCase);
+            bool localPreferred = string.CompareOrdinal(AppConfig.PrimaryServerName, AppConfig.SecondaryServerName) < 0;
+            bool peerPublishing = _sirenCache.Values.Any(i => DateTime.Now - i.PeerSeenAt < PeerStatusMaxAge);
+            bool standby = ShouldStandby(localPreferred, hasPeer, peerPublishing);
+
+            if (standby != _pollingStandby)
+            {
+                _pollingStandby = standby;
+                if (standby)
+                {
+                    // Our TCP results go stale while we do not poll the shared gateway; serial keeps being polled here.
+                    foreach (var i in _sirenCache.Values) { i.IsTcpOnline = false; i.IsOnline = i.IsSerialOnline; i.HasOwnMeasurement = false; }
+                    Log($"⏸️ [Polling] Standby: {AppConfig.SecondaryServerName} polls the TCP gateways; this PC still polls its own serial port.");
+                }
+                else
+                {
+                    Log($"▶️ [Polling] Active: this server polls the sirens{(hasPeer && !localPreferred ? $" ({AppConfig.SecondaryServerName} stopped publishing)" : "")}.");
+                }
+            }
+            return standby;
+        }
+
+        private async Task ShareLinkStatusAsync(MySqlConnection connection)
+        {
+            try
+            {
+                using (var create = new MySqlCommand(@"CREATE TABLE IF NOT EXISTS `SirenLinkStatus` (
+                    `SirenName` varchar(255) NOT NULL, `Station` varchar(255) NOT NULL, `Status` varchar(20) NOT NULL,
+                    `UpdatedAt` datetime(6) NOT NULL, PRIMARY KEY (`SirenName`, `Station`))", connection))
+                    await create.ExecuteNonQueryAsync();
+
+                var items = _sirenCache.Values.ToList();
+
+                // 1. Publish what this server measures itself; refresh periodically so the peer can tell it is current.
+                //    Only sirens actually polled since startup (on standby: since its serial port was last polled),
+                //    so a DB-seeded guess or stale TCP result never reaches the other server.
+                foreach (var item in items.Where(i => i.HasOwnMeasurement))
+                {
+                    string own = ComputeStatus(item);
+                    if (own == item.LastSharedStatus && DateTime.Now - item.LastSharedAt < ShareRefreshInterval) continue;
+                    using var up = new MySqlCommand(@"INSERT INTO SirenLinkStatus (SirenName, Station, Status, UpdatedAt) VALUES (@n, @s, @st, NOW(6))
+                        ON DUPLICATE KEY UPDATE Status = @st, UpdatedAt = NOW(6)", connection);
+                    up.Parameters.AddWithValue("@n", item.Name);
+                    up.Parameters.AddWithValue("@s", AppConfig.StationName);
+                    up.Parameters.AddWithValue("@st", own);
+                    await up.ExecuteNonQueryAsync();
+                    item.LastSharedStatus = own;
+                    item.LastSharedAt = DateTime.Now;
+                }
+
+                // 2. Read the other servers' measurements. Freshness is judged by when this PC saw the row change,
+                //    so a wrong clock on the other server does not matter.
+                var peerRows = new List<(string Name, string Status, string Stamp)>();
+                using (var sel = new MySqlCommand("SELECT SirenName, Status, CAST(UpdatedAt AS CHAR) FROM SirenLinkStatus WHERE Station <> @s", connection))
+                {
+                    sel.Parameters.AddWithValue("@s", AppConfig.StationName);
+                    using var rdr = await sel.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync()) peerRows.Add((rdr.GetString(0), rdr.GetString(1), rdr.GetString(2)));
+                }
+                foreach (var item in items)
+                {
+                    foreach (var row in peerRows.Where(r => r.Name == item.Name))
+                    {
+                        string key = row.Name + "|" + row.Stamp;
+                        if (item.PeerSeenStamps.Add(key)) { item.PeerStatus = row.Status; item.PeerSeenAt = DateTime.Now; }
+                    }
+                    if (item.PeerSeenStamps.Count > 50) item.PeerSeenStamps.Clear();
+
+                    // 3. Push the combined result to the DB/screens (skipped inside when unchanged; also covers peer expiry).
+                    await SyncSirenStatusToDbAndNotifyAsync(item.Name, GetComputedStatus(item));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"⚠️ [Status Share] {ex.Message}");
+            }
+        }
+
+        internal static string ComputeStatus(SirenStatusCacheItem item)
         {
             // 1. If neither TCP nor Serial channel is connected -> OFFLINE (Solid RED)
             if (!item.IsTcpOnline && !item.IsSerialOnline)
@@ -1656,16 +1673,20 @@ namespace Keemya.Frontend.Services
                 return "WARNING";
             }
 
-            // 3. Both communication mediums (TCP and Serial) must be connected to be ONLINE (Solid GREEN).
-            // If connected on only ONE medium (TCP only or Serial only) -> WARNING (Solid YELLOW - Partial connection).
-            if (item.IsTcpOnline && item.IsSerialOnline)
+            // 3. GREEN when every path this siren is configured for answers; YELLOW when only some do.
+            //    Redundant siren = TCP + serial, IP only = TCP, no IP = serial.
+            bool needsTcp = UsesTcp(item.Ip);
+            bool needsSerial = UsesSerial(item.Ip, item.Redundant);
+            if ((!needsTcp || item.IsTcpOnline) && (!needsSerial || item.IsSerialOnline))
             {
                 return "ONLINE";
             }
 
-            // Only 1 medium connected -> WARNING (Solid YELLOW)
             return "WARNING";
         }
+
+        internal static bool UsesTcp(string? ip) => !string.IsNullOrWhiteSpace(ip);
+        internal static bool UsesSerial(string? ip, bool redundant) => string.IsNullOrWhiteSpace(ip) || redundant;
 
         // One lock per siren so status writes from the TCP and serial pollers are applied
         // in call order. Without it, an older status could reach the DB last and stay stuck there.
@@ -1701,10 +1722,6 @@ namespace Keemya.Frontend.Services
                 {
                     return; // Skip DB write and event notification if nothing has changed
                 }
-                cacheItem.LastKnownStatus = statusStr;
-                cacheItem.LastSyncedAcFailed = acFailed;
-                cacheItem.LastSyncedApmFailed = apmFailed;
-                cacheItem.LastSyncedDoorIntruded = doorIntruded;
             }
 
             try
@@ -1740,6 +1757,16 @@ namespace Keemya.Frontend.Services
                     await command.ExecuteNonQueryAsync();
                 }
 
+                // Remember only after the write succeeded: marking it saved first left the DB stuck on the old
+                // status forever when one write failed (e.g. a MySQL hiccup), since every retry was skipped as "unchanged".
+                if (cacheItem != null)
+                {
+                    cacheItem.LastKnownStatus = statusStr;
+                    cacheItem.LastSyncedAcFailed = acFailed;
+                    cacheItem.LastSyncedApmFailed = apmFailed;
+                    cacheItem.LastSyncedDoorIntruded = doorIntruded;
+                }
+
                 // Fire status changed event
                 SirenStatusChanged?.Invoke(sirenName, statusStr);
             }
@@ -1761,6 +1788,7 @@ namespace Keemya.Frontend.Services
                 cacheItem.IsTcpOnline = true;
                 cacheItem.IsOnline = true;
                 cacheItem.LastUpdated = DateTime.Now;
+                cacheItem.HasOwnMeasurement = true;
                 string computedStatus = GetComputedStatus(cacheItem);
                 _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
             }
@@ -1778,6 +1806,7 @@ namespace Keemya.Frontend.Services
             {
                 cacheItem.IsTcpOnline = false;
                 cacheItem.LastUpdated = DateTime.Now;
+                cacheItem.HasOwnMeasurement = true;
                 string computedStatus = GetComputedStatus(cacheItem);
                 _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
             }
@@ -1792,6 +1821,7 @@ namespace Keemya.Frontend.Services
                 cacheItem.IsSerialOnline = true;
                 cacheItem.IsOnline = true;
                 cacheItem.LastUpdated = DateTime.Now;
+                cacheItem.HasOwnMeasurement = true;
                 string computedStatus = GetComputedStatus(cacheItem);
                 _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
             }
@@ -1815,6 +1845,7 @@ namespace Keemya.Frontend.Services
             {
                 cacheItem.IsSerialOnline = false;
                 cacheItem.LastUpdated = DateTime.Now;
+                cacheItem.HasOwnMeasurement = true;
                 string computedStatus = GetComputedStatus(cacheItem);
                 _ = SyncSirenStatusToDbAndNotifyAsync(sirenName, computedStatus);
             }
@@ -1958,6 +1989,22 @@ namespace Keemya.Frontend.Services
             }
         }
 
+        /// <summary>The local IPv4 address on the same subnet as the peer, or null when none matches.</summary>
+        internal static string? PickLocalIpForPeer(System.Net.IPAddress peer, IEnumerable<(System.Net.IPAddress Address, System.Net.IPAddress Mask)> locals)
+        {
+            byte[] p = peer.GetAddressBytes();
+            foreach (var (address, mask) in locals)
+            {
+                if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork || mask == null || System.Net.IPAddress.IsLoopback(address)) continue;
+                byte[] a = address.GetAddressBytes(), m = mask.GetAddressBytes();
+                if (m.All(b => b == 0)) continue;
+                bool same = true;
+                for (int i = 0; i < 4; i++) same &= (a[i] & m[i]) == (p[i] & m[i]);
+                if (same) return address.ToString();
+            }
+            return null;
+        }
+
         private async Task<string> DetectMyIpAddressAsync(MySqlConnection connection)
         {
             try
@@ -1974,6 +2021,24 @@ namespace Keemya.Frontend.Services
                         }
                     }
                 }
+            }
+            catch {}
+
+            // A server connects to localhost, so USER() gives no IP. Laptops often have Wi-Fi plus the siren LAN;
+            // report the address on the other server's subnet, or the peer pings an unreachable Wi-Fi IP.
+            try
+            {
+                string peerHost = new MySqlConnectionStringBuilder(AppConfig.SecondaryConnectionString).Server;
+                var peerIp = System.Net.IPAddress.TryParse(peerHost, out var parsed)
+                    ? parsed
+                    : (await System.Net.Dns.GetHostAddressesAsync(peerHost)).FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                var locals = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                    .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+                    .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                    .Where(u => u.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    .Select(u => (u.Address, u.IPv4Mask));
+                string? sameSubnet = peerIp == null ? null : PickLocalIpForPeer(peerIp, locals);
+                if (sameSubnet != null) return sameSubnet;
             }
             catch {}
 
@@ -2025,6 +2090,9 @@ namespace Keemya.Frontend.Services
                                 cmd.Parameters.AddWithValue("@Name", AppConfig.StationName);
                                 await cmd.ExecuteNonQueryAsync();
                             }
+
+                            if (AppConfig.IsControllerStation)
+                                await ShareLinkStatusAsync(connection);
 
                             // 2. Query all stations to check heartbeats of remote workstations & ping controllers
                             var stations = new List<(Guid Id, string Name, string Type, string IpAddress, DateTime? LastHeartbeat)>();
@@ -2095,7 +2163,7 @@ namespace Keemya.Frontend.Services
             });
         }
 
-        private byte[] BuildStatusFrame(string areaCode, string addressCode)
+        internal static byte[] BuildStatusFrame(string areaCode, string addressCode)
         {
             byte[] frame = new byte[15];
             frame[0] = 0x02;
@@ -2181,13 +2249,19 @@ namespace Keemya.Frontend.Services
                         continue;
                     }
 
+                    if (IsPollingStandby())
+                    {
+                        await Task.Delay(5000);
+                        continue;
+                    }
+
                     try
                     {
-                        var sirens = new List<(string Name, string Ip, bool Redundant, string AreaCode, string AddressCode)>();
+                        var sirens = new List<(string Name, string Ip, bool Redundant, string AreaCode, string AddressCode, string DbStatus)>();
                         using (var connection = new MySqlConnection(AppConfig.ConnectionString))
                         {
                             await connection.OpenAsync();
-                            string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode FROM SirenDevices";
+                            string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode, Status FROM SirenDevices";
                             using var command = new MySqlCommand(sql, connection);
                             using var reader = await command.ExecuteReaderAsync();
                             while (await reader.ReadAsync())
@@ -2197,7 +2271,8 @@ namespace Keemya.Frontend.Services
                                     reader.IsDBNull(1) ? "" : reader.GetString(1),
                                     reader.GetBoolean(2),
                                     reader.IsDBNull(3) ? "000" : reader.GetString(3),
-                                    reader.IsDBNull(4) ? "0000" : reader.GetString(4)
+                                    reader.IsDBNull(4) ? "0000" : reader.GetString(4),
+                                    reader.IsDBNull(5) ? "" : reader.GetString(5).ToUpper()
                                 ));
                             }
                         }
@@ -2216,7 +2291,8 @@ namespace Keemya.Frontend.Services
                                     IsOnline = false,
                                     IsTcpOnline = false,
                                     IsSerialOnline = false,
-                                    LastKnownStatus = "OFFLINE",
+                                    // What the DB really holds, so a stale WARNING/ONLINE from the last run gets overwritten
+                                    LastKnownStatus = s.DbStatus,
                                     LastUpdated = DateTime.Now
                                 };
                                 _sirenCache[s.Name] = cacheItem;
@@ -2317,21 +2393,28 @@ namespace Keemya.Frontend.Services
                         continue;
                     }
 
+                    // No standby here: a serial cable belongs to this PC alone, so only this PC can poll it.
+
                     try
                     {
-                        var serialSirens = _sirenCache.Values.ToList();
+                        // Only sirens wired to serial: no IP, or IP with Redundant on. Network-only sirens are not
+                        // asked over COM (it only lengthened the cycle and logged false serial failures).
+                        var serialSirens = _sirenCache.Values.Where(s => UsesSerial(s.Ip, s.Redundant)).ToList();
 
                         string[] availablePorts = SerialPort.GetPortNames();
                         bool portAvailable = availablePorts.Any(p => p.Equals(_serialPortName, StringComparison.OrdinalIgnoreCase));
 
                         if (portAvailable && serialSirens.Count > 0)
                         {
+                            int answered = 0;
+                            bool roundCompleted = true;
                             foreach (var s in serialSirens)
                             {
                                 if (DateTime.Now - _lastUserCommandTime < TimeSpan.FromSeconds(5))
                                 {
                                     Log("⏳ [Serial Poller] User command in progress. Suspending background polling briefly...");
                                     await Task.Delay(2000);
+                                    roundCompleted = false;
                                     break;
                                 }
 
@@ -2342,6 +2425,7 @@ namespace Keemya.Frontend.Services
 
                                     if (serialSuccess)
                                     {
+                                        answered++;
                                         s.IsSerialOnline = true;
                                         TrackSerialSuccess(s.Name);
                                     }
@@ -2379,9 +2463,26 @@ namespace Keemya.Frontend.Services
                                 string computedStatus = GetComputedStatus(s);
                                 _ = SyncSirenStatusToDbAndNotifyAsync(s.Name, computedStatus);
                             }
+
+                            // Port exists but nobody answers: the adapter may now be on another COM number.
+                            if (roundCompleted)
+                            {
+                                _silentSerialRounds = answered > 0 ? 0 : _silentSerialRounds + 1;
+                                if (_silentSerialRounds >= 2 &&
+                                    await AutoDetectSerialPortAsync($"No serial siren answered on {_serialPortName} for {_silentSerialRounds} rounds.") != null)
+                                {
+                                    _silentSerialRounds = 0;
+                                }
+                            }
                         }
                         else if (!portAvailable && serialSirens.Count > 0)
                         {
+                            // Adapter unplugged or re-plugged under another COM number: look for the sirens on the ports that exist.
+                            if (await AutoDetectSerialPortAsync($"Configured port '{_serialPortName}' is not present.") != null)
+                            {
+                                continue; // poll the found port right away
+                            }
+
                             Log($"🔌 [Serial Poller] Configured port '{_serialPortName}' unavailable or unplugged. Tracking serial failure.");
                             foreach (var s in serialSirens)
                             {
@@ -2410,6 +2511,10 @@ namespace Keemya.Frontend.Services
         // Returns true if frame is valid, parsed successfully, and address matches the target
         private bool ProcessSirenResponse(string source, byte[] data, string channel, byte[]? sentFrame = null)
         {
+            // A loopback cable or echoing radio/modem returns our own request, which has valid STX/ETX and the right
+            // address; without this, auto-detect would pick a dead port and polling would show the siren online.
+            data = StripLeadingEcho(data, sentFrame);
+
             if (data.Length < 4) return false;
 
             // ── Step 1: Find the true STX (0x02) start marker ──────────────
@@ -2874,7 +2979,7 @@ namespace Keemya.Frontend.Services
             return true;
         }
 
-        private static byte ReconstructByte(byte highByte, byte lowByte)
+        internal static byte ReconstructByte(byte highByte, byte lowByte)
         {
             return (byte)(((highByte & 0x0F) << 4) | (lowByte & 0x0F));
         }
@@ -2954,7 +3059,21 @@ namespace Keemya.Frontend.Services
                         using (var connection = new MySqlConnection(AppConfig.ConnectionString))
                         {
                             await connection.OpenAsync();
-                            string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated FROM PendingCommands WHERE Status = 'PENDING' ORDER BY Created";
+
+                            // Never fire stale activations (e.g. queued while all controllers were down). Ages use the DB clock.
+                            using (var expireCmd = new MySqlCommand(
+                                $"UPDATE PendingCommands SET Status = 'EXPIRED' WHERE Status = 'PENDING' AND Created < NOW(6) - INTERVAL {QueueCommandMaxAgeSeconds} SECOND", connection))
+                            {
+                                int expired = await expireCmd.ExecuteNonQueryAsync();
+                                if (expired > 0) Log($"⌛ [Queue Listener] {expired} queued command(s) older than {QueueCommandMaxAgeSeconds}s expired without sending.");
+                            }
+
+                            // Like GV Core redundancy: a controller with a working siren link takes commands at once;
+                            // one without waits a grace period so a healthy controller can take them first.
+                            bool linkHealthy = _sirenCache.Values.Any(c => c.IsOnline || c.IsSerialOnline);
+                            string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated FROM PendingCommands WHERE Status = 'PENDING'"
+                                + (linkHealthy ? "" : $" AND Created <= NOW(6) - INTERVAL {UnhealthyControllerGraceSeconds} SECOND")
+                                + " ORDER BY Created";
                             using (var cmd = new MySqlCommand(sql, connection))
                             using (var reader = await cmd.ExecuteReaderAsync())
                             {
@@ -2976,11 +3095,20 @@ namespace Keemya.Frontend.Services
                             {
                                 var tasks = pendingList.Select(async item =>
                                 {
-                                    Log($"📥 [Queue Listener] Processing relayed command in parallel: {item.Target} (ID: {item.Id})");
-
                                     bool success = false;
                                     try
                                     {
+                                        // Atomic claim: when both controllers see the same row, only one may send it.
+                                        using (var claimConn = new MySqlConnection(AppConfig.ConnectionString))
+                                        {
+                                            await claimConn.OpenAsync();
+                                            using var claimCmd = new MySqlCommand("UPDATE PendingCommands SET Status = 'PROCESSING' WHERE Id = @Id AND Status = 'PENDING'", claimConn);
+                                            claimCmd.Parameters.AddWithValue("@Id", item.Id);
+                                            if (await claimCmd.ExecuteNonQueryAsync() != 1) return;
+                                        }
+
+                                        Log($"📥 [Queue Listener] Processing relayed command in parallel: {item.Target} (ID: {item.Id})");
+
                                         if (item.Target == "__RAW_SERIAL__")
                                         {
                                             byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
@@ -3043,6 +3171,14 @@ namespace Keemya.Frontend.Services
     public class SirenStatusCacheItem
     {
         public string Name { get; set; } = string.Empty;
+
+        // Status the other server measured (SirenLinkStatus) and when this PC last saw it refreshed
+        public string? PeerStatus { get; set; }
+        public DateTime PeerSeenAt { get; set; } = DateTime.MinValue;
+        internal HashSet<string> PeerSeenStamps { get; } = new();
+        internal bool HasOwnMeasurement { get; set; }
+        internal string? LastSharedStatus { get; set; }
+        internal DateTime LastSharedAt { get; set; } = DateTime.MinValue;
         public string Ip { get; set; } = string.Empty;
         public bool Redundant { get; set; } = false;
         public string AreaCode { get; set; } = "000";

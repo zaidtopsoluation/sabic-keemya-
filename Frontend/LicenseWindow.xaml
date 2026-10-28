@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Keemya.Frontend"
         mc:Ignorable="d"
-        Title="Keemya System - Activation Required" 
+        Title="TS Emergency Management System - Activation Required" 
         Height="400" Width="550"
         Background="#0F172A"
         WindowStartupLocation="CenterScreen"
@@ -114,7 +114,7 @@
         <!-- Header Panel -->
         <Border Grid.Row="0" Background="#1E293B" Padding="20,15" BorderBrush="#334155" BorderThickness="0,0,0,1">
             <StackPanel>
-                <TextBlock Text="Keemya SYSTEM ACTIVATION" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC"/>
+                <TextBlock Text="TS EMERGENCY MANAGEMENT SYSTEM ACTIVATION" FontSize="18" FontWeight="Bold" Foreground="#F8FAFC"/>
                 <TextBlock Text="A valid license key is required to run the application on this computer." FontSize="11" Foreground="#94A3B8" Margin="0,3,0,0"/>
             </StackPanel>
         </Border>
@@ -140,7 +140,7 @@
                         <TextBox Grid.Column="0" x:Name="txtMachineId" IsReadOnly="True" FontWeight="Bold" Foreground="#38BDF8" Background="#0F172A"/>
                         <Button Grid.Column="1" Content="Copy ID" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Padding="15,0" Click="CopyMachineId_Click"/>
                     </Grid>
-                    <TextBlock Text="Please share the above Machine ID with Zaid Top Solutions to receive your license." FontSize="10" Foreground="#64748B" Margin="0,4,0,0"/>
+                    <TextBlock Text="Please share the above Machine ID with Top Solutions to receive your license." FontSize="10" Foreground="#64748B" Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <!-- License installation -->

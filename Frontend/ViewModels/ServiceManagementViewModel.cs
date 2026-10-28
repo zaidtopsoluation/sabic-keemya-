@@ -88,6 +88,11 @@ namespace Keemya.Frontend.ViewModels
         [ObservableProperty] private bool isTestingInProgress = false;
         [ObservableProperty] private bool hasSiTestData = false;    // True once any SI test response arrives
 
+        // SI Test timing, same as GV Core (AmpTestTimeOut 15 s, status recheck 3 s after the test)
+        private const int SiTestRunTimeMs = 15000;
+        private const int SiTestRecheckDelayMs = 3000;
+        private const int SiTestCommandGapMs = 1000;
+
         // Computed status flags for Whelen DEVICE STATUS view
         [ObservableProperty] private bool healthActivity = false;   // Any active siren tone
         [ObservableProperty] private bool healthLink = false;        // COM/TCP connection live
@@ -435,10 +440,25 @@ namespace Keemya.Frontend.ViewModels
                         return newFrame;
                     }
 
-                    // --- 1. Send 0FH (Silent Test) — Whelen diagnostic SI command
-                    // This causes a mechanical relay click on the siren and returns a Status response
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x0F), false);
-                    await Task.Delay(600);
+                    // --- 1. Send 0FH (Silent Test) — the siren tests its amps/drivers and answers 1FH only
+                    // when the test is finished. Like GV Core: wait up to 15 s for that reply, then 3 s more
+                    // before reading the status, so DRV/AMP shows this test's result and not the previous one.
+                    var siTestReply = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    void OnSiTestReply(string a, byte sb, byte dc, byte ct, byte ot)
+                    {
+                        if (a.PadLeft(4, '0') == addr) siTestReply.TrySetResult(true);
+                    }
+                    SirenCommunicationService.Instance.StandardStatusReceived += OnSiTestReply;
+                    try
+                    {
+                        await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x0F), false);
+                        await Task.WhenAny(siTestReply.Task, Task.Delay(SiTestRunTimeMs));
+                    }
+                    finally
+                    {
+                        SirenCommunicationService.Instance.StandardStatusReceived -= OnSiTestReply;
+                    }
+                    await Task.Delay(SiTestRecheckDelayMs);
 
                     // --- 2. Send 1FH (Status Request) — Retrieves the Status byte
                     bool isOnline = await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x1F));
@@ -468,23 +488,20 @@ namespace Keemya.Frontend.ViewModels
                         if (isOnline) HealthLink = true;
                     });
 
-                    await Task.Delay(500);
+                    // Whelen needs ~850 ms between commands; 3FH is skipped (Moscad-only per the RS-232 spec)
+                    await Task.Delay(SiTestCommandGapMs);
 
-                    // --- 3. Send 23H (Instant Status) — Get real-time status bits
+                    // --- 3. Send 23H (Instant Status) — AC, intrusion, strobe bits
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x23), false);
-                    await Task.Delay(500);
+                    await Task.Delay(SiTestCommandGapMs);
 
-                    // --- 4. Send 3FH (Active Status) — Active command + voltages
-                    await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x3F), false);
-                    await Task.Delay(500);
-
-                    // --- 5. Send 21H (Battery / AC voltage) ---
+                    // --- 4. Send 21H (Battery / AC voltage) ---
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x21), false);
-                    await Task.Delay(500);
+                    await Task.Delay(SiTestCommandGapMs);
 
-                    // --- 6. Send 22H (Battery / Temperature) ---
+                    // --- 5. Send 22H (Battery / Temperature) ---
                     await SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildFrame(0x22), false);
-                    await Task.Delay(500);
+                    await Task.Delay(SiTestCommandGapMs);
                 }
                 catch (Exception ex)
                 {
