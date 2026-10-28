@@ -5,3 +5,5 @@ PublishOutput/
 installer/
 Publish/
 build_staging/
+
+siren_comm.log
