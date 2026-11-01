@@ -19,6 +19,11 @@ namespace Keemya.Frontend.Views
         public MapView()
         {
             InitializeComponent();
+            if (!AppConfig.ShowCommLogs)
+            {
+                LogsRow.Height = new GridLength(0);
+                LogsPanel.Visibility = Visibility.Collapsed;
+            }
             DataContextChanged += MapView_DataContextChanged;
             _ = InitializeAsync();
         }
@@ -109,15 +114,6 @@ namespace Keemya.Frontend.Views
                 else if (_viewModel?.TargetedSirens == null || _viewModel.TargetedSirens.Count == 0)
                 {
                     await MapWebView.CoreWebView2.ExecuteScriptAsync("selectSiren(null)");
-                }
-            }
-            else if (e.PropertyName == nameof(MapViewModel.TargetedSirens) && MapWebView.CoreWebView2 != null)
-            {
-                if (_viewModel?.TargetedSirens != null && _viewModel.TargetedSirens.Count > 0 && _viewModel.SelectedSiren == null)
-                {
-                    var names = string.Join(", ", _viewModel.TargetedSirens.Select(s => s.Name));
-                    var jsNames = names.Replace("'", "\\'");
-                    await MapWebView.CoreWebView2.ExecuteScriptAsync($"selectZone('{jsNames}', {_viewModel.TargetedSirens.Count})");
                 }
             }
             else if (e.PropertyName != null && e.PropertyName.StartsWith("Health") && MapWebView.CoreWebView2 != null)
@@ -223,9 +219,6 @@ namespace Keemya.Frontend.Views
                         string sirensJson = await vm.GetSirensJsonAsync();
                         await MapWebView.CoreWebView2.ExecuteScriptAsync($"updateSirens('{sirensJson}')");
 
-                        string zonesJson = vm.GetZonesJson();
-                        await MapWebView.CoreWebView2.ExecuteScriptAsync($"updateZones('{zonesJson}')");
-
                         string commandsJson = vm.GetCommandsJson();
                         await MapWebView.CoreWebView2.ExecuteScriptAsync($"updateCommands('{commandsJson}')");
 
@@ -284,21 +277,6 @@ namespace Keemya.Frontend.Views
                                 {
                                     vm.UpdateSirenSelectionFromMap(listIds);
                                 });
-                            }
-                            else if (type == "zoneClicked")
-                            {
-                                string idStr = msg.RootElement.GetProperty("id").GetString() ?? "";
-                                if (Guid.TryParse(idStr, out Guid zoneId))
-                                {
-                                    var zone = vm.Zones.FirstOrDefault(z => z.Id == zoneId);
-                                    if (zone != null)
-                                    {
-                                        Dispatcher.Invoke(() => 
-                                        {
-                                            vm.ClickZoneCommand.Execute(zone);
-                                        });
-                                    }
-                                }
                             }
                             else if (type == "activateCommand")
                             {

@@ -103,52 +103,61 @@
             box-shadow: 0 0 12px rgba(37, 99, 235, 0.7);
         }
 
-        /* Zones Card Overlay (Bottom Left) */
-        .overlay-zones-card {
-            display: none !important;
+        /* Paging & Radio interfaces (Bottom Left): one small box per C2030 with no map position */
+        .overlay-interfaces {
             position: absolute;
             left: 20px;
             bottom: 20px;
             z-index: 1000;
-            width: 220px;
+            display: flex;
+            gap: 8px;
+        }
+        .interface-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 170px;
+            padding: 8px 10px;
             background-color: #111827;
             border: 1px solid #1e293b;
             border-radius: 8px;
-            padding: 15px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
             color: #ffffff;
         }
-        .overlay-zones-title {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #ffffff;
-            letter-spacing: 0.5px;
-        }
-        .zone-item {
+        .interface-icon {
+            flex: 0 0 26px;
+            height: 26px;
+            border-radius: 6px;
+            background: #1f2937;
             display: flex;
             align-items: center;
-            background: transparent;
-            border: none;
-            width: 100%;
-            text-align: left;
-            padding: 6px 0;
-            cursor: pointer;
-            transition: opacity 0.2s;
+            justify-content: center;
+            color: #93c5fd;
         }
-        .zone-item:hover {
-            opacity: 0.8;
+        .interface-text {
+            flex: 1;
+            min-width: 0;
         }
-        .zone-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        .zone-name {
-            font-size: 12px;
+        .interface-name {
+            font-size: 13px;
             font-weight: 600;
-            color: #e5e7eb;
+            color: #f3f4f6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .interface-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        .interface-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex: 0 0 8px;
         }
 
         /* Zoom Badge (Bottom Center) */
@@ -812,13 +821,8 @@
             </button>
         </div>
 
-        <!-- Zones List Overlay -->
-        <div class="overlay-zones-card">
-            <div class="overlay-zones-title">Zones</div>
-            <div id="zones-list">
-                <!-- Dynamically loaded -->
-            </div>
-        </div>
+        <!-- Paging & Radio interfaces (no map position) -->
+        <div id="interfaces-list" class="overlay-interfaces"></div>
 
         <!-- Zoom level overlay -->
         <div class="overlay-zoom-badge">Zoom: <span id="zoom-value">6</span></div>
@@ -980,17 +984,15 @@
         }).addTo(map);
 
         var markersGroup = L.layerGroup().addTo(map);
-        var zoneShapesGroup = L.layerGroup().addTo(map);
         var drawingShapesGroup = L.layerGroup().addTo(map);
         var sirenMarkers = {};
-        
-        var sirensData = [];
-        var zonesData = [];
+
+        var sirensData = [];      // every device from C#
+        var mapSirensData = [];   // only devices drawn on the map (DeviceType "Siren")
         var commandsData = [];
-        
+
         var selectedSirenId = null;
         var selectedSirenIds = [];
-        var selectedZoneTargetNames = null;
 
         var activeShapeTool = null; // 'square', 'circle', or null
         var isDrawingShape = false;
@@ -1052,7 +1054,7 @@
                     dashArray: '6, 6'
                 }).addTo(drawingShapesGroup);
 
-                sirensData.forEach(function(s) {
+                mapSirensData.forEach(function(s) {
                     var sirenLatLng = L.latLng(s.lat, s.lng);
                     if (shapeStartLatLng.distanceTo(sirenLatLng) <= radiusMeters) {
                         sirensInShape.push(String(s.id));
@@ -1069,7 +1071,7 @@
                     dashArray: '6, 6'
                 }).addTo(drawingShapesGroup);
 
-                sirensData.forEach(function(s) {
+                mapSirensData.forEach(function(s) {
                     var sirenLatLng = L.latLng(s.lat, s.lng);
                     if (bounds.contains(sirenLatLng)) {
                         sirensInShape.push(String(s.id));
@@ -1179,10 +1181,13 @@
         function updateSirens(jsonString) {
             try {
                 sirensData = JSON.parse(jsonString);
+                mapSirensData = sirensData.filter(isMapSiren);
                 markersGroup.clearLayers();
                 sirenMarkers = {};
 
-                sirensData.forEach(function(siren) {
+                renderInterfaces(sirensData.filter(function(s) { return !isMapSiren(s); }));
+
+                mapSirensData.forEach(function(siren) {
                     var color = getStatusColor(siren.status);
                     
                     var html = `
@@ -1224,37 +1229,59 @@
                 if (selectedSirenId) {
                     selectSiren(selectedSirenId, true);
                 }
-                
-                renderZoneShapes();
             } catch (e) {
                 console.error("Error updating sirens in leaflet:", e);
             }
         }
 
-        function updateZones(jsonString) {
-            try {
-                zonesData = JSON.parse(jsonString);
-                var listContainer = document.getElementById('zones-list');
-                listContainer.innerHTML = '';
+        // Paging/Radio C2030s have no map position; everything else is a siren with a marker.
+        function isMapSiren(device) {
+            var type = (device.deviceType || "Siren").toUpperCase();
+            return type !== "PAGING" && type !== "RADIO";
+        }
 
-                zonesData.forEach(function(zone) {
-                    var btn = document.createElement('button');
-                    btn.className = 'zone-item';
-                    btn.onclick = function() {
-                        sendWpfMessage({ type: 'zoneClicked', id: zone.id });
-                    };
-
-                    btn.innerHTML = `
-                        <div class="zone-dot" style="background-color: ${zone.colorHex || zone.color || 'red'}"></div>
-                        <div class="zone-name">${zone.name}</div>
-                    `;
-                    listContainer.appendChild(btn);
-                });
-                
-                renderZoneShapes();
-            } catch (e) {
-                console.error("Error updating zones list:", e);
+        function interfaceStatus(status) {
+            switch ((status || "").toUpperCase()) {
+                case "ONLINE": return { text: "Connected", color: "#10B981" };
+                case "WARNING": return { text: "Connected · warning", color: "#F59E0B" };
+                case "MAINTENANCE": return { text: "Maintenance", color: "#3B82F6" };
+                default: return { text: "Not connected", color: "#EF4444" };
             }
+        }
+
+        var interfaceIcons = {
+            PAGING: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12,8H4A2,2 0 0,0 2,10V14A2,2 0 0,0 4,16H5V20A1,1 0 0,0 6,21H8A1,1 0 0,0 9,20V16H12L17,20V4L12,8M21.5,12C21.5,13.71 20.54,15.2 19,16V8C20.54,8.8 21.5,10.29 21.5,12Z"/></svg>',
+            RADIO: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="7" width="10" height="15" rx="2"/><line x1="10" y1="7" x2="10" y2="2"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/></svg>'
+        };
+
+        function renderInterfaces(devices) {
+            var list = document.getElementById('interfaces-list');
+            if (!list) return;
+
+            list.innerHTML = '';
+
+            devices.forEach(function(device) {
+                var type = (device.deviceType || "").toUpperCase();
+                var state = interfaceStatus(device.status);
+
+                var row = document.createElement('div');
+                row.className = 'interface-item';
+                row.innerHTML = `
+                    <div class="interface-icon">${interfaceIcons[type] || ''}</div>
+                    <div class="interface-text">
+                        <div class="interface-name"></div>
+                        <div class="interface-status">
+                            <span class="interface-dot" style="background-color: ${state.color}"></span>
+                            <span class="interface-state"></span>
+                        </div>
+                    </div>
+                `;
+                row.title = device.deviceType + ' interface';
+                row.querySelector('.interface-name').textContent = device.name;
+                row.querySelector('.interface-name').title = device.name;
+                row.querySelector('.interface-state').textContent = state.text;
+                list.appendChild(row);
+            });
         }
 
         function updateCommands(jsonString) {
@@ -1280,10 +1307,7 @@
             var targetName = "-";
             var availableCount = "0";
 
-            if (selectedZoneTargetNames) {
-                targetName = selectedZoneTargetNames;
-                availableCount = selectedZoneCount || "0";
-            } else if (selectedSirenIds.length > 0) {
+            if (selectedSirenIds.length > 0) {
                 var names = selectedSirenIds.map(sid => {
                     var s = sirensData.find(x => x.id === sid);
                     return s ? s.name : "";
@@ -1499,9 +1523,7 @@
             
             selectedSirenIds = ids.map(id => String(id));
             selectedSirenId = selectedSirenIds.length > 0 ? selectedSirenIds[selectedSirenIds.length - 1] : null;
-            selectedZoneTargetNames = null;
-            selectedZoneCount = 0;
-            
+
             if (showMode) {
                 activeShowMode = showMode;
             }
@@ -1521,7 +1543,7 @@
             if (selectedSirenIds.length === 1 && activeShowMode !== 'map') {
                 var siren = sirensData.find(s => String(s.id) === selectedSirenIds[0]);
                 if (siren) {
-                    if (!preserveTelemetry) {
+                    if (!preserveTelemetry && isMapSiren(siren)) {
                         map.panTo([siren.lat, siren.lng]);
                     }
 
@@ -1533,7 +1555,9 @@
                     }
 
                     document.getElementById('meta-group').innerText = siren.groupName || "None";
-                    document.getElementById('meta-location').innerText = `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`;
+                    document.getElementById('meta-location').innerText = isMapSiren(siren)
+                        ? `(${siren.lat.toFixed(4)}, ${siren.lng.toFixed(4)})`
+                        : `${siren.deviceType} interface (control room)`;
                     
                     var statusPill = document.getElementById('meta-status');
                     statusPill.innerText = siren.status;
@@ -1570,9 +1594,7 @@
         function toggleSirenSelection(id) {
             if (!id) return;
             var idStr = String(id);
-            selectedZoneTargetNames = null;
-            selectedZoneCount = 0;
-            
+
             var index = selectedSirenIds.indexOf(idStr);
             if (index > -1) {
                 // Deselect
@@ -1610,36 +1632,6 @@
             currentDrawnShapeLayer = null;
             setSelectedSirens([], false);
             sendWpfMessage({ type: 'clearSelection' });
-        }
-        
-        function selectZone(targetNames, count) {
-            if ((currentUserRole || "").toUpperCase() === "SERVICE") {
-                return; // Service users cannot trigger zones
-            }
-            selectedSirenId = null;
-            selectedZoneTargetNames = targetNames;
-            selectedZoneCount = count;
-
-            document.getElementById('sidebar-drawer').classList.add('single-column-mode');
-
-            // Remove highlight from all sirens
-            for (var sirenId in sirenMarkers) {
-                var element = document.getElementById("pin-siren-" + sirenId);
-                if (element) element.classList.remove('selected');
-            }
-
-            // Hide diagnostics column for zone selection
-            document.getElementById('diagnostics-column').style.display = 'none';
-            document.querySelector('#sidebar-drawer .sidebar-title').innerText = "Siren Activation";
-            
-            document.getElementById('sidebar-subtitle').innerText = `${count} sirens selected`;
-            
-            renderCommands(); // Refresh command card target names
-            document.getElementById('sidebar-drawer').classList.add('active');
-        }
-
-        function renderZoneShapes() {
-            zoneShapesGroup.clearLayers();
         }
 
         // --- Toast Notification Logic ---

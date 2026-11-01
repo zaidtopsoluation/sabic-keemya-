@@ -171,6 +171,7 @@ namespace Keemya.Frontend.Services
                     "ALTER TABLE SirenDevices ADD COLUMN AcFailed tinyint(1) NOT NULL DEFAULT 0;",
                     "ALTER TABLE SirenDevices ADD COLUMN ApmFailed tinyint(1) NOT NULL DEFAULT 0;",
                     "ALTER TABLE SirenDevices ADD COLUMN DoorIntruded tinyint(1) NOT NULL DEFAULT 0;",
+                    "ALTER TABLE SirenDevices ADD COLUMN DeviceType VARCHAR(16) NOT NULL DEFAULT 'Siren';",
                     "CREATE TABLE IF NOT EXISTS WorkstationSerialConfigs (StationName VARCHAR(255) NOT NULL, PortName VARCHAR(50) NOT NULL, BaudRate INT NOT NULL, PRIMARY KEY (StationName));",
                 })
                 {

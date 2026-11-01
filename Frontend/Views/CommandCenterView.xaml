@@ -6,7 +6,6 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:viewmodels="clr-namespace:Keemya.Frontend.ViewModels"
              xmlns:views="clr-namespace:Keemya.Frontend.Views"
-             xmlns:services="clr-namespace:Keemya.Frontend.Services"
              mc:Ignorable="d" d:DesignHeight="768" d:DesignWidth="1366">
 
     <UserControl.Resources>
@@ -103,7 +102,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Row 0: Back Button -->
             <RowDefinition Height="*"/>    <!-- Row 1: Main Touch Console Buttons Grid -->
-            <RowDefinition Height="160"/>  <!-- Row 2: Live Logs Terminal -->
+            <RowDefinition x:Name="LogsRow" Height="160"/>  <!-- Row 2: Live Logs Terminal (Debug builds only) -->
         </Grid.RowDefinitions>
 
         <!-- ── ROW 0: Back to Modules Button ────────────────────────────── -->
@@ -501,7 +500,7 @@
         </Border>
 
         <!-- ── ROW 2: Live Logs Terminal spanning across full width ────── -->
-        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#F8FAFC" BorderBrush="White" BorderThickness="0,1,0,0" Padding="12">
+        <Border x:Name="LogsPanel" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#F8FAFC" BorderBrush="White" BorderThickness="0,1,0,0" Padding="12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -517,7 +516,7 @@
                                    FontWeight="Bold" FontSize="11" VerticalAlignment="Center" FontFamily="Consolas"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="{Binding SerialPortDisplay, Source={x:Static services:SirenCommunicationService.Instance}, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" 
+                        <TextBlock Text="{Binding Comm.SerialPortDisplay, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" 
                                    FontSize="10" VerticalAlignment="Center" FontFamily="Consolas" Margin="0,0,10,0"/>
                         <Button x:Name="CopyLogsButton" Command="{Binding CopyLogsCommand}"
                                 Style="{StaticResource MaterialDesignFlatButton}"

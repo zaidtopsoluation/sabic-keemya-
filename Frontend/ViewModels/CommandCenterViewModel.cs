@@ -43,6 +43,7 @@ namespace Keemya.Frontend.ViewModels
     {
         public Guid    Id            { get; set; }
         public string  Name          { get; set; } = string.Empty;
+        public string  DeviceType    { get; set; } = SirenDeviceTypes.Siren;
         public string  AreaCode      { get; set; } = string.Empty;
         public string  AddressCode   { get; set; } = string.Empty;
 
@@ -502,6 +503,7 @@ namespace Keemya.Frontend.ViewModels
         private List<CommandCardDto> _allCommands = new();
         private CommandCardDto? _commandToConfirm;
         private System.Threading.CancellationTokenSource? _activeCommandCts;
+        private System.Threading.CancellationTokenSource? _clearCts;
         private List<SirenRowItem> _activeTargets = new();
 
         public CommandCenterViewModel(NavigationStore nav)
@@ -558,7 +560,7 @@ namespace Keemya.Frontend.ViewModels
             Application.Current?.Dispatcher?.Invoke(() =>
             {
                 bool online = status == "ONLINE" || status == "WARNING";
-                var siren = _allSirens.FirstOrDefault(s => s.Name == sirenName);
+                var siren = AllSirenItems.FirstOrDefault(s => s.Name == sirenName);
                 if (siren != null)
                 {
                     siren.Status = status;
@@ -600,10 +602,9 @@ namespace Keemya.Frontend.ViewModels
                     while (await rdr.ReadAsync())
                         zones.Add(new ZoneSelectionItem { Id = rdr.GetGuid(0), Name = rdr.GetString(1) });
 
-                // Load all sirens
-                var sirens = new List<SirenRowItem>();
+                var devices = new List<SirenRowItem>();
                 using (var cmd = new MySqlCommand(
-                    "SELECT Id, Name, AreaCode, AddressCode, Status, GroupId, Ip, Redundant FROM SirenDevices ORDER BY Name", conn))
+                    "SELECT Id, Name, AreaCode, AddressCode, Status, GroupId, Ip, Redundant, DeviceType FROM SirenDevices ORDER BY Name", conn))
                 using (var rdr = await cmd.ExecuteReaderAsync())
                     while (await rdr.ReadAsync())
                     {
@@ -613,10 +614,11 @@ namespace Keemya.Frontend.ViewModels
                         string finalStatus = cache != null ? Keemya.Frontend.Services.SirenCommunicationService.Instance.GetComputedStatus(cache) : dbStatus;
                         bool isOnline = finalStatus == "ONLINE" || finalStatus == "WARNING";
 
-                        sirens.Add(new SirenRowItem
+                        devices.Add(new SirenRowItem
                         {
                             Id          = rdr.GetGuid(0),
                             Name        = name,
+                            DeviceType  = SirenDeviceTypes.Normalize(rdr.IsDBNull(8) ? null : rdr.GetString(8)),
                             AreaCode    = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
                             AddressCode = rdr.IsDBNull(3) ? "" : rdr.GetString(3),
                             Status      = finalStatus,
@@ -627,6 +629,9 @@ namespace Keemya.Frontend.ViewModels
                         });
                     }
 
+                // Commands target sirens only: Paging/Radio C2030s must not play every siren tone.
+                // Clear All still reaches them through the wildcard clear, which uses every DB row.
+                var sirens = devices.Where(d => SirenDeviceTypes.IsSiren(d.DeviceType)).ToList();
                 _allSirens = sirens;
 
                 // Assign sirens to zones
@@ -635,7 +640,7 @@ namespace Keemya.Frontend.ViewModels
 
                 _allZones = zones;
                 ZoneItems = new ObservableCollection<ZoneSelectionItem>(zones);
-                AllSirenItems = new ObservableCollection<SirenRowItem>(sirens);
+                AllSirenItems = new ObservableCollection<SirenRowItem>(devices); // STATUS list shows Paging/Radio too
                 UngroupedSirens = new ObservableCollection<SirenRowItem>(
                     sirens.Where(s => s.GroupId == null));
 
@@ -769,6 +774,10 @@ namespace Keemya.Frontend.ViewModels
         // ────────────────────────────────────────────────────────────────────
 
         public ObservableCollection<string> CommLogs => Keemya.Frontend.Services.SirenCommunicationService.Instance.Logs;
+
+        // XAML binds through this instead of {x:Static services:...}: Obfuscar renames Services types in Release,
+        // and a static type lookup from XAML then crashes the Command Center.
+        public SirenCommunicationService Comm => SirenCommunicationService.Instance;
 
         [RelayCommand]
         private void CopyLogs()
@@ -926,8 +935,13 @@ namespace Keemya.Frontend.ViewModels
             // Cancel any in-flight tone activation dispatches immediately
             Keemya.Frontend.Services.SirenCommunicationService.Instance.CancelActiveActivations();
 
+            // A new activation cancels the rest of this clear (Task.Delay throws), so late clear frames cannot stop the new tone.
+            _clearCts?.Cancel();
+            _clearCts = new System.Threading.CancellationTokenSource();
+            var clearToken = _clearCts.Token;
+
             // Immediately send the CLEAR command in the background ONLY to active targets
-            _ = Task.Run(async () => 
+            _ = Task.Run(async () =>
             {
                 Keemya.Frontend.Services.SirenCommunicationService.Instance.Log("=== AUTOMATIC/MANUAL CANCEL INITIATED ===");
                 var serialTargets = _activeTargets.Where(s => string.IsNullOrWhiteSpace(s.Ip))
@@ -939,11 +953,11 @@ namespace Keemya.Frontend.ViewModels
                 var tcpTasks = tcpTargets.Select(async s =>
                 {
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
-                    await Task.Delay(950);
+                    await Task.Delay(950, clearToken);
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
-                    await Task.Delay(950);
+                    await Task.Delay(950, clearToken);
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
-                    await Task.Delay(950);
+                    await Task.Delay(950, clearToken);
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
                 });
                 var tcpPromise = Task.WhenAll(tcpTasks);
@@ -956,17 +970,14 @@ namespace Keemya.Frontend.ViewModels
                 // If the active targets include all sirens (broadcast), use wildcard cancel only
                 if (_activeTargets.Count == _allSirens.Count)
                 {
-                    // Send specific frames to all serial targets
-                    foreach (var s in serialTargets)
+                    // The wildcard clear above covered 0x1B/0x00/0x1E; add the 0x10/0x30 clears per area instead of
+                    // 4 frames per siren, which took ~40 s for 10 sirens and cleared tones started meanwhile.
+                    foreach (var areaCode in serialTargets.Select(s => s.AreaCode ?? "000").Distinct())
                     {
-                        await Task.Delay(950);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
-                        await Task.Delay(950);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
-                        await Task.Delay(950);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
-                        await Task.Delay(950);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
+                        await Task.Delay(950, clearToken);
+                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x10), expectsAck: false, isUserInitiated: true);
+                        await Task.Delay(950, clearToken);
+                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x30), expectsAck: false, isUserInitiated: true);
                     }
                 }
                 else if (_mode == SelectionMode.Zone)
@@ -978,29 +989,29 @@ namespace Keemya.Frontend.ViewModels
                     {
                         if (!isFirst)
                         {
-                            await Task.Delay(950);
+                            await Task.Delay(950, clearToken);
                         }
                         isFirst = false;
 
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x00), expectsAck: false, isUserInitiated: true);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x10), expectsAck: false, isUserInitiated: true);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x30), expectsAck: false, isUserInitiated: true);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x1E), expectsAck: false, isUserInitiated: true);
                     }
 
                     // Send specific frames to all serial targets
                     foreach (var s in serialTargets)
                     {
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
                     }
                 }
@@ -1012,16 +1023,16 @@ namespace Keemya.Frontend.ViewModels
                     {
                         if (!isFirst)
                         {
-                            await Task.Delay(950);
+                            await Task.Delay(950, clearToken);
                         }
                         isFirst = false;
 
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x00), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x10), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x30), trackStatus: false);
-                        await Task.Delay(950);
+                        await Task.Delay(950, clearToken);
                         await Keemya.Frontend.Services.SirenCommunicationService.Instance.ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s, 0x1E), trackStatus: false);
                     }
                 }
@@ -1112,6 +1123,7 @@ namespace Keemya.Frontend.ViewModels
                 return;
             }
 
+            _clearCts?.Cancel(); // stop a still-running cancel from clearing this new activation
             _activeTargets = targets.ToList(); // Save for cancellation
 
             // Create cancellation token for this activation run (and any auto-cancel timers)

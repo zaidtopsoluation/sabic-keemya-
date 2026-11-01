@@ -7,6 +7,13 @@ namespace Keemya.Frontend
 {
     public partial class App : Application
     {
+        // XamlParseException hides the real cause (file, line, control) in its inner exception, so put that first.
+        internal static string FormatError(Exception error)
+        {
+            Exception root = error.GetBaseException();
+            return $"{root.GetType().Name}: {root.Message}\n\n{error}";
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -14,9 +21,10 @@ namespace Keemya.Frontend
             // ── Global exception handlers — show errors instead of silent crash ──
             DispatcherUnhandledException += (s, ex) =>
             {
-                MessageBox.Show(
-                    $"UI Error:\n\n{ex.Exception.GetType().Name}\n{ex.Exception.Message}\n\n{ex.Exception.StackTrace}",
-                    "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                string report = FormatError(ex.Exception);
+                try { System.IO.File.AppendAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "error.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{report}\n\n"); }
+                catch { /* install folder not writable: still show the dialog */ }
+                MessageBox.Show($"UI Error (details saved to error.log):\n\n{report}", "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ex.Handled = true;
             };
 
@@ -54,6 +62,25 @@ namespace Keemya.Frontend
 
             // Server PCs keep their own MySQL in sync with the other server (no-op on dispatchers)
             Keemya.Frontend.Services.DatabaseSyncService.StartForThisServer();
+
+            // Servers play dispatcher live PA into their aux output; listen from startup, not only while the Command Center is open.
+            if (AppConfig.IsControllerStation)
+            {
+                try { Keemya.Frontend.Services.AudioCommunicationService.Instance.StartListening(); }
+                catch { }
+            }
+            else
+            {
+                // Dispatchers re-check their server every 5 s: if it goes down mid-session, commands move to the other server's queue.
+                _ = Task.Run(async () =>
+                {
+                    while (true)
+                    {
+                        await Task.Delay(5000);
+                        try { AppConfig.EnsureHealthyConnection(); } catch { }
+                    }
+                });
+            }
 
             // Initialize audit logs table
             try

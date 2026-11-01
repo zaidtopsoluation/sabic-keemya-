@@ -105,6 +105,7 @@
     <sys:String x:Key="AreaCode">Area code</sys:String>
     <sys:String x:Key="AddressCode">Address code</sys:String>
     <sys:String x:Key="Location">Location</sys:String>
+    <sys:String x:Key="DeviceType">Device type</sys:String>
     <sys:String x:Key="PickOnMap">Pick on map</sys:String>
     <sys:String x:Key="Latitude">Latitude *</sys:String>
     <sys:String x:Key="Longitude">Longitude *</sys:String>

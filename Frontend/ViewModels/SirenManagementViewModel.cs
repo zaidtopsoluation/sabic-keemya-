@@ -40,6 +40,15 @@ namespace Keemya.Frontend.ViewModels
         private string addressCode = string.Empty;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasMapLocation))]
+        private string deviceType = SirenDeviceTypes.Siren;
+
+        public string[] DeviceTypeOptions => SirenDeviceTypes.All;
+
+        // Paging/Radio interfaces sit in the control room: no latitude/longitude, no map marker.
+        public bool HasMapLocation => SirenDeviceTypes.IsSiren(DeviceType);
+
+        [ObservableProperty]
         private double latitude = 0.0;
 
         [ObservableProperty]
@@ -144,7 +153,7 @@ namespace Keemya.Frontend.ViewModels
                 {
                     await connection.OpenAsync();
                     string query = @"
-                        SELECT d.Id, d.Name, d.AreaCode, d.AddressCode, d.Lat, d.Lng, d.Status, d.Ip, d.Redundant, d.GroupId, g.Name as GroupName
+                        SELECT d.Id, d.Name, d.AreaCode, d.AddressCode, d.Lat, d.Lng, d.Status, d.Ip, d.Redundant, d.GroupId, g.Name as GroupName, d.DeviceType
                         FROM SirenDevices d
                         LEFT JOIN SirenGroups g ON d.GroupId = g.Id
                         ORDER BY d.Name;";
@@ -167,7 +176,8 @@ namespace Keemya.Frontend.ViewModels
                                     Ip = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                                     Redundant = reader.GetBoolean(8),
                                     GroupId = reader.IsDBNull(9) ? null : reader.GetGuid(9),
-                                    GroupName = reader.IsDBNull(10) ? string.Empty : reader.GetString(10)
+                                    GroupName = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
+                                    DeviceType = SirenDeviceTypes.Normalize(reader.IsDBNull(11) ? null : reader.GetString(11))
                                 });
                             }
                         }
@@ -211,6 +221,7 @@ namespace Keemya.Frontend.ViewModels
         private void OpenAddSirenPopup()
         {
             SirenName = string.Empty;
+            DeviceType = SirenDeviceTypes.Siren;
             AreaCode = string.Empty;
             AddressCode = string.Empty;
             Latitude = 0.0;
@@ -237,6 +248,7 @@ namespace Keemya.Frontend.ViewModels
             if (siren == null) return;
 
             SirenName = siren.Name;
+            DeviceType = SirenDeviceTypes.Normalize(siren.DeviceType);
             AreaCode = siren.AreaCode;
             AddressCode = siren.AddressCode;
             Latitude = siren.Lat;
@@ -317,6 +329,10 @@ namespace Keemya.Frontend.ViewModels
                 return;
             }
 
+            string deviceType = SirenDeviceTypes.Normalize(DeviceType);
+            double lat = HasMapLocation ? Latitude : 0.0;
+            double lng = HasMapLocation ? Longitude : 0.0;
+
             try
             {
                 string connStr = AppConfig.ConnectionString;
@@ -355,7 +371,7 @@ namespace Keemya.Frontend.ViewModels
                         // Update
                         string updateQuery = @"
                             UPDATE SirenDevices 
-                            SET Name = @Name, AreaCode = @Area, AddressCode = @Address, Lat = @Lat, Lng = @Lng, Status = @Status, Ip = @Ip, Redundant = @Red, GroupId = @GroupId 
+                            SET Name = @Name, AreaCode = @Area, AddressCode = @Address, Lat = @Lat, Lng = @Lng, Status = @Status, Ip = @Ip, Redundant = @Red, GroupId = @GroupId, DeviceType = @Type
                             WHERE Id = @Id";
 
                         using (var command = new MySqlCommand(updateQuery, connection))
@@ -363,8 +379,9 @@ namespace Keemya.Frontend.ViewModels
                             command.Parameters.AddWithValue("@Name", SirenName.Trim());
                             command.Parameters.AddWithValue("@Area", trimmedArea);
                             command.Parameters.AddWithValue("@Address", trimmedAddress);
-                            command.Parameters.AddWithValue("@Lat", Latitude);
-                            command.Parameters.AddWithValue("@Lng", Longitude);
+                            command.Parameters.AddWithValue("@Lat", lat);
+                            command.Parameters.AddWithValue("@Lng", lng);
+                            command.Parameters.AddWithValue("@Type", deviceType);
                             command.Parameters.AddWithValue("@Status", SelectedStatus.ToUpper());
                             command.Parameters.AddWithValue("@Ip", IsRedundant ? IpAddress.Trim() : string.Empty);
                             command.Parameters.AddWithValue("@Red", IsRedundant);
@@ -378,8 +395,8 @@ namespace Keemya.Frontend.ViewModels
                     {
                         // Insert
                         string insertQuery = @"
-                            INSERT INTO SirenDevices (Id, Name, Description, Address, AreaCode, AddressCode, Lat, Lng, Status, Ip, Redundant, GroupId) 
-                            VALUES (@Id, @Name, @Desc, @Address, @Area, @AddrCode, @Lat, @Lng, @Status, @Ip, @Red, @GroupId)";
+                            INSERT INTO SirenDevices (Id, Name, Description, Address, AreaCode, AddressCode, Lat, Lng, Status, Ip, Redundant, GroupId, DeviceType)
+                            VALUES (@Id, @Name, @Desc, @Address, @Area, @AddrCode, @Lat, @Lng, @Status, @Ip, @Red, @GroupId, @Type)";
 
                         using (var command = new MySqlCommand(insertQuery, connection))
                         {
@@ -389,8 +406,9 @@ namespace Keemya.Frontend.ViewModels
                             command.Parameters.AddWithValue("@Address", $"{trimmedArea}.{trimmedAddress}");
                             command.Parameters.AddWithValue("@Area", trimmedArea);
                             command.Parameters.AddWithValue("@AddrCode", trimmedAddress);
-                            command.Parameters.AddWithValue("@Lat", Latitude);
-                            command.Parameters.AddWithValue("@Lng", Longitude);
+                            command.Parameters.AddWithValue("@Lat", lat);
+                            command.Parameters.AddWithValue("@Lng", lng);
+                            command.Parameters.AddWithValue("@Type", deviceType);
                             command.Parameters.AddWithValue("@Status", SelectedStatus.ToUpper());
                             command.Parameters.AddWithValue("@Ip", IsRedundant ? IpAddress.Trim() : string.Empty);
                             command.Parameters.AddWithValue("@Red", IsRedundant);

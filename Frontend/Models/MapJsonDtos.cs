@@ -4,6 +4,7 @@ namespace Keemya.Frontend.Models
     {
         public string? id { get; set; }
         public string? name { get; set; }
+        public string deviceType { get; set; } = SirenDeviceTypes.Siren;
         public double lat { get; set; }
         public double lng { get; set; }
         public string? status { get; set; }

@@ -21,7 +21,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>      <!-- Row 0: STATUS list -->
-                    <RowDefinition Height="200"/>    <!-- Row 1: ACTIVITY logs -->
+                    <RowDefinition x:Name="LogsRow" Height="200"/>    <!-- Row 1: ACTIVITY logs (Debug builds only) -->
                 </Grid.RowDefinitions>
 
                 <!-- STATUS SECTION -->
@@ -136,7 +136,7 @@
                 </Grid>
 
                 <!-- ACTIVITY SECTION -->
-                <Border Grid.Row="1" BorderBrush="#444444" BorderThickness="0,1,0,0">
+                <Border x:Name="LogsPanel" Grid.Row="1" BorderBrush="#444444" BorderThickness="0,1,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="35"/>

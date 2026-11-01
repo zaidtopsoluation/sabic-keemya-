@@ -43,6 +43,13 @@ namespace Keemya.Frontend
         public static string StationName { get; private set; } = "Admin ECC";
         public static string PttRelayPort { get; private set; } = "COM3";
 
+        // Communication logs only in Debug builds (run from VS Code); the installer publishes Release.
+#if DEBUG
+        public static readonly bool ShowCommLogs = true;
+#else
+        public static readonly bool ShowCommLogs = false;
+#endif
+
         /// <summary>"Server" (owns the siren links) or "Dispatcher" (operator screen). Empty on installs made before this setting existed.</summary>
         public static string Role { get; private set; } = "";
 

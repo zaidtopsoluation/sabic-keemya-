@@ -8,7 +8,15 @@ namespace Keemya.Frontend.Views
 {
     public partial class CommandCenterView : UserControl
     {
-        public CommandCenterView() => InitializeComponent();
+        public CommandCenterView()
+        {
+            InitializeComponent();
+            if (!AppConfig.ShowCommLogs)
+            {
+                LogsRow.Height = new System.Windows.GridLength(0);
+                LogsPanel.Visibility = System.Windows.Visibility.Collapsed;
+            }
+        }
     }
 
     public class LogColorConverter : IValueConverter

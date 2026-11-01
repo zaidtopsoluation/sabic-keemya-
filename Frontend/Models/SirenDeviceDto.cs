@@ -1,12 +1,30 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
+using System.Linq;
 
 namespace Keemya.Frontend.Models
 {
+    // SirenDevices.DeviceType values. Paging/Radio are C2030s in the control room that feed the
+    // client's PAGA or radio: no horns, no map position.
+    public static class SirenDeviceTypes
+    {
+        public const string Siren = "Siren";
+        public const string Paging = "Paging";
+        public const string Radio = "Radio";
+
+        public static readonly string[] All = { Siren, Paging, Radio };
+
+        public static string Normalize(string? value) =>
+            All.FirstOrDefault(t => t.Equals(value?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? Siren;
+
+        public static bool IsSiren(string? value) => Normalize(value) == Siren;
+    }
+
     public partial class SirenDeviceDto : ObservableObject
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string DeviceType { get; set; } = SirenDeviceTypes.Siren;
         public string AreaCode { get; set; } = string.Empty;
         public string AddressCode { get; set; } = string.Empty;
         public double Lat { get; set; }

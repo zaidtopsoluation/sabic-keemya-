@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using MySqlConnector;
+using Keemya.Frontend.Models;
 
 namespace Keemya.Frontend.Services
 {
@@ -1173,6 +1174,27 @@ namespace Keemya.Frontend.Services
             return sequenceId != _commandSequenceId;
         }
 
+        internal static bool IsToneCommand(byte cmd) => (cmd >= 0x01 && cmd <= 0x08) || (cmd >= 0x31 && cmd <= 0x41) || cmd == 0x1A;
+
+        // A dispatcher activation reaches the queue as one row per siren, inserted within milliseconds of each other.
+        // Those rows must share one tone sequence: a sequence per row would cancel the rows before it.
+        internal static bool ReuseQueueToneSequence(bool sequenceLive, DateTime lastCreated, DateTime created) =>
+            sequenceLive && (created - lastCreated).TotalSeconds <= 2;
+
+        private int _queueToneSeq;
+        private DateTime _queueToneLastCreated;
+
+        private int QueueToneSequence(string frameHex, DateTime created)
+        {
+            byte[] frame = ConvertHexStringToByteArray(frameHex);
+            if (frame.Length < 11 || !IsToneCommand((byte)(frame[10] & 0x7F))) return 0;
+            bool live = _queueToneSeq > 0 && !IsSequenceCancelled(_queueToneSeq);
+            if (!ReuseQueueToneSequence(live, _queueToneLastCreated, created))
+                _queueToneSeq = BeginToneActivation();
+            _queueToneLastCreated = created;
+            return _queueToneSeq;
+        }
+
         private byte[] BuildSirenOnFrame(byte[] originalFrame)
         {
             return BuildFrameWithCommand(originalFrame, 0x1A);
@@ -1340,7 +1362,7 @@ namespace Keemya.Frontend.Services
             byte cmdByte = (byte)(frame[10] & 0x7F);
             
             // If it is an activation command for a tone or digital voice (not cancel, status, or strobe commands)
-            bool isToneActivation = (cmdByte >= 0x01 && cmdByte <= 0x08) || (cmdByte >= 0x31 && cmdByte <= 0x41) || cmdByte == 0x1A;
+            bool isToneActivation = IsToneCommand(cmdByte);
 
             if (isToneActivation && sequenceId <= 0 && isUserInitiated)
             {
@@ -1920,12 +1942,13 @@ namespace Keemya.Frontend.Services
                 {
                     using var connection = new MySqlConnection(AppConfig.ConnectionString);
                     await connection.OpenAsync();
-                    string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode, Status FROM SirenDevices";
+                    string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode, Status, DeviceType FROM SirenDevices";
                     using var command = new MySqlCommand(sql, connection);
                     using var reader = await command.ExecuteReaderAsync();
                     while (await reader.ReadAsync())
                     {
                         string name = reader.GetString(0);
+                        string deviceType = SirenDeviceTypes.Normalize(reader.IsDBNull(6) ? null : reader.GetString(6));
                         string ip = reader.IsDBNull(1) ? "" : reader.GetString(1);
                         bool redundant = reader.GetBoolean(2);
                         string area = reader.IsDBNull(3) ? "000" : reader.GetString(3);
@@ -1936,6 +1959,7 @@ namespace Keemya.Frontend.Services
                         var item = new SirenStatusCacheItem
                         {
                             Name = name,
+                            DeviceType = deviceType,
                             Ip = ip,
                             Redundant = redundant,
                             AreaCode = area,
@@ -1969,23 +1993,6 @@ namespace Keemya.Frontend.Services
             if (AppConfig.IsMasterDispatcher)
             {
                 StartCommandQueueListener();
-            }
-        }
-
-        private async Task<bool> PingIpAddressAsync(string ipAddress)
-        {
-            if (string.IsNullOrWhiteSpace(ipAddress) || ipAddress == "127.0.0.1") return false;
-            try
-            {
-                using (var ping = new System.Net.NetworkInformation.Ping())
-                {
-                    var reply = await ping.SendPingAsync(ipAddress, 1000);
-                    return reply.Status == System.Net.NetworkInformation.IPStatus.Success;
-                }
-            }
-            catch
-            {
-                return false;
             }
         }
 
@@ -2116,28 +2123,12 @@ namespace Keemya.Frontend.Services
                             {
                                 if (station.Name == AppConfig.StationName) continue;
 
-                                string newStatus = "OFFLINE";
-
-                                bool hasRecentHeartbeat = station.LastHeartbeat.HasValue && 
+                                bool hasRecentHeartbeat = station.LastHeartbeat.HasValue &&
                                     (DateTime.Now - station.LastHeartbeat.Value).TotalSeconds <= 15;
 
-                                if (station.Type == "Workstation")
-                                {
-                                    newStatus = hasRecentHeartbeat ? "ONLINE" : "OFFLINE";
-                                }
-                                else
-                                {
-                                    // For controllers, check heartbeat first, then ping IP if heartbeat is absent
-                                    if (hasRecentHeartbeat)
-                                    {
-                                        newStatus = "ONLINE";
-                                    }
-                                    else
-                                    {
-                                        bool isAlive = await PingIpAddressAsync(station.IpAddress);
-                                        newStatus = isAlive ? "ONLINE" : "OFFLINE";
-                                    }
-                                }
+                                // Heartbeat only, for controllers too: a ping answers whenever the PC is on, even with TS_EMS closed
+                                // (RCB-Controller showed green from a stale Wi-Fi IP of a PC no longer running as a server).
+                                string newStatus = hasRecentHeartbeat ? "ONLINE" : "OFFLINE";
 
                                 // Update status in database if changed
                                 string updateStatusSql = @"
@@ -2257,11 +2248,11 @@ namespace Keemya.Frontend.Services
 
                     try
                     {
-                        var sirens = new List<(string Name, string Ip, bool Redundant, string AreaCode, string AddressCode, string DbStatus)>();
+                        var sirens = new List<(string Name, string Ip, bool Redundant, string AreaCode, string AddressCode, string DbStatus, string DeviceType)>();
                         using (var connection = new MySqlConnection(AppConfig.ConnectionString))
                         {
                             await connection.OpenAsync();
-                            string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode, Status FROM SirenDevices";
+                            string sql = "SELECT Name, Ip, Redundant, AreaCode, AddressCode, Status, DeviceType FROM SirenDevices";
                             using var command = new MySqlCommand(sql, connection);
                             using var reader = await command.ExecuteReaderAsync();
                             while (await reader.ReadAsync())
@@ -2272,7 +2263,8 @@ namespace Keemya.Frontend.Services
                                     reader.GetBoolean(2),
                                     reader.IsDBNull(3) ? "000" : reader.GetString(3),
                                     reader.IsDBNull(4) ? "0000" : reader.GetString(4),
-                                    reader.IsDBNull(5) ? "" : reader.GetString(5).ToUpper()
+                                    reader.IsDBNull(5) ? "" : reader.GetString(5).ToUpper(),
+                                    SirenDeviceTypes.Normalize(reader.IsDBNull(6) ? null : reader.GetString(6))
                                 ));
                             }
                         }
@@ -2284,6 +2276,7 @@ namespace Keemya.Frontend.Services
                                 cacheItem = new SirenStatusCacheItem
                                 {
                                     Name = s.Name,
+                                    DeviceType = s.DeviceType,
                                     Ip = s.Ip,
                                     Redundant = s.Redundant,
                                     AreaCode = s.AreaCode,
@@ -2301,6 +2294,7 @@ namespace Keemya.Frontend.Services
                             {
                                 cacheItem.Redundant = s.Redundant;
                                 cacheItem.Ip = s.Ip;
+                                cacheItem.DeviceType = s.DeviceType;
                             }
                         }
 
@@ -3055,7 +3049,7 @@ namespace Keemya.Frontend.Services
                 {
                     try
                     {
-                        var pendingList = new List<(string Id, string Target, string Ip, bool Redundant, string FrameHex, bool Track, bool User)>();
+                        var pendingList = new List<(string Id, string Target, string Ip, bool Redundant, string FrameHex, bool Track, bool User, DateTime Created)>();
                         using (var connection = new MySqlConnection(AppConfig.ConnectionString))
                         {
                             await connection.OpenAsync();
@@ -3071,7 +3065,7 @@ namespace Keemya.Frontend.Services
                             // Like GV Core redundancy: a controller with a working siren link takes commands at once;
                             // one without waits a grace period so a healthy controller can take them first.
                             bool linkHealthy = _sirenCache.Values.Any(c => c.IsOnline || c.IsSerialOnline);
-                            string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated FROM PendingCommands WHERE Status = 'PENDING'"
+                            string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created FROM PendingCommands WHERE Status = 'PENDING'"
                                 + (linkHealthy ? "" : $" AND Created <= NOW(6) - INTERVAL {UnhealthyControllerGraceSeconds} SECOND")
                                 + " ORDER BY Created";
                             using (var cmd = new MySqlCommand(sql, connection))
@@ -3086,13 +3080,18 @@ namespace Keemya.Frontend.Services
                                         Convert.ToBoolean(reader.GetValue(3)),
                                         reader.GetString(4),
                                         Convert.ToBoolean(reader.GetValue(5)),
-                                        Convert.ToBoolean(reader.GetValue(6))
+                                        Convert.ToBoolean(reader.GetValue(6)),
+                                        reader.GetDateTime(7)
                                     ));
                                 }
                             }
 
                             if (pendingList.Count > 0)
                             {
+                                // Assigned in queue order before the parallel sends start.
+                                var toneSeqs = pendingList.ToDictionary(p => p.Id,
+                                    p => p.Target.StartsWith("__") ? 0 : QueueToneSequence(p.FrameHex, p.Created));
+
                                 var tasks = pendingList.Select(async item =>
                                 {
                                     bool success = false;
@@ -3121,7 +3120,7 @@ namespace Keemya.Frontend.Services
                                         else
                                         {
                                             byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
-                                            success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User);
+                                            success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User, sequenceId: toneSeqs[item.Id]);
                                         }
 
                                         using (var localConn = new MySqlConnection(AppConfig.ConnectionString))
@@ -3221,7 +3220,11 @@ namespace Keemya.Frontend.Services
         public double AcVoltage { get; set; } = 0.0;
         public int? StatusByte { get; set; }
 
-        public bool HasAlarm => HasIntrusion || HasAcLoss || HasLowBattery || HasStrobeError || 
-                                HasSupervisorError || HasRotorFailure || HasFullAlertFailure || HasPartialAlertFailure;
+        public string DeviceType { get; set; } = SirenDeviceTypes.Siren;
+
+        // Paging/Radio C2030s have no horns, rotor or strobe, so those test bits are not real faults there.
+        public bool HasAlarm => HasIntrusion || HasAcLoss || HasLowBattery || HasSupervisorError ||
+                                (SirenDeviceTypes.IsSiren(DeviceType) &&
+                                 (HasStrobeError || HasRotorFailure || HasFullAlertFailure || HasPartialAlertFailure));
     }
 }

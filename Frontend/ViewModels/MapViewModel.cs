@@ -32,9 +32,6 @@ namespace Keemya.Frontend.ViewModels
         public ObservableCollection<string> CommLogs => SirenCommunicationService.Instance.Logs;
 
         [ObservableProperty]
-        private ObservableCollection<ZoneDto> zones = new();
-
-        [ObservableProperty]
         private ObservableCollection<CommandConfigDto> commandCards = new();
 
         // ── Map Interactive States ──────────────────────────────────────────
@@ -148,38 +145,8 @@ namespace Keemya.Frontend.ViewModels
 
         private async Task InitializeDataAsync()
         {
-            await LoadZonesFromDatabaseAsync();
             await LoadSirensFromDatabaseAsync();
             await LoadCommandCardsAsync();
-        }
-
-        private async Task LoadZonesFromDatabaseAsync()
-        {
-            try
-            {
-                var list = new List<ZoneDto>();
-                using var conn = new MySqlConnection(ConnStr);
-                await conn.OpenAsync();
-                
-                using var cmd = new MySqlCommand("SELECT Id, Name, Description, Color, Shape FROM SirenGroups ORDER BY Name", conn);
-                using var rdr = await cmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
-                {
-                    list.Add(new ZoneDto
-                    {
-                        Id = rdr.GetGuid(0),
-                        Name = rdr.GetString(1),
-                        Description = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2),
-                        Color = rdr.IsDBNull(3) ? "Red" : rdr.GetString(3),
-                        Shape = rdr.IsDBNull(4) ? "Rectangle" : rdr.GetString(4)
-                    });
-                }
-                Zones = new ObservableCollection<ZoneDto>(list);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading zones in map: {ex.Message}");
-            }
         }
 
         private async Task LoadSirensFromDatabaseAsync()
@@ -191,7 +158,7 @@ namespace Keemya.Frontend.ViewModels
                 await conn.OpenAsync();
 
                 const string query = @"
-                    SELECT d.Id, d.Name, d.AreaCode, d.AddressCode, d.Lat, d.Lng, d.Status, d.Ip, d.Redundant, d.GroupId, g.Name as GroupName
+                    SELECT d.Id, d.Name, d.AreaCode, d.AddressCode, d.Lat, d.Lng, d.Status, d.Ip, d.Redundant, d.GroupId, g.Name as GroupName, d.DeviceType
                     FROM SirenDevices d
                     LEFT JOIN SirenGroups g ON d.GroupId = g.Id
                     ORDER BY d.Name;";
@@ -216,19 +183,13 @@ namespace Keemya.Frontend.ViewModels
                         Redundant = rdr.GetBoolean(8),
                         GroupId = rdr.IsDBNull(9) ? null : rdr.GetGuid(9),
                         GroupName = rdr.IsDBNull(10) ? string.Empty : rdr.GetString(10),
+                        DeviceType = SirenDeviceTypes.Normalize(rdr.IsDBNull(11) ? null : rdr.GetString(11)),
                         IsTcpOnline = cache?.IsTcpOnline ?? false,
                         IsSerialOnline = cache?.IsSerialOnline ?? false
                     });
                 }
 
                 Sirens = new ObservableCollection<SirenDeviceDto>(list);
-
-                // Update Zone Count Stats
-                foreach (var z in Zones)
-                {
-                    z.TotalDevices = list.Count(s => s.GroupId == z.Id);
-                    z.OnlineDevices = list.Count(s => s.GroupId == z.Id && (s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING"));
-                }
             }
             catch (Exception ex)
             {
@@ -451,30 +412,6 @@ namespace Keemya.Frontend.ViewModels
                 SidebarSubtitle = "None Selected";
                 TargetLabel = "-";
             }
-        }
-
-        // ── Interaction: Select Zone ─────────────────────────────────────────
-        [RelayCommand]
-        private void ClickZone(ZoneDto zone)
-        {
-            if (zone == null) return;
-
-            // Select all sirens in this zone
-            var zoneSirens = Sirens.Where(s => s.GroupId == zone.Id).ToList();
-            if (zoneSirens.Count == 0)
-            {
-                MessageBox.Show("No sirens configured in this zone.", "Empty Zone", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            TargetedSirens = new ObservableCollection<SirenDeviceDto>(zoneSirens);
-            SelectedSiren = null;
-            IsDiagnosticsOpen = false;
-
-            SidebarTitle = "Siren Activation";
-            SidebarSubtitle = $"{zoneSirens.Count} sirens selected";
-            TargetLabel = $"{zone.Name} ({zoneSirens.Count} available)";
-            IsSidebarOpen = true;
         }
 
         [ObservableProperty]
@@ -1103,10 +1040,16 @@ namespace Keemya.Frontend.ViewModels
 
         public async Task<string> GetSirensJsonAsync()
         {
-            var list = Sirens.Select(s => new Keemya.Frontend.Models.SirenMapItemDto
+            return BuildSirensJson(Sirens);
+        }
+
+        internal static string BuildSirensJson(IEnumerable<SirenDeviceDto> sirens)
+        {
+            var list = sirens.Select(s => new Keemya.Frontend.Models.SirenMapItemDto
             {
                 id = s.Id.ToString(),
                 name = s.Name,
+                deviceType = SirenDeviceTypes.Normalize(s.DeviceType),
                 lat = s.Lat,
                 lng = s.Lng,
                 status = s.Status,
@@ -1117,11 +1060,6 @@ namespace Keemya.Frontend.ViewModels
                 hasACPower = s.HasACPower
             }).ToList();
             return System.Text.Json.JsonSerializer.Serialize(list);
-        }
-
-        public string GetZonesJson()
-        {
-            return "[]";
         }
 
         public string GetCommandsJson()
@@ -1182,12 +1120,6 @@ namespace Keemya.Frontend.ViewModels
                     {
                         siren.IsTcpOnline = cache.IsTcpOnline;
                         siren.IsSerialOnline = cache.IsSerialOnline;
-                    }
-                    
-                    // Update Zone online/offline counters dynamically
-                    foreach (var z in Zones)
-                    {
-                        z.OnlineDevices = Sirens.Count(s => s.GroupId == z.Id && (s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING"));
                     }
 
                     // Notify view to refresh map pins

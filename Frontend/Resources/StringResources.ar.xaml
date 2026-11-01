@@ -105,6 +105,7 @@
     <sys:String x:Key="AreaCode">رمز المنطقة</sys:String>
     <sys:String x:Key="AddressCode">رمز العنوان</sys:String>
     <sys:String x:Key="Location">الموقع</sys:String>
+    <sys:String x:Key="DeviceType">نوع الجهاز</sys:String>
     <sys:String x:Key="PickOnMap">اختر على الخريطة</sys:String>
     <sys:String x:Key="Latitude">خط العرض *</sys:String>
     <sys:String x:Key="Longitude">خط الطول *</sys:String>
