@@ -3,7 +3,7 @@
 ; Upgrade: an existing appsettings.json is kept and the setup pages are skipped.
 
 #define MyAppName "TS Emergency Management System"
-#define MyAppVersion "1.0.20"
+#define MyAppVersion "1.0.23"
 #define MyAppPublisher "Top Solutions"
 #define MyAppExeName "TS_EMS.exe"
 #define SourceDir "PublishOutput"

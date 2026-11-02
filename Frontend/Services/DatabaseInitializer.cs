@@ -150,6 +150,34 @@ namespace Keemya.Frontend.Services
                 }
                 catch { /* Column already exists or table doesn't exist yet */ }
 
+                // 4a2. Uploaded audio for pre-recorded message buttons, stored in the row (base64) so server sync copies it to every PC
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        using (var command = new MySqlCommand("ALTER TABLE CommandConfigs ADD COLUMN AudioName varchar(255) NULL, ADD COLUMN AudioData longtext NULL;", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* Column already exists or table doesn't exist yet */ }
+
+                // 4a3. Command Center button layout: position on the snap grid and button size
+                try
+                {
+                    using (var connection = new MySqlConnection(builder.ConnectionString))
+                    {
+                        connection.Open();
+                        using (var command = new MySqlCommand("ALTER TABLE CommandConfigs ADD COLUMN PosX int NULL, ADD COLUMN PosY int NULL, ADD COLUMN ButtonSize varchar(10) NOT NULL DEFAULT 'Medium';", connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* Column already exists or table doesn't exist yet */ }
+
                 // 4b. Ensure SortOrder column exists dynamically in CommandConfigs
                 try
                 {

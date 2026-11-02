@@ -437,11 +437,13 @@ namespace Keemya.Frontend.ViewModels
         // Dropdown value meaning "leave this part out of the announcement"
         private const string Skip = "Skip";
 
-        // Spoken order: "<event> <type>, category <n>, in <plant>, wind direction is <dir>, assembly point is <point>".
+        // Spoken order: "<pre-tone> <event> <type>, category <n>, in <plant>, wind direction is <dir>, assembly point is <point>".
         // Each lead-in phrase is its own clip in Assets\Audio and is dropped together with a skipped value.
+        internal const string PreTone = "pre-tone";
         private string[] SelectedAudioItems() =>
             new (string? Lead, string Value)[]
             {
+                (null, PreTone),
                 (null, SelectedEvent),
                 (null, SelectedType),
                 ("Category", SelectedCategory),
@@ -498,7 +500,11 @@ namespace Keemya.Frontend.ViewModels
 
         // Activation buttons configured in the Button Configuration module (CommandConfigs.ShowOnPanel)
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PanelLayoutHeight))]
         private ObservableCollection<CommandConfigDto> panelButtons = new();
+
+        // Canvas height = bottom edge of the lowest button, so the station grid below keeps its place
+        public double PanelLayoutHeight => PanelButtons.Count == 0 ? 0 : PanelButtons.Max(b => b.Y + b.ButtonHeight);
 
         private List<CommandCardDto> _allCommands = new();
         private CommandCardDto? _commandToConfirm;
@@ -931,6 +937,7 @@ namespace Keemya.Frontend.ViewModels
 
             // Stop any active Audio Loopback simulation
             Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
+            Keemya.Frontend.Services.RemotePaPlayer.StopButton();
 
             // Cancel any in-flight tone activation dispatches immediately
             Keemya.Frontend.Services.SirenCommunicationService.Instance.CancelActiveActivations();
@@ -1225,7 +1232,11 @@ namespace Keemya.Frontend.ViewModels
             {
                 IsPublicAddressActive = true;
                 
-                if (!string.IsNullOrEmpty(card.AudioFilePath) && System.IO.File.Exists(card.AudioFilePath))
+                if (card.CommandHex == Keemya.Frontend.Services.PanelButtonService.PreRecordedHex)
+                {
+                    Keemya.Frontend.Services.RemotePaPlayer.PlayButton(card.Id);
+                }
+                else if (!string.IsNullOrEmpty(card.AudioFilePath) && System.IO.File.Exists(card.AudioFilePath))
                 {
                     Keemya.Frontend.Services.AudioSimulationService.Instance.StartFilePlayback(card.AudioFilePath);
                 }
@@ -1446,7 +1457,7 @@ namespace Keemya.Frontend.ViewModels
             return frame;
         }
 
-        private string? FindAudioFile(string name)
+        internal static string? FindAudioFile(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
             string assetsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Audio");
@@ -1478,14 +1489,15 @@ namespace Keemya.Frontend.ViewModels
             return null;
         }
 
-        private string NormalizeAudioKey(string input)
+        internal static string NormalizeAudioKey(string input)
         {
             if (string.IsNullOrEmpty(input)) return string.Empty;
             string result = input.Trim().ToLower();
             result = result.Replace("near to", "near")
-                          .Replace("front of", "in front of")
-                          .Replace("front polymer", "in front of polymer")
+                          .Replace("front polymer", "front of polymer")
                           .Replace(".", "");
+            // "Front of X" and "In front of X" are the same clip; adding "in " blindly turned "In front of" files into "in in front of"
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"^(in )?front of", "in front of");
             
             if (result.StartsWith("all employee")) return "allemployeesproceedtonearestbuilding";
             if (result.StartsWith("all building marshal")) return "allbuildingmarshalsarerequestedtoshutdown";
@@ -1635,6 +1647,7 @@ namespace Keemya.Frontend.ViewModels
                 };
             }
 
+            CommandToConfirmName = "PRE-RECORDED MESSAGE";
             IsCommandRunning = true;
             IsPublicAddressActive = true;
 
@@ -1761,7 +1774,8 @@ namespace Keemya.Frontend.ViewModels
 
                     // DB-driven Intercom voice Call Synchronization
                     // Find if another station has initiated a call or pre-recorded PA request
-                    var caller = list.FirstOrDefault(x => x.Name != AppConfig.StationName && x.ActiveCallTarget != null && (x.ActiveCallTarget.EndsWith(AppConfig.StationName) || x.ActiveCallTarget.StartsWith("PA:FILE:") || x.ActiveCallTarget.StartsWith("PA:SEQ:")));
+                    // Pre-recorded PA (PA:FILE / PA:SEQ) is played by RemotePaPlayer on servers, whatever page is open.
+                    var caller = list.FirstOrDefault(x => x.Name != AppConfig.StationName && x.ActiveCallTarget != null && x.ActiveCallTarget.EndsWith(AppConfig.StationName));
                     if (caller != null)
                     {
                         string? targetSignal = caller.ActiveCallTarget;

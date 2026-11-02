@@ -16,6 +16,19 @@ namespace Keemya.Frontend.Models
         public int    SortOrder            { get; set; } = 0;             // display order for drag-reorder
         public Guid?  AudioFileId           { get; set; } = null;          // Link to AudioFiles table
         public string? AudioFilePath        { get; set; } = null;          // Local path or stored name for playing
+        public string? AudioName            { get; set; } = null;          // uploaded file name of a pre-recorded message button
+        public byte[]? AudioData            { get; set; } = null;          // set only when a new file is uploaded
+
+        // Command Center layout (like GV Core): free position on a snap grid, null = not placed yet
+        public int?   PosX                  { get; set; } = null;
+        public int?   PosY                  { get; set; } = null;
+        public string ButtonSize            { get; set; } = "Medium";      // Small / Medium / Large
+
+        public int    X            => PosX ?? 0;
+        public int    Y            => PosY ?? 0;
+        public int    ButtonWidth  => Keemya.Frontend.Services.PanelButtonService.SizeOf(ButtonSize).Width;
+        public int    ButtonHeight => Keemya.Frontend.Services.PanelButtonService.SizeOf(ButtonSize).Height;
+        public double ButtonFontSize => ButtonSize switch { "Small" => 11, "Large" => 16, _ => 13 };
 
         // ── Computed helpers for the View ──────────────────────────────────
 

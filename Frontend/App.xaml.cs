@@ -68,6 +68,7 @@ namespace Keemya.Frontend
             {
                 try { Keemya.Frontend.Services.AudioCommunicationService.Instance.StartListening(); }
                 catch { }
+                Keemya.Frontend.Services.RemotePaPlayer.Start();
             }
             else
             {

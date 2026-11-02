@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NAudio.Wave;
 
 namespace Keemya.Frontend.Services
@@ -124,7 +125,10 @@ namespace Keemya.Frontend.Services
                     return;
                 }
 
-                var concatProvider = new NAudio.Wave.SampleProviders.ConcatenatingSampleProvider(providers);
+                // Clips are recorded at different rates (pre-tone 8 kHz, speech 44.1 kHz); concatenation needs one format.
+                int rate = providers.Max(p => p.WaveFormat.SampleRate);
+                int channels = providers.Max(p => p.WaveFormat.Channels);
+                var concatProvider = new NAudio.Wave.SampleProviders.ConcatenatingSampleProvider(providers.Select(p => ToFormat(p, rate, channels)));
 
                 _waveOut = new WaveOutEvent();
                 _waveOut.DesiredLatency = 200;
@@ -154,9 +158,18 @@ namespace Keemya.Frontend.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to start sequential concatenation: {ex.Message}");
+                SirenCommunicationService.Instance.Log($"[PA] Failed to play pre-recorded message: {ex.Message}");
                 StopLoopback();
             }
+        }
+
+        internal static ISampleProvider ToFormat(ISampleProvider source, int sampleRate, int channels)
+        {
+            if (source.WaveFormat.Channels == 1 && channels == 2)
+                source = new NAudio.Wave.SampleProviders.MonoToStereoSampleProvider(source);
+            if (source.WaveFormat.SampleRate != sampleRate)
+                source = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(source, sampleRate);
+            return source;
         }
 
         public void StartFilePlayback(string filePath)

@@ -46,15 +46,24 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Activation Buttons" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
-                        <TextBlock Text="Shown in this order in Command Center and Map. Changes appear the next time those screens are opened." FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
+                        <TextBlock Text="Place them with Button Layout. New buttons go to the first free spot. Changes appear the next time Command Center and Map are opened." FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding OpenAddCommand}" materialDesign:ButtonAssist.CornerRadius="5"
-                            Background="#2563EB" BorderBrush="Transparent" Foreground="White" Padding="15,10" Height="40">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Add Button" VerticalAlignment="Center" FontWeight="Bold" />
-                        </StackPanel>
-                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Command="{Binding OpenLayoutCommand}" materialDesign:ButtonAssist.CornerRadius="5" Margin="0,0,10,0"
+                                Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" Foreground="{StaticResource TextPrimary}" Padding="15,10" Height="40">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ViewGridOutline" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Button Layout" VerticalAlignment="Center" FontWeight="Bold" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding OpenAddCommand}" materialDesign:ButtonAssist.CornerRadius="5"
+                                Background="#2563EB" BorderBrush="Transparent" Foreground="White" Padding="15,10" Height="40">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Add Button" VerticalAlignment="Center" FontWeight="Bold" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -138,6 +147,21 @@
                     <TextBlock Text="Siren tone / command" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" />
                     <ComboBox ItemsSource="{Binding Tones}" SelectedItem="{Binding SelectedTone}" DisplayMemberPath="Name" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,16" />
 
+                    <!-- Pre-recorded message: the server plays pre-tone + this file to the sirens -->
+                    <Grid Margin="0,0,0,16" Visibility="{Binding IsPreRecorded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Command="{Binding UploadAudioCommand}" Background="#2563EB" BorderBrush="Transparent" Foreground="White" materialDesign:ButtonAssist.CornerRadius="5" Padding="12,6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Upload" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Upload audio (mp3 / wav)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Grid.Column="1" Text="{Binding AudioName, TargetNullValue='No file uploaded'}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
+                    </Grid>
+
                     <TextBlock Text="Color (pick a quick color, or drag in the picker for any shade)" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" />
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
@@ -173,12 +197,17 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="Run time (seconds, 0 = manual stop)" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" />
                             <TextBox Text="{Binding DurationText, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" Foreground="{StaticResource TextPrimary}" Width="120" HorizontalAlignment="Left" />
                         </StackPanel>
-                        <CheckBox Grid.Column="1" IsChecked="{Binding IsButtonEnabled}" Content="Show on screens" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Bottom" />
+                        <StackPanel Grid.Column="1" Margin="0,0,20,0">
+                            <TextBlock Text="Size" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,6" />
+                            <ComboBox ItemsSource="{Binding ButtonSizes}" SelectedItem="{Binding ButtonSize}" Width="100" Foreground="{StaticResource TextPrimary}" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="2" IsChecked="{Binding IsButtonEnabled}" Content="Show on screens" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Bottom" />
                     </Grid>
 
                     <TextBlock Text="{Binding PopupErrorMessage}" Foreground="#EF4444" TextWrapping="Wrap" Margin="0,0,0,12" />
@@ -187,6 +216,67 @@
                         <Button Command="{Binding ClosePopupCommand}" Content="Cancel" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0" />
                         <Button Command="{Binding SaveCommand}" Content="Save" Background="#2563EB" BorderBrush="Transparent" Foreground="White" materialDesign:ButtonAssist.CornerRadius="5" Padding="20,8" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Button Layout editor: drag buttons, they snap to the grid (same idea as GV Core's layout screen) -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100"
+              Visibility="{Binding IsLayoutOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="#80000000" />
+            <Border Background="{StaticResource CardBackground}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="12" Padding="25" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Button Layout" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" />
+                    <TextBlock Text="Drag the buttons to where they should be in Command Center. They snap to the grid." FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,15" />
+
+                    <!-- Same size as the Command Center button area -->
+                    <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" Background="{StaticResource AppBackground}" HorizontalAlignment="Left">
+                        <ItemsControl ItemsSource="{Binding LayoutItems}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas Width="{Binding DataContext.LayoutWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Height="{Binding DataContext.LayoutHeight, RelativeSource={RelativeSource AncestorType=UserControl}}" ClipToBounds="True" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="Canvas.Left" Value="{Binding X}" />
+                                    <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Thumb Width="{Binding Button.ButtonWidth}" Height="{Binding Button.ButtonHeight}" Cursor="SizeAll"
+                                           DragStarted="LayoutThumb_DragStarted" DragDelta="LayoutThumb_DragDelta">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="{Binding Button.ColorHex}" BorderBrush="White" BorderThickness="1">
+                                                    <TextBlock Text="{Binding Button.Name}" Foreground="{Binding Button.TextColorHex}" FontWeight="Bold" FontSize="{Binding Button.ButtonFontSize}"
+                                                               TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <Grid Margin="0,15,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Columns" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox Text="{Binding LayoutColumns, UpdateSourceTrigger=PropertyChanged}" MaxLength="1" Width="30" Foreground="{StaticResource TextPrimary}" Margin="0,0,10,0" />
+                            <Button Command="{Binding AutoArrangeLayoutCommand}" Content="Auto-arrange" Style="{StaticResource MaterialDesignFlatButton}" Foreground="#60A5FA" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Command="{Binding CloseLayoutCommand}" Content="Cancel" Style="{StaticResource MaterialDesignFlatButton}" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0" />
+                            <Button Command="{Binding SaveLayoutCommand}" Content="Save Layout" Background="#2563EB" BorderBrush="Transparent" Foreground="White" materialDesign:ButtonAssist.CornerRadius="5" Padding="20,8" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
         </Grid>

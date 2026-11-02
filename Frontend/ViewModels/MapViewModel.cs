@@ -531,6 +531,7 @@ namespace Keemya.Frontend.ViewModels
 
             // Stop any active Audio Loopback simulation
             Keemya.Frontend.Services.AudioSimulationService.Instance.StopLoopback();
+            Keemya.Frontend.Services.RemotePaPlayer.StopButton();
 
             // Cancel any in-flight tone activation dispatches immediately
             SirenCommunicationService.Instance.CancelActiveActivations();
@@ -697,7 +698,11 @@ namespace Keemya.Frontend.ViewModels
             {
                 IsPublicAddressActive = true;
                 
-                if (!string.IsNullOrEmpty(card.AudioFilePath) && System.IO.File.Exists(card.AudioFilePath))
+                if (card.CommandHex == Keemya.Frontend.Services.PanelButtonService.PreRecordedHex)
+                {
+                    Keemya.Frontend.Services.RemotePaPlayer.PlayButton(card.Id);
+                }
+                else if (!string.IsNullOrEmpty(card.AudioFilePath) && System.IO.File.Exists(card.AudioFilePath))
                 {
                     Keemya.Frontend.Services.AudioSimulationService.Instance.StartFilePlayback(card.AudioFilePath);
                 }

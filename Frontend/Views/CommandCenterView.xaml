@@ -136,16 +136,23 @@
 
                 <!-- Alarm Grid (Top) -->
                 <!-- Buttons come from the Button Configuration module (CommandConfigs.ShowOnPanel) -->
-                <ItemsControl Grid.Row="0" Margin="20,10,0,0" ItemsSource="{Binding PanelButtons}" HorizontalAlignment="Left">
+                <!-- Free layout from Button Configuration > Button Layout (position + size per button, like GV Core) -->
+                <ItemsControl Grid.Row="0" Margin="28,18,0,8" ItemsSource="{Binding PanelButtons}" HorizontalAlignment="Left">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Columns="3"/>
+                            <Canvas Width="464" Height="{Binding DataContext.PanelLayoutHeight, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                            <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding DataContext.SelectPanelButtonCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Margin="8" Width="140" Height="75" Background="{Binding ColorHex}">
-                                <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <Button Style="{StaticResource FlatTouchButtonStyle}" Command="{Binding DataContext.SelectPanelButtonCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Width="{Binding ButtonWidth}" Height="{Binding ButtonHeight}" Background="{Binding ColorHex}">
+                                <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="Bold" FontSize="{Binding ButtonFontSize}" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

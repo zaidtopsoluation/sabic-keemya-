@@ -12,6 +12,22 @@ using System.Windows;
 
 namespace Keemya.Frontend.ViewModels
 {
+    /// <summary>One button on the Button Layout canvas while it is being dragged.</summary>
+    public partial class LayoutItem : ObservableObject
+    {
+        public CommandConfigDto Button { get; }
+        [ObservableProperty] private int x;
+        [ObservableProperty] private int y;
+        internal double DragX, DragY; // unsnapped position while the mouse moves
+
+        public LayoutItem(CommandConfigDto button)
+        {
+            Button = button;
+            x = button.X;
+            y = button.Y;
+        }
+    }
+
     /// <summary>Admin/Service module: add, edit, color, reorder and delete the activation buttons shown in Command Center and Map.</summary>
     public partial class ButtonConfigViewModel : ObservableObject
     {
@@ -28,7 +44,15 @@ namespace Keemya.Frontend.ViewModels
         [NotifyPropertyChangedFor(nameof(PreviewText))]
         private string buttonLabel = string.Empty;
 
-        [ObservableProperty] private ToneOption? selectedTone;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsPreRecorded))]
+        private ToneOption? selectedTone;
+
+        public bool IsPreRecorded => SelectedTone?.Hex == PanelButtonService.PreRecordedHex;
+
+        // Audio of a pre-recorded message button: the stored file name, plus the bytes when a new file was picked
+        [ObservableProperty] private string? audioName;
+        private byte[]? _newAudio;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(PreviewBackground))]
@@ -48,6 +72,16 @@ namespace Keemya.Frontend.ViewModels
                 if (!string.Equals(hex, ButtonColor, StringComparison.OrdinalIgnoreCase)) ButtonColor = hex;
             }
         }
+
+        [ObservableProperty] private string buttonSize = "Medium";
+        public IReadOnlyList<string> ButtonSizes => PanelButtonService.ButtonSizes;
+
+        // Button Layout editor
+        [ObservableProperty] private bool isLayoutOpen;
+        [ObservableProperty] private ObservableCollection<LayoutItem> layoutItems = new();
+        [ObservableProperty] private string layoutColumns = "3";
+        public int LayoutWidth => PanelButtonService.LayoutWidth;
+        public int LayoutHeight => PanelButtonService.LayoutHeight;
 
         [ObservableProperty] private string durationText = "90";
         [ObservableProperty] private bool isButtonEnabled = true;
@@ -95,7 +129,10 @@ namespace Keemya.Frontend.ViewModels
             SelectedTone = Tones.FirstOrDefault(t => t.Hex == 0x01);
             ButtonColor = "#A72A2A";
             DurationText = "90";
+            ButtonSize = "Medium";
             IsButtonEnabled = true;
+            AudioName = null;
+            _newAudio = null;
             PopupErrorMessage = string.Empty;
             IsPopupOpen = true;
         }
@@ -110,9 +147,38 @@ namespace Keemya.Frontend.ViewModels
             SelectedTone = Tones.FirstOrDefault(t => t.Hex == button.CommandHex);
             ButtonColor = button.ColorHex;
             DurationText = button.Duration.ToString();
+            ButtonSize = button.ButtonSize;
             IsButtonEnabled = button.IsEnabled;
+            AudioName = button.AudioName;
+            _newAudio = null;
             PopupErrorMessage = string.Empty;
             IsPopupOpen = true;
+        }
+
+        [RelayCommand]
+        private void UploadAudio()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Audio files (*.mp3;*.wav)|*.mp3;*.wav", Title = "Choose the pre-recorded message" };
+            if (dialog.ShowDialog() != true) return;
+
+            var info = new System.IO.FileInfo(dialog.FileName);
+            if (info.Length > PanelButtonService.MaxAudioBytes)
+            {
+                PopupErrorMessage = $"Audio file is too large ({info.Length / 1024 / 1024} MB). Maximum is 10 MB.";
+                return;
+            }
+            try
+            {
+                // Reject files the player cannot decode now, not during an emergency
+                using (var reader = new NAudio.Wave.AudioFileReader(dialog.FileName)) { }
+                _newAudio = System.IO.File.ReadAllBytes(dialog.FileName);
+                AudioName = info.Name;
+                PopupErrorMessage = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                PopupErrorMessage = $"This audio file cannot be played: {ex.Message}";
+            }
         }
 
         [RelayCommand]
@@ -126,7 +192,7 @@ namespace Keemya.Frontend.ViewModels
         {
             if (!CanEdit()) return;
 
-            string? error = PanelButtonService.Validate(ButtonLabel, SelectedTone?.Hex, ButtonColor, DurationText, out int duration);
+            string? error = PanelButtonService.Validate(ButtonLabel, SelectedTone?.Hex, ButtonColor, DurationText, out int duration, hasAudio: AudioName != null);
             if (error != null)
             {
                 PopupErrorMessage = error;
@@ -143,7 +209,10 @@ namespace Keemya.Frontend.ViewModels
                 Color = ButtonColor.ToUpper(),
                 Duration = duration,
                 IsEnabled = IsButtonEnabled,
-                SortOrder = existing?.SortOrder ?? (Buttons.Count == 0 ? 1 : Buttons.Max(b => b.SortOrder) + 1)
+                SortOrder = existing?.SortOrder ?? (Buttons.Count == 0 ? 1 : Buttons.Max(b => b.SortOrder) + 1),
+                AudioName = AudioName,
+                AudioData = IsPreRecorded ? _newAudio : null,
+                ButtonSize = ButtonSize
             };
 
             try
@@ -177,6 +246,67 @@ namespace Keemya.Frontend.ViewModels
             catch (Exception ex)
             {
                 MessageBox.Show($"Could not delete button:\n{ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        [RelayCommand]
+        private void OpenLayout()
+        {
+            LayoutItems = new ObservableCollection<LayoutItem>(Buttons.Select(b => new LayoutItem(b)));
+            PopupErrorMessage = string.Empty;
+            IsLayoutOpen = true;
+        }
+
+        [RelayCommand]
+        private void CloseLayout() => IsLayoutOpen = false;
+
+        public void BeginDrag(LayoutItem item)
+        {
+            item.DragX = item.X;
+            item.DragY = item.Y;
+        }
+
+        public void Drag(LayoutItem item, double dx, double dy)
+        {
+            item.DragX += dx;
+            item.DragY += dy;
+            item.X = PanelButtonService.Snap(item.DragX, LayoutWidth - item.Button.ButtonWidth);
+            item.Y = PanelButtonService.Snap(item.DragY, LayoutHeight - item.Button.ButtonHeight);
+        }
+
+        [RelayCommand]
+        private void AutoArrangeLayout()
+        {
+            if (!int.TryParse(LayoutColumns, out int columns) || columns < 1) columns = 3;
+            var buttons = LayoutItems.Select(i => i.Button).ToList();
+            var copies = buttons.Select(b => new CommandConfigDto { ButtonSize = b.ButtonSize }).ToList();
+            PanelButtonService.AutoArrange(copies, columns);
+            for (int i = 0; i < copies.Count; i++)
+            {
+                LayoutItems[i].X = copies[i].X;
+                LayoutItems[i].Y = copies[i].Y;
+            }
+        }
+
+        [RelayCommand]
+        private async Task SaveLayout()
+        {
+            if (!CanEdit()) return;
+            foreach (var item in LayoutItems)
+            {
+                item.Button.PosX = item.X;
+                item.Button.PosY = item.Y;
+            }
+            try
+            {
+                await PanelButtonService.SaveLayoutAsync(LayoutItems.Select(i => i.Button));
+                await new AuditLogService().LogAsync(Session.Username, "Update", "Activation button layout changed", "Button Configuration", "");
+                IsLayoutOpen = false;
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not save the layout:\n{ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

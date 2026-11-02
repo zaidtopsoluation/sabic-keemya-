@@ -112,6 +112,90 @@ public class PanelButtonTests
     }
 
     [Fact]
+    public void PreRecordedButton_NeedsUploadedAudio()
+    {
+        Assert.Contains(PanelButtonService.Tones, t => t.Hex == PanelButtonService.PreRecordedHex);
+        Assert.Contains("audio", PanelButtonService.Validate("EVACUATE", PanelButtonService.PreRecordedHex, "#A72A2A", "90", out _), StringComparison.OrdinalIgnoreCase);
+        Assert.Null(PanelButtonService.Validate("EVACUATE", PanelButtonService.PreRecordedHex, "#A72A2A", "90", out _, hasAudio: true));
+        Assert.Null(PanelButtonService.Validate("FIRE", 0x01, "#A72A2A", "90", out _)); // other tones need no audio
+    }
+
+    [Fact]
+    public void CachedAudio_KeepsExtension_AndNewUploadGetsNewFile()
+    {
+        var id = System.Guid.NewGuid();
+        string first = PanelButtonService.CacheAudio(id, "Evacuate.MP3", new byte[] { 1, 2, 3 });
+        string second = PanelButtonService.CacheAudio(id, "Evacuate.mp3", new byte[] { 4, 5, 6 });
+        try
+        {
+            Assert.EndsWith(".mp3", first);
+            Assert.NotEqual(first, second); // a file still playing is never overwritten
+            Assert.Equal(new byte[] { 4, 5, 6 }, System.IO.File.ReadAllBytes(second));
+            Assert.Equal(first, PanelButtonService.CacheAudio(id, "Evacuate.mp3", new byte[] { 1, 2, 3 }));
+        }
+        finally { System.IO.File.Delete(first); System.IO.File.Delete(second); }
+    }
+
+    [Theory]
+    [InlineData(0, 300, 0)]
+    [InlineData(17, 300, 12)]     // rounds to the 12 px grid
+    [InlineData(19, 300, 24)]
+    [InlineData(-40, 300, 0)]     // cannot leave the canvas on the left/top
+    [InlineData(999, 324, 324)]   // nor on the right/bottom
+    public void Snap_KeepsButtonsOnTheGridAndCanvas(double value, int max, int expected)
+    {
+        Assert.Equal(expected, PanelButtonService.Snap(value, max));
+    }
+
+    [Fact]
+    public void UnplacedButtons_GoToFirstFreeSpot_WithoutOverlapping()
+    {
+        // Upgrade from the old fixed grid: no positions stored yet
+        var buttons = Enumerable.Range(0, 5).Select(_ => new CommandConfigDto()).ToList();
+        PanelButtonService.PlaceUnplaced(buttons);
+
+        Assert.Equal((0, 0), (buttons[0].X, buttons[0].Y));
+        Assert.All(buttons, b => Assert.True(b.X + b.ButtonWidth <= PanelButtonService.LayoutWidth));
+        for (int i = 0; i < buttons.Count; i++)
+            for (int j = i + 1; j < buttons.Count; j++)
+                Assert.False(buttons[i].X < buttons[j].X + buttons[j].ButtonWidth && buttons[j].X < buttons[i].X + buttons[i].ButtonWidth &&
+                             buttons[i].Y < buttons[j].Y + buttons[j].ButtonHeight && buttons[j].Y < buttons[i].Y + buttons[i].ButtonHeight,
+                             $"buttons {i} and {j} overlap");
+    }
+
+    [Fact]
+    public void PlacedButtons_KeepTheirPosition()
+    {
+        var placed = new CommandConfigDto { PosX = 0, PosY = 0 };
+        var added = new CommandConfigDto();
+        PanelButtonService.PlaceUnplaced(new List<CommandConfigDto> { placed, added });
+        Assert.Equal((0, 0), (placed.X, placed.Y));
+        Assert.NotEqual((0, 0), (added.X, added.Y));
+    }
+
+    [Fact]
+    public void AutoArrange_MakesRowsOfTheChosenColumns_AndLimitsToCanvasWidth()
+    {
+        var buttons = Enumerable.Range(0, 4).Select(_ => new CommandConfigDto()).ToList();
+        PanelButtonService.AutoArrange(buttons, 3);
+        Assert.Equal(new[] { 0, 0, 0, 87 }, buttons.Select(b => b.Y));   // 75 high + 12 gap
+        Assert.Equal(new[] { 0, 152, 304, 0 }, buttons.Select(b => b.X)); // 140 wide + 12 gap
+
+        PanelButtonService.AutoArrange(buttons, 9); // only 3 medium buttons fit in 464 px
+        Assert.All(buttons, b => Assert.True(b.X + b.ButtonWidth <= PanelButtonService.LayoutWidth));
+    }
+
+    [Theory]
+    [InlineData("Small", 100, 55)]
+    [InlineData("Medium", 140, 75)]
+    [InlineData("Large", 190, 100)]
+    [InlineData("bad", 140, 75)]
+    public void ButtonSizes_LikeGvSmallMediumLarge(string size, int w, int h)
+    {
+        Assert.Equal((w, h), PanelButtonService.SizeOf(size));
+    }
+
+    [Fact]
     public void Dto_ShowsToneName_AndContrastText()
     {
         var b = new CommandConfigDto { CommandHex = 0x07, Color = "#E6D900" };
