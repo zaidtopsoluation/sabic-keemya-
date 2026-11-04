@@ -546,10 +546,14 @@ namespace Keemya.Frontend.ViewModels
                 
                 var targetList = (_activeTargets != null && _activeTargets.Count > 0) ? _activeTargets : Sirens.ToList();
 
-                var serialTargets = targetList.Where(s => string.IsNullOrWhiteSpace(s.Ip))
+                // All sirens: one cancel-all that the server sends itself (a dispatcher queues one row, not ~40).
+                bool cancelAll = targetList.Count == Sirens.Count;
+                if (cancelAll) await SirenCommunicationService.Instance.CancelAllSirensAsync();
+
+                var serialTargets = targetList.Where(s => !cancelAll && string.IsNullOrWhiteSpace(s.Ip))
                     .OrderByDescending(s => s.Status.ToUpper() == "ONLINE" || s.Status.ToUpper() == "WARNING")
                     .ToList();
-                var tcpTargets = targetList.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
+                var tcpTargets = targetList.Where(s => !cancelAll && !string.IsNullOrWhiteSpace(s.Ip)).ToList();
 
                 // Send TCP commands in parallel (trackStatus: false so cancel frames never trigger false OFFLINE status)
                 var tcpTasks = tcpTargets.Select(async s =>
@@ -1168,7 +1172,7 @@ namespace Keemya.Frontend.ViewModels
                         if (st == null) return "OFFLINE";
                         if (string.Equals(AppConfig.StationName, st.Name, StringComparison.OrdinalIgnoreCase))
                             return "ONLINE";
-                        bool hasRecent = st.LastHeartbeat.HasValue && (DateTime.Now - st.LastHeartbeat.Value).TotalSeconds <= 15;
+                        bool hasRecent = SirenCommunicationService.IsHeartbeatFresh(st.Name, st.LastHeartbeat);
                         if (st.Type == "Workstation")
                             return hasRecent ? "ONLINE" : "OFFLINE";
                         if (hasRecent) return "ONLINE";

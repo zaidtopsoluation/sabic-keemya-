@@ -827,6 +827,74 @@ namespace Keemya.Frontend.Services
             return resOff && res1 && res4;
         }
 
+        internal const string CancelAllTarget = "__CANCEL_ALL__";
+
+        // Every siren gets Clear (0x00) before any siren gets the group clears, so the last siren is not silenced ~40 s late.
+        internal static IEnumerable<(T Siren, byte Clear)> PerSirenClears<T>(IReadOnlyList<T> sirens) =>
+            new byte[] { 0x00, 0x10, 0x30, 0x1E }.SelectMany(clear => sirens.Select(s => (s, clear)));
+
+        // Stop for all sirens, like GV Core's abort: a dispatcher queues ONE row and the server that takes it sends every
+        // clear itself from its own siren list. Per-siren frames also use the siren's TCP path, so this works with one server down.
+        public async Task<bool> CancelAllSirensAsync(CancellationToken token = default)
+        {
+            if (!AppConfig.IsMasterDispatcher)
+            {
+                try
+                {
+                    using var connection = new MySqlConnection(AppConfig.ConnectionString);
+                    await connection.OpenAsync();
+                    using var cmd = new MySqlCommand(@"
+                        INSERT INTO PendingCommands (Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created, Status)
+                        VALUES (@Id, @Target, '', 0, '', 0, 1, NOW(6), 'PENDING');", connection);
+                    cmd.Parameters.AddWithValue("@Id", Guid.NewGuid().ToString());
+                    cmd.Parameters.AddWithValue("@Target", CancelAllTarget);
+                    await cmd.ExecuteNonQueryAsync();
+                    Log("✅ [Remote Station] Cancel-all queued in database.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Log($"❌ [Remote Station] Failed to queue cancel-all: {ex.Message}");
+                    return false;
+                }
+            }
+
+            CancelActiveActivations();
+            int toneStarts = _toneStarts;
+            // A tone started after this Stop must not be cleared by the rest of this cancel.
+            async Task<bool> PauseAsync()
+            {
+                try { await Task.Delay(950, token); } catch (OperationCanceledException) { }
+                return !token.IsCancellationRequested && _toneStarts == toneStarts;
+            }
+
+            var sirens = _sirenCache.Values.ToList();
+            var tcpSirens = sirens.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
+            var serialSirens = sirens.Where(s => string.IsNullOrWhiteSpace(s.Ip)).OrderByDescending(s => s.IsSerialOnline).ToList();
+
+            var tcpTask = Task.WhenAll(tcpSirens.Select(async s =>
+            {
+                foreach (byte clear in new byte[] { 0x00, 0x10, 0x30, 0x1E })
+                {
+                    if (clear != 0x00 && !await PauseAsync()) return;
+                    await ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s.AreaCode, s.AddressCode, clear), trackStatus: false);
+                }
+            }));
+
+            if (serialSirens.Count > 0)
+            {
+                await SendWildcardClearAsync();
+                foreach (var (s, clear) in PerSirenClears(serialSirens))
+                {
+                    if (!await PauseAsync()) break;
+                    await ExecuteTransmitAsync(s.Name, s.Ip, s.Redundant, BuildUnitFrame(s.AreaCode, s.AddressCode, clear), trackStatus: false);
+                }
+            }
+
+            await tcpTask;
+            return true;
+        }
+
         public async Task<(bool Success, bool Busy)> SendSerialCommandDetailedAsync(byte[] frame, bool expectsAck = true, bool isUserInitiated = true)
         {
             if (!AppConfig.IsMasterDispatcher)
@@ -1153,9 +1221,11 @@ namespace Keemya.Frontend.Services
         }
 
         private volatile int _commandSequenceId = 0;
+        private volatile int _toneStarts = 0; // only tone starts, not cancels: a running cancel-all stops when this changes
 
         public int BeginToneActivation()
         {
+            Interlocked.Increment(ref _toneStarts);
             int newSeq = Interlocked.Increment(ref _commandSequenceId);
             Log($"🎵 [Siren Service] Starting new tone activation sequence #{newSeq}");
             return newSeq;
@@ -2069,6 +2139,48 @@ namespace Keemya.Frontend.Services
             return "127.0.0.1";
         }
 
+        internal const int HeartbeatFreshSeconds = 15;
+        private static readonly ConcurrentDictionary<string, (DateTime Value, DateTime SeenAt)> _heartbeatSeen = new(StringComparer.OrdinalIgnoreCase);
+
+        public static bool IsHeartbeatFresh(string station, DateTime? heartbeat) => IsHeartbeatFresh(station, heartbeat, DateTime.Now);
+
+        // Judged by when THIS PC saw the heartbeat change, not by comparing it to this PC's clock: each station stamps
+        // its own clock, and Admin showed PCB red once RCB (whose app had been masking it) was closed.
+        internal static bool IsHeartbeatFresh(string station, DateTime? heartbeat, DateTime now)
+        {
+            if (heartbeat == null) return false;
+            var seen = _heartbeatSeen.AddOrUpdate(station,
+                // First sight: fall back to the clock comparison until the value changes once.
+                _ => (heartbeat.Value, (now - heartbeat.Value).Duration().TotalSeconds <= HeartbeatFreshSeconds ? now : DateTime.MinValue),
+                (_, old) => old.Value == heartbeat.Value ? old : (heartbeat.Value, now));
+            return (now - seen.SeenAt).TotalSeconds <= HeartbeatFreshSeconds;
+        }
+
+        private bool _otherHeartbeatFailed;
+
+        private async Task TouchOtherServerHeartbeatAsync(string myIp)
+        {
+            string other = AppConfig.IsFailoverActive ? AppConfig.PrimaryConnectionString : AppConfig.SecondaryConnectionString;
+            if (string.Equals(other, AppConfig.ConnectionString, StringComparison.OrdinalIgnoreCase)) return;
+            try
+            {
+                using var conn = new MySqlConnection(new MySqlConnectionStringBuilder(other) { ConnectionTimeout = 2 }.ConnectionString);
+                await conn.OpenAsync();
+                using var cmd = new MySqlCommand("UPDATE StationStatuses SET LastHeartbeat = @Now, IpAddress = @Ip WHERE Name = @Name", conn);
+                cmd.Parameters.AddWithValue("@Now", DateTime.Now);
+                cmd.Parameters.AddWithValue("@Ip", myIp);
+                cmd.Parameters.AddWithValue("@Name", AppConfig.StationName);
+                await cmd.ExecuteNonQueryAsync();
+                _otherHeartbeatFailed = false;
+            }
+            catch (Exception ex)
+            {
+                // Expected while the other server is off; log the first failure only.
+                if (!_otherHeartbeatFailed) Log($"⚠️ [Heartbeat] Other server's DB not reachable: {ex.Message}");
+                _otherHeartbeatFailed = true;
+            }
+        }
+
         private void StartStationHeartbeatLoop()
         {
             Task.Run(async () =>
@@ -2098,6 +2210,10 @@ namespace Keemya.Frontend.Services
                                 await cmd.ExecuteNonQueryAsync();
                             }
 
+                            // Each server reads only its own DB; a heartbeat reaching it only through the DB sync showed this
+                            // station red there whenever that sync was not running.
+                            _ = TouchOtherServerHeartbeatAsync(myIp);
+
                             if (AppConfig.IsControllerStation)
                                 await ShareLinkStatusAsync(connection);
 
@@ -2123,8 +2239,7 @@ namespace Keemya.Frontend.Services
                             {
                                 if (station.Name == AppConfig.StationName) continue;
 
-                                bool hasRecentHeartbeat = station.LastHeartbeat.HasValue &&
-                                    (DateTime.Now - station.LastHeartbeat.Value).TotalSeconds <= 15;
+                                bool hasRecentHeartbeat = IsHeartbeatFresh(station.Name, station.LastHeartbeat);
 
                                 // Heartbeat only, for controllers too: a ping answers whenever the PC is on, even with TS_EMS closed
                                 // (RCB-Controller showed green from a stale Wi-Fi IP of a PC no longer running as a server).
@@ -3038,19 +3153,37 @@ namespace Keemya.Frontend.Services
             return null;
         }
 
+        private readonly ConcurrentDictionary<string, byte> _queueInFlight = new();
+
+        // A dispatcher queues into the DB it is connected to (Server 1's while that MySQL is up, even with Server 1's app
+        // closed), so each server also takes rows the other server's app has left waiting this long.
+        private const int PeerQueueGraceSeconds = 1;
+
+        internal static int QueueGraceSeconds(bool linkHealthy, bool peerQueue) =>
+            Math.Max(linkHealthy ? 0 : UnhealthyControllerGraceSeconds, peerQueue ? PeerQueueGraceSeconds : 0);
+
         private void StartCommandQueueListener()
         {
+            RunCommandQueueLoop(AppConfig.PrimaryConnectionString, peerQueue: false);
+            if (!string.Equals(AppConfig.PrimaryConnectionString, AppConfig.SecondaryConnectionString, StringComparison.OrdinalIgnoreCase))
+                RunCommandQueueLoop(new MySqlConnectionStringBuilder(AppConfig.SecondaryConnectionString) { ConnectionTimeout = 2 }.ConnectionString, peerQueue: true);
+        }
+
+        private void RunCommandQueueLoop(string connStr, bool peerQueue)
+        {
+            string label = peerQueue ? $"Queue Listener ({AppConfig.SecondaryServerName})" : "Queue Listener";
             Task.Run(async () =>
             {
                 // Start listening immediately
                 await Task.Delay(500);
+                string? lastError = null;
 
                 while (true)
                 {
                     try
                     {
                         var pendingList = new List<(string Id, string Target, string Ip, bool Redundant, string FrameHex, bool Track, bool User, DateTime Created)>();
-                        using (var connection = new MySqlConnection(AppConfig.ConnectionString))
+                        using (var connection = new MySqlConnection(connStr))
                         {
                             await connection.OpenAsync();
 
@@ -3059,14 +3192,14 @@ namespace Keemya.Frontend.Services
                                 $"UPDATE PendingCommands SET Status = 'EXPIRED' WHERE Status = 'PENDING' AND Created < NOW(6) - INTERVAL {QueueCommandMaxAgeSeconds} SECOND", connection))
                             {
                                 int expired = await expireCmd.ExecuteNonQueryAsync();
-                                if (expired > 0) Log($"⌛ [Queue Listener] {expired} queued command(s) older than {QueueCommandMaxAgeSeconds}s expired without sending.");
+                                if (expired > 0) Log($"⌛ [{label}] {expired} queued command(s) older than {QueueCommandMaxAgeSeconds}s expired without sending.");
                             }
 
                             // Like GV Core redundancy: a controller with a working siren link takes commands at once;
                             // one without waits a grace period so a healthy controller can take them first.
-                            bool linkHealthy = _sirenCache.Values.Any(c => c.IsOnline || c.IsSerialOnline);
+                            int grace = QueueGraceSeconds(_sirenCache.Values.Any(c => c.IsOnline || c.IsSerialOnline), peerQueue);
                             string sql = "SELECT Id, TargetSirenName, IpAddress, Redundant, FrameHex, TrackStatus, IsUserInitiated, Created FROM PendingCommands WHERE Status = 'PENDING'"
-                                + (linkHealthy ? "" : $" AND Created <= NOW(6) - INTERVAL {UnhealthyControllerGraceSeconds} SECOND")
+                                + (grace == 0 ? "" : $" AND Created <= NOW(6) - INTERVAL {grace} SECOND")
                                 + " ORDER BY Created";
                             using (var cmd = new MySqlCommand(sql, connection))
                             using (var reader = await cmd.ExecuteReaderAsync())
@@ -3086,6 +3219,9 @@ namespace Keemya.Frontend.Services
                                 }
                             }
 
+                            // Rows this PC is still sending are not picked up again.
+                            pendingList.RemoveAll(p => !_queueInFlight.TryAdd(p.Id, 0));
+
                             if (pendingList.Count > 0)
                             {
                                 // Assigned in queue order before the parallel sends start.
@@ -3098,7 +3234,7 @@ namespace Keemya.Frontend.Services
                                     try
                                     {
                                         // Atomic claim: when both controllers see the same row, only one may send it.
-                                        using (var claimConn = new MySqlConnection(AppConfig.ConnectionString))
+                                        using (var claimConn = new MySqlConnection(connStr))
                                         {
                                             await claimConn.OpenAsync();
                                             using var claimCmd = new MySqlCommand("UPDATE PendingCommands SET Status = 'PROCESSING' WHERE Id = @Id AND Status = 'PENDING'", claimConn);
@@ -3106,7 +3242,7 @@ namespace Keemya.Frontend.Services
                                             if (await claimCmd.ExecuteNonQueryAsync() != 1) return;
                                         }
 
-                                        Log($"📥 [Queue Listener] Processing relayed command in parallel: {item.Target} (ID: {item.Id})");
+                                        Log($"📥 [{label}] Processing relayed command in parallel: {item.Target} (ID: {item.Id})");
 
                                         if (item.Target == "__RAW_SERIAL__")
                                         {
@@ -3117,13 +3253,17 @@ namespace Keemya.Frontend.Services
                                         {
                                             success = await SendWildcardClearAsync();
                                         }
+                                        else if (item.Target == CancelAllTarget)
+                                        {
+                                            success = await CancelAllSirensAsync();
+                                        }
                                         else
                                         {
                                             byte[] frame = ConvertHexStringToByteArray(item.FrameHex);
                                             success = await ExecuteTransmitAsync(item.Target, item.Ip, item.Redundant, frame, item.Track, item.User, sequenceId: toneSeqs[item.Id]);
                                         }
 
-                                        using (var localConn = new MySqlConnection(AppConfig.ConnectionString))
+                                        using (var localConn = new MySqlConnection(connStr))
                                         {
                                             await localConn.OpenAsync();
                                             string updateSql = "UPDATE PendingCommands SET Status = @Status WHERE Id = @Id";
@@ -3139,15 +3279,24 @@ namespace Keemya.Frontend.Services
                                     {
                                         Log($"❌ [Queue Listener Parallel Error] Error processing {item.Target}: {ex.Message}");
                                     }
+                                    finally
+                                    {
+                                        _queueInFlight.TryRemove(item.Id, out _);
+                                    }
                                 });
 
-                                await Task.WhenAll(tasks);
+                                // Not awaited: a slow row (e.g. a cancel waiting on the COM port) must not hold back a Stop queued after it.
+                                _ = Task.WhenAll(tasks);
                             }
                         }
+                        if (lastError != null) Log($"✅ [{label}] Queue reachable again.");
+                        lastError = null;
                     }
                     catch (Exception ex)
                     {
-                        Log($"❌ [Queue Listener Error] {ex.Message}");
+                        // Logged on change only: an offline peer DB would otherwise flood the log every 300 ms.
+                        if (ex.Message != lastError) Log($"❌ [{label} Error] {ex.Message}");
+                        lastError = ex.Message;
                     }
 
                     await Task.Delay(300);

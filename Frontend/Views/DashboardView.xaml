@@ -7,6 +7,8 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1200">
+    <!-- Small screens (e.g. 1366x768): the module cards do not all fit, so the page scrolls instead of cutting them off -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="25,0,25,25">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -221,4 +223,5 @@
             </UniformGrid>
         </StackPanel>
     </Grid>
+    </ScrollViewer>
 </UserControl>

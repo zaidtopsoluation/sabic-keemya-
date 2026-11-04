@@ -594,11 +594,20 @@
                                    FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
 
                         <!-- Confirm Activation Button -->
-                        <Button Grid.Row="1" Command="{Binding ExecuteActivateCommand}" Width="180" Height="85"
-                                Background="#E0E0E0" BorderThickness="0" Foreground="Black" materialDesign:ButtonAssist.CornerRadius="4"
-                                FontWeight="Bold" FontSize="15" Style="{StaticResource MaterialDesignFlatButton}">
-                            <TextBlock Text="{Binding ConfirmButtonText}" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                        </Button>
+                        <StackPanel Grid.Row="1" HorizontalAlignment="Center">
+                            <Button Command="{Binding ExecuteActivateCommand}" Width="180" Height="85" Visibility="{Binding ConfirmCallVisibility}"
+                                    Background="#E0E0E0" BorderThickness="0" Foreground="Black" materialDesign:ButtonAssist.CornerRadius="4"
+                                    FontWeight="Bold" FontSize="15" Style="{StaticResource MaterialDesignFlatButton}">
+                                <TextBlock Text="{Binding ConfirmButtonText}" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <!-- End the running intercom call -->
+                            <Button Command="{Binding EndIntercomCallCommand}" Width="180" Height="60" Margin="0,10,0,0" Visibility="{Binding EndCallVisibility}"
+                                    Background="#D32F2F" BorderThickness="0" Foreground="White" materialDesign:ButtonAssist.CornerRadius="4"
+                                    FontWeight="Bold" FontSize="14" Style="{StaticResource MaterialDesignFlatButton}">
+                                <TextBlock Text="{Binding EndCallButtonText}" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
 
                         <!-- Abort Activation Button -->
                         <Button Grid.Row="2" Command="{Binding CancelActivateCommand}" Width="180" Height="28" Margin="0,10,0,0"

@@ -30,6 +30,13 @@ namespace Keemya.Frontend.Services
         private System.Timers.Timer? _livenessTimer;
         private bool _isCallInitiatedLocally;
 
+        // After a hangup the far end keeps sending until its DB poll sees it; without this its packets auto-answered the call again.
+        internal static readonly TimeSpan HangupQuiet = TimeSpan.FromMilliseconds(2500);
+        private string? _hungUpIp;
+        private DateTime _lastHungUpPacketTime;
+
+        internal static bool IsStillHungUp(DateTime lastPacketFromHungUpIp, DateTime now) => now - lastPacketFromHungUpIp < HangupQuiet;
+
         // Event to notify the UI when call state changes
         public event Action<string?, bool>? CallStateChanged;
 
@@ -42,20 +49,19 @@ namespace Keemya.Frontend.Services
             SirenCommunicationService.Instance.Log($"[VoIP] {msg}");
         }
 
-        private bool IsLocalIpAddress(IPAddress address)
-        {
-            if (IPAddress.IsLoopback(address)) return true;
+        // Most voice that may wait in the playback buffer; older audio is dropped so the call stays live.
+        internal static readonly TimeSpan MaxVoiceLag = TimeSpan.FromMilliseconds(250);
 
-            try
-            {
-                var host = Dns.GetHostEntry(Dns.GetHostName());
-                foreach (var ip in host.AddressList)
-                {
-                    if (ip.Equals(address)) return true;
-                }
-            }
-            catch {}
-            return false;
+        private IPAddress[] _localIps = Array.Empty<IPAddress>();
+
+        // Looked up once per StartListening: a DNS call on every packet made the receive loop fall behind (3-4 s lag).
+        private bool IsLocalIpAddress(IPAddress address) =>
+            IPAddress.IsLoopback(address) || Array.IndexOf(_localIps, address) >= 0;
+
+        internal static void AddVoice(BufferedWaveProvider provider, byte[] data, int length)
+        {
+            if (provider.BufferedDuration > MaxVoiceLag) provider.ClearBuffer();
+            provider.AddSamples(data, 0, length);
         }
 
         public void StartListening()
@@ -64,10 +70,13 @@ namespace Keemya.Frontend.Services
             _isListening = true;
             _listenCts = new CancellationTokenSource();
 
+            try { _localIps = Dns.GetHostEntry(Dns.GetHostName()).AddressList; }
+            catch (Exception ex) { Log($"Could not read local IP addresses: {ex.Message}"); }
+
             // Setup Playback device
             try
             {
-                _waveOut = new WaveOutEvent();
+                _waveOut = new WaveOutEvent { DesiredLatency = 100 };
                 var format = new WaveFormat(8000, 16, 1);
                 _waveProvider = new BufferedWaveProvider(format)
                 {
@@ -104,7 +113,7 @@ namespace Keemya.Frontend.Services
                     if ((DateTime.Now - _lastIncomingPacketTime).TotalMilliseconds > 2500)
                     {
                         Log("No incoming voice packets received for 2.5 seconds. Auto-disconnecting call.");
-                        StopRecording();
+                        StopRecordingInternal();
                     }
                 }
             };
@@ -129,8 +138,20 @@ namespace Keemya.Frontend.Services
                                 continue;
                             }
 
+                            // Drop the hung-up station's trailing voice until it has been quiet for HangupQuiet.
+                            if (_hungUpIp != null && senderAddress.ToString() == _hungUpIp)
+                            {
+                                var now = DateTime.Now;
+                                if (IsStillHungUp(_lastHungUpPacketTime, now))
+                                {
+                                    _lastHungUpPacketTime = now;
+                                    continue;
+                                }
+                                _hungUpIp = null;
+                            }
+
                             // Play received voice samples
-                            _waveProvider.AddSamples(result.Buffer, 0, result.Buffer.Length);
+                            AddVoice(_waveProvider, result.Buffer, result.Buffer.Length);
                             _lastIncomingPacketTime = DateTime.Now;
 
                             // Automatically open return voice channel if not already recording
@@ -188,6 +209,7 @@ namespace Keemya.Frontend.Services
 
         public void StartRecording(string targetIp)
         {
+            _hungUpIp = null; // operator confirmed a call: accept this station's voice again
             StartRecordingInternal(targetIp, isLocalInitiation: true);
         }
 
@@ -255,6 +277,11 @@ namespace Keemya.Frontend.Services
 
         public void StopRecording()
         {
+            if (_isRecording && _currentTargetIp != null)
+            {
+                _lastHungUpPacketTime = DateTime.Now;
+                _hungUpIp = _currentTargetIp;
+            }
             StopRecordingInternal();
         }
 

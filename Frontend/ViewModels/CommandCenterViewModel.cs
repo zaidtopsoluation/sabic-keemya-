@@ -322,6 +322,7 @@ namespace Keemya.Frontend.ViewModels
         public string RcbEcsButtonText => ActiveIntercomStation == "RCB/ECS" ? "RCB/ECS\n(ON CALL)" : "RCB/ECS";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(EndCallVisibility), nameof(EndCallButtonText), nameof(ConfirmCallVisibility))]
         private string? activeIntercomStation;
 
         // ── Voice Dispatch Wizard Properties ────────────────────────────────
@@ -843,57 +844,41 @@ namespace Keemya.Frontend.ViewModels
         }
 
         [RelayCommand]
-        private void SelectAdminEcc()
+        private void SelectAdminEcc() => OpenIntercomPopup("Admin ECC");
+
+        [RelayCommand]
+        private void SelectPcbEcs() => OpenIntercomPopup("PCB/ECS");
+
+        [RelayCommand]
+        private void SelectRcbEcs() => OpenIntercomPopup("RCB/ECS");
+
+        // A live station-to-station call (PA:* states are broadcasts, ended with Stop instead).
+        internal static bool IsVoiceCall(string? active) => !string.IsNullOrEmpty(active) && !active.StartsWith("PA:");
+
+        // Shown while on a call so the operator can hang up from the popup.
+        public Visibility EndCallVisibility => CommandToConfirmName?.StartsWith("INTERCOM:") == true && IsVoiceCall(ActiveIntercomStation) ? Visibility.Visible : Visibility.Collapsed;
+        public string EndCallButtonText => $"End Call with {ActiveIntercomStation}";
+        // No "Confirm Call" to the station we are already talking to.
+        public Visibility ConfirmCallVisibility => CommandToConfirmName == "INTERCOM: " + ActiveIntercomStation ? Visibility.Collapsed : Visibility.Visible;
+
+        private void OpenIntercomPopup(string station)
         {
-            if (ActiveIntercomStation == "Admin ECC")
-            {
-                StopIntercomCall();
-            }
-            else
-            {
-                CommandToConfirmName = "INTERCOM: Admin ECC";
-                IsConfirmingCommand = true;
-                OnPropertyChanged(nameof(TitleBarText));
-                OnPropertyChanged(nameof(ConfirmButtonText));
-                OnPropertyChanged(nameof(AbortButtonText));
-                OnPropertyChanged(nameof(SirenDetailsVisibility));
-            }
+            CommandToConfirmName = "INTERCOM: " + station;
+            IsConfirmingCommand = true;
+            OnPropertyChanged(nameof(TitleBarText));
+            OnPropertyChanged(nameof(ConfirmButtonText));
+            OnPropertyChanged(nameof(AbortButtonText));
+            OnPropertyChanged(nameof(SirenDetailsVisibility));
+            OnPropertyChanged(nameof(EndCallVisibility));
+            OnPropertyChanged(nameof(EndCallButtonText));
+            OnPropertyChanged(nameof(ConfirmCallVisibility));
         }
 
         [RelayCommand]
-        private void SelectPcbEcs()
+        private void EndIntercomCall()
         {
-            if (ActiveIntercomStation == "PCB/ECS")
-            {
-                StopIntercomCall();
-            }
-            else
-            {
-                CommandToConfirmName = "INTERCOM: PCB/ECS";
-                IsConfirmingCommand = true;
-                OnPropertyChanged(nameof(TitleBarText));
-                OnPropertyChanged(nameof(ConfirmButtonText));
-                OnPropertyChanged(nameof(AbortButtonText));
-                OnPropertyChanged(nameof(SirenDetailsVisibility));
-            }
-        }
-
-        [RelayCommand]
-        private void SelectRcbEcs()
-        {
-            if (ActiveIntercomStation == "RCB/ECS")
-            {
-                StopIntercomCall();
-            }
-            else
-            {
-                CommandToConfirmName = "INTERCOM: RCB/ECS";
-                IsConfirmingCommand = true;
-                OnPropertyChanged(nameof(TitleBarText));
-                OnPropertyChanged(nameof(ConfirmButtonText));
-                OnPropertyChanged(nameof(AbortButtonText));
-                OnPropertyChanged(nameof(SirenDetailsVisibility));
-            }
+            StopIntercomCall();
+            CancelActivate();
         }
 
         [RelayCommand]
@@ -951,10 +936,12 @@ namespace Keemya.Frontend.ViewModels
             _ = Task.Run(async () =>
             {
                 Keemya.Frontend.Services.SirenCommunicationService.Instance.Log("=== AUTOMATIC/MANUAL CANCEL INITIATED ===");
-                var serialTargets = _activeTargets.Where(s => string.IsNullOrWhiteSpace(s.Ip))
+                // Broadcast (every Command Center activation): one cancel-all that the server sends itself.
+                bool cancelAll = _activeTargets.Count == _allSirens.Count;
+                var serialTargets = _activeTargets.Where(s => !cancelAll && string.IsNullOrWhiteSpace(s.Ip))
                     .OrderByDescending(s => s.IsOnline)
                     .ToList();
-                var tcpTargets = _activeTargets.Where(s => !string.IsNullOrWhiteSpace(s.Ip)).ToList();
+                var tcpTargets = _activeTargets.Where(s => !cancelAll && !string.IsNullOrWhiteSpace(s.Ip)).ToList();
 
                 // Send TCP commands in parallel (trackStatus: false so cancel frames never trigger false OFFLINE status)
                 var tcpTasks = tcpTargets.Select(async s =>
@@ -974,18 +961,10 @@ namespace Keemya.Frontend.ViewModels
                     await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendWildcardClearAsync();
                 }
 
-                // If the active targets include all sirens (broadcast), use wildcard cancel only
-                if (_activeTargets.Count == _allSirens.Count)
+                if (cancelAll)
                 {
-                    // The wildcard clear above covered 0x1B/0x00/0x1E; add the 0x10/0x30 clears per area instead of
-                    // 4 frames per siren, which took ~40 s for 10 sirens and cleared tones started meanwhile.
-                    foreach (var areaCode in serialTargets.Select(s => s.AreaCode ?? "000").Distinct())
-                    {
-                        await Task.Delay(950, clearToken);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x10), expectsAck: false, isUserInitiated: true);
-                        await Task.Delay(950, clearToken);
-                        await Keemya.Frontend.Services.SirenCommunicationService.Instance.SendSerialCommandAsync(BuildAreaWildcardFrame(areaCode, 0x30), expectsAck: false, isUserInitiated: true);
-                    }
+                    // On a dispatcher this queues ONE row (was ~40 rows 1 s apart); a new activation cuts it short.
+                    await Keemya.Frontend.Services.SirenCommunicationService.Instance.CancelAllSirensAsync(clearToken);
                 }
                 else if (_mode == SelectionMode.Zone)
                 {
@@ -1732,7 +1711,7 @@ namespace Keemya.Frontend.ViewModels
                         if (st == null) return "OFFLINE";
                         if (string.Equals(AppConfig.StationName, st.Name, StringComparison.OrdinalIgnoreCase))
                             return "ONLINE";
-                        bool hasRecent = st.LastHeartbeat.HasValue && (DateTime.Now - st.LastHeartbeat.Value).TotalSeconds <= 15;
+                        bool hasRecent = Keemya.Frontend.Services.SirenCommunicationService.IsHeartbeatFresh(st.Name, st.LastHeartbeat);
                         if (st.Type == "Workstation")
                             return hasRecent ? "ONLINE" : "OFFLINE";
                         if (hasRecent) return "ONLINE";
@@ -1910,15 +1889,21 @@ namespace Keemya.Frontend.ViewModels
             }
         }
 
+        // Call-target writes run in click order; unordered, a slow "start" write could land after "end" and keep the remote on the call.
+        private Task _callTargetWrite = Task.CompletedTask;
+
+        private void QueueCallTargetWrite(string? target) =>
+            _callTargetWrite = _callTargetWrite.ContinueWith(_ => UpdateActiveCallTargetInDbAsync(target)).Unwrap();
+
         private void StartIntercomCall(string stationName)
         {
-            _ = UpdateActiveCallTargetInDbAsync(stationName);
+            QueueCallTargetWrite(stationName);
             StartIntercomCallInternal(stationName);
         }
 
         private void StopIntercomCall()
         {
-            _ = UpdateActiveCallTargetInDbAsync(null);
+            QueueCallTargetWrite(null);
             StopIntercomCallInternal();
         }
 
@@ -1951,7 +1936,12 @@ namespace Keemya.Frontend.ViewModels
                     });
                     return;
                 }
-                Keemya.Frontend.Services.AudioCommunicationService.Instance.StartRecording(ip);
+                // The call may have been ended while the IP lookup was running; starting now would leave the mic open.
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (ActiveIntercomStation == stationName)
+                        Keemya.Frontend.Services.AudioCommunicationService.Instance.StartRecording(ip);
+                });
             });
         }
 
